@@ -6,6 +6,7 @@ import { useCart } from "@/lib/cart";
 import { formatCents, formatPix } from "@/lib/format";
 import { toast } from "sonner";
 import { ShippingCalculator } from "@/components/shipping-calculator";
+import { resolveProductImage } from "@/lib/product-image";
 
 export const Route = createFileRoute("/produto/$slug")({ component: ProductDetail });
 
