@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { claimAdminRole } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
@@ -14,6 +16,7 @@ function LoginPage() {
   const [code, setCode] = useState("");
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [loading, setLoading] = useState(false);
+  const claim = useServerFn(claimAdminRole);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,11 +30,17 @@ function LoginPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Login realizado");
-        if (code === "2158-2151" || code === "21582151") {
-          window.location.href = "/admin";
-        } else {
-          window.location.href = "/";
+        const trimmed = code.trim();
+        if (trimmed) {
+          try {
+            await claim({ data: { code: trimmed } });
+            window.location.href = "/admin";
+            return;
+          } catch (err: any) {
+            toast.error(err.message || "Código administrativo inválido");
+          }
         }
+        window.location.href = "/";
       }
     } catch (err: any) {
       toast.error(err.message || "Erro");
