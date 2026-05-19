@@ -39,7 +39,10 @@ export const quoteShipping = createServerFn({ method: "POST" })
       .eq("id", 1)
       .maybeSingle();
     const fromCep = (settings?.origin_cep || "").replace(/\D/g, "");
-    if (fromCep.length !== 8) throw new Error("CEP de origem não configurado no admin");
+    if (fromCep.length !== 8) {
+      // Friendly response — do NOT expose admin config details to the client
+      return { options: [], unavailable: true as const };
+    }
 
     const base =
       process.env.MELHOR_ENVIO_ENV === "sandbox"
@@ -62,12 +65,16 @@ export const quoteShipping = createServerFn({ method: "POST" })
     });
 
     const body = await res.text();
-    if (!res.ok) throw new Error(`Melhor Envio [${res.status}]: ${body.slice(0, 300)}`);
+    if (!res.ok) {
+      console.error(`Melhor Envio [${res.status}]: ${body.slice(0, 500)}`);
+      return { options: [], unavailable: true as const };
+    }
     let parsed: MEService[];
     try {
       parsed = JSON.parse(body);
     } catch {
-      throw new Error("Resposta inválida do Melhor Envio");
+      console.error("Melhor Envio: resposta inválida", body.slice(0, 300));
+      return { options: [], unavailable: true as const };
     }
 
     const options = parsed
@@ -81,5 +88,5 @@ export const quoteShipping = createServerFn({ method: "POST" })
       }))
       .sort((a, b) => a.priceCents - b.priceCents);
 
-    return { options };
+    return { options, unavailable: false as const };
   });

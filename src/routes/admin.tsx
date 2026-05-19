@@ -552,8 +552,15 @@ function SettingsTab() {
       .then(({ data }) => setS(data ?? { id: 1, store_name: "AutoPremium", whatsapp_number: "", origin_cep: "" }));
   }, []);
   if (!s) return <p className="mt-4">Carregando…</p>;
+  const cepDigits = (s.origin_cep || "").replace(/\D/g, "");
+  const cepInvalid = cepDigits.length !== 8;
   return (
     <Card className="mt-4 max-w-xl space-y-4 p-6">
+      {cepInvalid && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          ⚠ Configure o CEP de origem da loja para que o cálculo de frete funcione no site.
+        </div>
+      )}
       <div>
         <Label>Nome da loja</Label>
         <Input value={s.store_name} onChange={(e) => setS({ ...s, store_name: e.target.value })} />
@@ -563,8 +570,15 @@ function SettingsTab() {
         <Input value={s.whatsapp_number} onChange={(e) => setS({ ...s, whatsapp_number: e.target.value })} />
       </div>
       <div>
-        <Label>CEP de origem (envios)</Label>
-        <Input value={s.origin_cep} onChange={(e) => setS({ ...s, origin_cep: e.target.value })} />
+        <Label>CEP de origem da loja (interno — não exibido ao cliente)</Label>
+        <Input
+          placeholder="00000-000"
+          value={s.origin_cep}
+          onChange={(e) => setS({ ...s, origin_cep: e.target.value })}
+        />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Usado apenas pelo sistema para calcular frete (origem → destino do cliente).
+        </p>
       </div>
       <Button onClick={async () => {
         const { error } = await supabase.from("store_settings").update({
