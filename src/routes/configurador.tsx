@@ -45,7 +45,7 @@ function Configurator() {
         <Section title="Qual a marca da sua picape?">
           <Grid>
             {makes?.map((m) => (
-              <Tile key={m.id} label={m.name} image={m.image_url} onClick={() => setMakeId(m.id)} />
+              <Tile key={m.id} label={m.name} image={m.image_url} kind="make" onClick={() => setMakeId(m.id)} />
             ))}
           </Grid>
         </Section>
