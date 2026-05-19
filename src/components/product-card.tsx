@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { formatCents, formatPix } from "@/lib/format";
-import { Star } from "lucide-react";
+import { Star, ImageOff } from "lucide-react";
 import { resolveProductImage } from "@/lib/product-image";
 
 interface ProductCardProps {
