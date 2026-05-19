@@ -63,7 +63,7 @@ function Configurator() {
         <Section title="Qual o tipo de cabine?" onBack={() => setModelId(null)}>
           <Grid>
             {cabins?.map((c) => (
-              <Tile key={c.id} label={c.name} sub={c.description || undefined} image={c.image_url} onClick={() => setCabinId(c.id)} />
+              <Tile key={c.id} label={c.name} sub={c.description || undefined} image={c.image_url} kind="cabin" onClick={() => setCabinId(c.id)} />
             ))}
           </Grid>
         </Section>
