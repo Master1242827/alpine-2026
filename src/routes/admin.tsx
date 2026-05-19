@@ -1,5 +1,6 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,37 +12,50 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { formatCents } from "@/lib/format";
+import { checkIsAdmin } from "@/lib/admin.functions";
 
-export const Route = createFileRoute("/admin")({
-  beforeLoad: async () => {
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) throw redirect({ to: "/login" });
-  },
-  component: AdminPage,
-});
+export const Route = createFileRoute("/admin")({ component: AdminPage });
 
 function AdminPage() {
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [state, setState] = useState<"loading" | "guest" | "denied" | "ok">("loading");
   const [email, setEmail] = useState<string>("");
+  const check = useServerFn(checkIsAdmin);
 
   useEffect(() => {
-    (async () => {
-      const { data: u } = await supabase.auth.getUser();
-      setEmail(u.user?.email ?? "");
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", u.user!.id)
-        .eq("role", "admin")
-        .maybeSingle();
-      setIsAdmin(!!data);
-    })();
-  }, []);
+    let cancelled = false;
 
-  if (isAdmin === null) {
+    async function run() {
+      const { data: sess } = await supabase.auth.getSession();
+      if (!sess.session) { if (!cancelled) setState("guest"); return; }
+      setEmail(sess.session.user.email ?? "");
+      try {
+        const res = await check();
+        if (cancelled) return;
+        setState(res.isAdmin ? "ok" : "denied");
+      } catch {
+        if (!cancelled) setState("denied");
+      }
+    }
+    run();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+      if (session) run();
+    });
+    return () => { cancelled = true; sub.subscription.unsubscribe(); };
+  }, [check]);
+
+  if (state === "loading") {
     return <div className="container mx-auto px-4 py-12">Carregando…</div>;
   }
-  if (!isAdmin) {
+  if (state === "guest") {
+    return (
+      <div className="container mx-auto max-w-md px-4 py-12 text-center">
+        <h1 className="text-2xl font-bold">Entre para continuar</h1>
+        <Link to="/login" className="mt-4 inline-block text-primary underline">Ir para login</Link>
+      </div>
+    );
+  }
+  if (state === "denied") {
     return (
       <div className="container mx-auto max-w-md px-4 py-12 text-center">
         <h1 className="text-2xl font-bold">Acesso negado</h1>
@@ -49,9 +63,13 @@ function AdminPage() {
           Sua conta ({email}) não possui permissão administrativa. Faça login novamente
           informando o código de acesso.
         </p>
-        <Link to="/login" className="mt-4 inline-block text-primary underline">
-          Voltar ao login
-        </Link>
+        <Button
+          variant="outline"
+          className="mt-4"
+          onClick={async () => { await supabase.auth.signOut(); window.location.href = "/login"; }}
+        >
+          Sair e voltar ao login
+        </Button>
       </div>
     );
   }
