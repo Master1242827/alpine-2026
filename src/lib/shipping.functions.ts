@@ -39,7 +39,10 @@ export const quoteShipping = createServerFn({ method: "POST" })
       .eq("id", 1)
       .maybeSingle();
     const fromCep = (settings?.origin_cep || "").replace(/\D/g, "");
-    if (fromCep.length !== 8) throw new Error("CEP de origem não configurado no admin");
+    if (fromCep.length !== 8) {
+      // Friendly response — do NOT expose admin config details to the client
+      return { options: [], unavailable: true as const };
+    }
 
     const base =
       process.env.MELHOR_ENVIO_ENV === "sandbox"
