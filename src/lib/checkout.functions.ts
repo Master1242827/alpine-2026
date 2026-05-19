@@ -116,7 +116,7 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
         pending: `${origin}/checkout/sucesso?order=${order.id}`,
       },
       auto_return: "approved",
-      statement_descriptor: "AUTOPREMIUM",
+      statement_descriptor: "ALPINE",
     };
 
     const res = await fetch("https://api.mercadopago.com/checkout/preferences", {
