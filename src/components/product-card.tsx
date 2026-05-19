@@ -32,13 +32,6 @@ export function ProductCard({ slug, name, image, categoryName, priceCents, compa
           alt={name}
           className="h-full w-full object-cover transition-transform group-hover:scale-105"
           loading="lazy"
-          onError={(e) => {
-            const img = e.currentTarget;
-            if (!img.dataset.fallback) {
-              img.dataset.fallback = "1";
-              img.src = "https://loremflickr.com/600/600/car,auto,parts";
-            }
-          }}
         />
       </div>
       <div className="flex flex-1 flex-col gap-1 p-3">
