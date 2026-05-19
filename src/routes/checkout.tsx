@@ -46,8 +46,40 @@ function CheckoutPage() {
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((p) => ({ ...p, [k]: e.target.value }));
 
+  async function handleQuote() {
+    const cep = form.cep.replace(/\D/g, "");
+    if (cep.length !== 8) { toast.error("Informe um CEP válido"); return; }
+    setQuoting(true);
+    setShipOptions([]);
+    setSelectedShip(null);
+    try {
+      const res = await quote({
+        data: {
+          toCep: cep,
+          products: items.map((i) => ({
+            id: i.productId,
+            width: i.widthCm,
+            height: i.heightCm,
+            length: i.lengthCm,
+            weight: i.weightKg,
+            insurance_value: (i.priceCents / 100) * i.quantity,
+            quantity: i.quantity,
+          })),
+        },
+      });
+      setShipOptions(res.options);
+      if (res.options[0]) setSelectedShip(res.options[0]);
+      if (res.options.length === 0) toast.error("Nenhuma opção de frete disponível");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Falha ao calcular frete");
+    } finally {
+      setQuoting(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!selectedShip) { toast.error("Calcule e selecione uma opção de frete"); return; }
     setLoading(true);
     try {
       const { data: sess } = await supabase.auth.getSession();
@@ -56,22 +88,16 @@ function CheckoutPage() {
         data: {
           customer: { name: form.name, email: form.email, phone: form.phone },
           shipping: {
-            cep: form.cep,
-            street: form.street,
-            number: form.number,
-            complement: form.complement,
-            district: form.district,
-            city: form.city,
-            state: form.state.toUpperCase(),
+            cep: form.cep, street: form.street, number: form.number,
+            complement: form.complement, district: form.district,
+            city: form.city, state: form.state.toUpperCase(),
           },
           shippingCostCents,
-          shippingService: "A combinar",
+          shippingService: selectedShip.name,
           notes: form.notes,
           items: items.map((i) => ({
-            productId: i.productId,
-            name: i.name,
-            priceCents: i.priceCents,
-            quantity: i.quantity,
+            productId: i.productId, name: i.name,
+            priceCents: i.priceCents, quantity: i.quantity,
             vehicleConfig: i.vehicleConfig,
           })),
           userId,
