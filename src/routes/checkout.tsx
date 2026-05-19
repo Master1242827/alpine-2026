@@ -71,9 +71,11 @@ function CheckoutPage() {
       });
       setShipOptions(res.options);
       if (res.options[0]) setSelectedShip(res.options[0]);
-      if (res.options.length === 0) toast.error("Nenhuma opção de frete disponível");
-    } catch (err: any) {
-      toast.error(err?.message ?? "Falha ao calcular frete");
+      if (res.options.length === 0) {
+        toast.error("Frete indisponível para este CEP no momento. Fale conosco no WhatsApp para combinar a entrega.");
+      }
+    } catch {
+      toast.error("Não foi possível calcular o frete agora. Tente novamente em instantes.");
     } finally {
       setQuoting(false);
     }
