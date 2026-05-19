@@ -65,9 +65,11 @@ export function ShippingCalculator({ items, compact = false }: Props) {
         },
       });
       setOptions(res.options);
-      if (res.options.length === 0) toast.error("Sem opções de frete para este CEP");
-    } catch (err: any) {
-      toast.error(err?.message ?? "Falha ao calcular frete");
+      if (res.options.length === 0) {
+        toast.error("Frete indisponível para este CEP no momento. Fale conosco no WhatsApp.");
+      }
+    } catch {
+      toast.error("Não foi possível calcular o frete agora. Tente novamente em instantes.");
     } finally {
       setLoading(false);
     }
