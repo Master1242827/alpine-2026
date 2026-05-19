@@ -65,12 +65,16 @@ export const quoteShipping = createServerFn({ method: "POST" })
     });
 
     const body = await res.text();
-    if (!res.ok) throw new Error(`Melhor Envio [${res.status}]: ${body.slice(0, 300)}`);
+    if (!res.ok) {
+      console.error(`Melhor Envio [${res.status}]: ${body.slice(0, 500)}`);
+      return { options: [], unavailable: true as const };
+    }
     let parsed: MEService[];
     try {
       parsed = JSON.parse(body);
     } catch {
-      throw new Error("Resposta inválida do Melhor Envio");
+      console.error("Melhor Envio: resposta inválida", body.slice(0, 300));
+      return { options: [], unavailable: true as const };
     }
 
     const options = parsed
@@ -84,5 +88,5 @@ export const quoteShipping = createServerFn({ method: "POST" })
       }))
       .sort((a, b) => a.priceCents - b.priceCents);
 
-    return { options };
+    return { options, unavailable: false as const };
   });
