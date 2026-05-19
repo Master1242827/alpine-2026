@@ -6,6 +6,7 @@ import { useCart } from "@/lib/cart";
 import { formatCents, formatPix } from "@/lib/format";
 import { toast } from "sonner";
 import { ShippingCalculator } from "@/components/shipping-calculator";
+import { resolveProductImage } from "@/lib/product-image";
 
 export const Route = createFileRoute("/produto/$slug")({ component: ProductDetail });
 
@@ -28,9 +29,18 @@ function ProductDetail() {
   return (
     <div className="container mx-auto grid gap-8 px-4 py-10 md:grid-cols-2">
       <div className="aspect-square overflow-hidden rounded-lg bg-muted">
-        {product.images?.[0] ? (
-          <img src={product.images[0]} alt={product.name} className="h-full w-full object-cover" />
-        ) : <div className="flex h-full items-center justify-center text-muted-foreground">sem imagem</div>}
+        <img
+          src={resolveProductImage({ images: product.images, name: product.name })}
+          alt={product.name}
+          className="h-full w-full object-cover"
+          onError={(e) => {
+            const img = e.currentTarget;
+            if (!img.dataset.fallback) {
+              img.dataset.fallback = "1";
+              img.src = "https://loremflickr.com/800/800/car,auto,parts";
+            }
+          }}
+        />
       </div>
       <div>
         <h1 className="text-2xl font-bold md:text-3xl">{product.name}</h1>

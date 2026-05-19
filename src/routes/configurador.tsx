@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { resolveVehicleImage } from "@/lib/product-image";
 
 export const Route = createFileRoute("/configurador")({ component: Configurator });
 
@@ -44,7 +45,7 @@ function Configurator() {
         <Section title="Qual a marca da sua picape?">
           <Grid>
             {makes?.map((m) => (
-              <Tile key={m.id} label={m.name} image={m.image_url} onClick={() => setMakeId(m.id)} />
+              <Tile key={m.id} label={m.name} image={m.image_url} kind="make" onClick={() => setMakeId(m.id)} />
             ))}
           </Grid>
         </Section>
@@ -53,7 +54,7 @@ function Configurator() {
         <Section title="Qual o modelo?" onBack={() => setMakeId(null)}>
           <Grid>
             {models?.map((m) => (
-              <Tile key={m.id} label={m.name} sub={m.year_range || undefined} image={m.image_url} onClick={() => setModelId(m.id)} />
+              <Tile key={m.id} label={m.name} sub={m.year_range || undefined} image={m.image_url} kind="model" onClick={() => setModelId(m.id)} />
             ))}
           </Grid>
         </Section>
@@ -62,7 +63,7 @@ function Configurator() {
         <Section title="Qual o tipo de cabine?" onBack={() => setModelId(null)}>
           <Grid>
             {cabins?.map((c) => (
-              <Tile key={c.id} label={c.name} sub={c.description || undefined} image={c.image_url} onClick={() => setCabinId(c.id)} />
+              <Tile key={c.id} label={c.name} sub={c.description || undefined} image={c.image_url} kind="cabin" onClick={() => setCabinId(c.id)} />
             ))}
           </Grid>
         </Section>
@@ -101,24 +102,32 @@ function colorFor(s: string) {
   return `hsl(${h} 60% 45%)`;
 }
 
-function Tile({ label, sub, image, onClick }: { label: string; sub?: string; image?: string | null; onClick: () => void }) {
+function Tile({ label, sub, image, kind, onClick }: { label: string; sub?: string; image?: string | null; kind: "make" | "model" | "cabin"; onClick: () => void }) {
+  const src = resolveVehicleImage({ image, name: label, kind });
   return (
     <button
       onClick={onClick}
       className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card text-left transition-all hover:border-primary hover:shadow-elevated hover:-translate-y-0.5"
     >
       <div className="relative aspect-square bg-muted">
-        {image ? (
-          <img src={image} alt={label} className="h-full w-full object-cover" />
-        ) : (
-          <div
-            className="flex h-full w-full items-center justify-center text-3xl font-black text-white md:text-4xl"
-            style={{ background: `linear-gradient(135deg, ${colorFor(label)}, ${colorFor(label + "x")})` }}
-            aria-hidden
-          >
-            {initials(label)}
-          </div>
-        )}
+        <img
+          src={src}
+          alt={label}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          onError={(e) => {
+            // Last-resort fallback: colored initials tile
+            const img = e.currentTarget;
+            const parent = img.parentElement!;
+            img.remove();
+            const div = document.createElement("div");
+            div.className = "flex h-full w-full items-center justify-center text-3xl font-black text-white md:text-4xl";
+            div.style.background = `linear-gradient(135deg, ${colorFor(label)}, ${colorFor(label + "x")})`;
+            div.setAttribute("aria-hidden", "true");
+            div.textContent = initials(label);
+            parent.appendChild(div);
+          }}
+        />
       </div>
       <div className="p-3">
         <p className="font-semibold leading-tight">{label}</p>

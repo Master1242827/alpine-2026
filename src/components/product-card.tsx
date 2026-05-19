@@ -1,17 +1,20 @@
 import { Link } from "@tanstack/react-router";
 import { formatCents, formatPix } from "@/lib/format";
 import { Star } from "lucide-react";
+import { resolveProductImage } from "@/lib/product-image";
 
 interface ProductCardProps {
   slug: string;
   name: string;
   image?: string;
+  categoryName?: string;
   priceCents: number;
   compareAtCents?: number | null;
   featured?: boolean;
 }
 
-export function ProductCard({ slug, name, image, priceCents, compareAtCents, featured }: ProductCardProps) {
+export function ProductCard({ slug, name, image, categoryName, priceCents, compareAtCents, featured }: ProductCardProps) {
+  const src = resolveProductImage({ images: image ? [image] : [], name, categoryName });
   return (
     <Link
       to="/produto/$slug"
@@ -24,18 +27,19 @@ export function ProductCard({ slug, name, image, priceCents, compareAtCents, fea
             Mais vendido
           </span>
         )}
-        {image ? (
-          <img
-            src={image}
-            alt={name}
-            className="h-full w-full object-cover transition-transform group-hover:scale-105"
-            loading="lazy"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
-            sem imagem
-          </div>
-        )}
+        <img
+          src={src}
+          alt={name}
+          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+          loading="lazy"
+          onError={(e) => {
+            const img = e.currentTarget;
+            if (!img.dataset.fallback) {
+              img.dataset.fallback = "1";
+              img.src = "https://loremflickr.com/600/600/car,auto,parts";
+            }
+          }}
+        />
       </div>
       <div className="flex flex-1 flex-col gap-1 p-3">
         <h3 className="line-clamp-2 text-sm font-semibold leading-tight">{name}</h3>
