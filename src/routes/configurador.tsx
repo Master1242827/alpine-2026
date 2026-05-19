@@ -54,7 +54,7 @@ function Configurator() {
         <Section title="Qual o modelo?" onBack={() => setMakeId(null)}>
           <Grid>
             {models?.map((m) => (
-              <Tile key={m.id} label={m.name} sub={m.year_range || undefined} image={m.image_url} onClick={() => setModelId(m.id)} />
+              <Tile key={m.id} label={m.name} sub={m.year_range || undefined} image={m.image_url} kind="model" onClick={() => setModelId(m.id)} />
             ))}
           </Grid>
         </Section>
