@@ -43,8 +43,8 @@ function CartPage() {
           <span>Subtotal</span><span className="font-semibold">{formatCents(subtotalCents)}</span>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">Frete e pagamento na próxima etapa.</p>
-        <Button className="mt-4 w-full" disabled>Finalizar compra (em breve)</Button>
-        <p className="mt-2 text-center text-xs text-muted-foreground">Checkout Mercado Pago + Melhor Envio em integração</p>
+        <Button asChild className="mt-4 w-full"><Link to="/checkout">Finalizar compra</Link></Button>
+        <p className="mt-2 text-center text-xs text-muted-foreground">Pagamento seguro via Mercado Pago</p>
       </aside>
     </div>
   );
