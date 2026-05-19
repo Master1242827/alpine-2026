@@ -136,10 +136,37 @@ function CheckoutPage() {
           </div>
         </section>
         <section className="rounded-lg border border-border bg-card p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-bold flex items-center gap-2"><Truck className="h-5 w-5" /> Frete</h2>
+            <Button type="button" variant="secondary" size="sm" onClick={handleQuote} disabled={quoting || !form.cep}>
+              {quoting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Calcular frete"}
+            </Button>
+          </div>
+          {shipOptions.length > 0 && (
+            <ul className="mt-4 space-y-2">
+              {shipOptions.map((o) => (
+                <li key={o.id}>
+                  <label className={`flex cursor-pointer items-center justify-between gap-3 rounded-md border p-3 text-sm transition ${selectedShip?.id === o.id ? "border-primary bg-primary/5" : "border-border"}`}>
+                    <div className="flex items-center gap-3">
+                      <input type="radio" name="ship" checked={selectedShip?.id === o.id} onChange={() => setSelectedShip(o)} />
+                      {o.companyPicture && <img src={o.companyPicture} alt="" className="h-6 w-6 rounded object-contain" />}
+                      <div>
+                        <p className="font-medium">{o.name}</p>
+                        {o.deliveryDays != null && <p className="text-xs text-muted-foreground">{o.deliveryDays} dia(s) úteis</p>}
+                      </div>
+                    </div>
+                    <span className="font-semibold text-primary">{formatCents(o.priceCents)}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+        <section className="rounded-lg border border-border bg-card p-5">
           <h2 className="text-lg font-bold">Observações</h2>
           <Textarea className="mt-3" rows={3} value={form.notes} onChange={set("notes")} placeholder="Modelo do veículo, ano, cor da capota, etc." />
         </section>
-        <Button type="submit" className="w-full" disabled={loading} size="lg">
+        <Button type="submit" className="w-full" disabled={loading || !selectedShip} size="lg">
           {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando…</> : "Pagar com Mercado Pago"}
         </Button>
       </form>
@@ -156,7 +183,7 @@ function CheckoutPage() {
         </ul>
         <div className="border-t border-border pt-3 text-sm">
           <div className="flex justify-between"><span>Subtotal</span><span>{formatCents(subtotalCents)}</span></div>
-          <div className="flex justify-between text-muted-foreground"><span>Frete</span><span>A combinar</span></div>
+          <div className="flex justify-between"><span>Frete</span><span>{selectedShip ? formatCents(shippingCostCents) : <span className="text-muted-foreground">A calcular</span>}</span></div>
           <div className="mt-2 flex justify-between text-base font-bold"><span>Total</span><span className="text-primary">{formatCents(total)}</span></div>
         </div>
         <p className="text-xs text-muted-foreground">Pagamento processado de forma segura pelo Mercado Pago. Cartão, PIX e boleto disponíveis.</p>
