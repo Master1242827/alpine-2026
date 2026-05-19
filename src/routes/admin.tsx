@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { formatBRL } from "@/lib/format";
+import { formatCents } from "@/lib/format";
 
 export const Route = createFileRoute("/admin")({
   beforeLoad: async () => {
