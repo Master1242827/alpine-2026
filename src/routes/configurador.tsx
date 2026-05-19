@@ -102,24 +102,32 @@ function colorFor(s: string) {
   return `hsl(${h} 60% 45%)`;
 }
 
-function Tile({ label, sub, image, onClick }: { label: string; sub?: string; image?: string | null; onClick: () => void }) {
+function Tile({ label, sub, image, kind, onClick }: { label: string; sub?: string; image?: string | null; kind: "make" | "model" | "cabin"; onClick: () => void }) {
+  const src = resolveVehicleImage({ image, name: label, kind });
   return (
     <button
       onClick={onClick}
       className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card text-left transition-all hover:border-primary hover:shadow-elevated hover:-translate-y-0.5"
     >
       <div className="relative aspect-square bg-muted">
-        {image ? (
-          <img src={image} alt={label} className="h-full w-full object-cover" />
-        ) : (
-          <div
-            className="flex h-full w-full items-center justify-center text-3xl font-black text-white md:text-4xl"
-            style={{ background: `linear-gradient(135deg, ${colorFor(label)}, ${colorFor(label + "x")})` }}
-            aria-hidden
-          >
-            {initials(label)}
-          </div>
-        )}
+        <img
+          src={src}
+          alt={label}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          onError={(e) => {
+            // Last-resort fallback: colored initials tile
+            const img = e.currentTarget;
+            const parent = img.parentElement!;
+            img.remove();
+            const div = document.createElement("div");
+            div.className = "flex h-full w-full items-center justify-center text-3xl font-black text-white md:text-4xl";
+            div.style.background = `linear-gradient(135deg, ${colorFor(label)}, ${colorFor(label + "x")})`;
+            div.setAttribute("aria-hidden", "true");
+            div.textContent = initials(label);
+            parent.appendChild(div);
+          }}
+        />
       </div>
       <div className="p-3">
         <p className="font-semibold leading-tight">{label}</p>
