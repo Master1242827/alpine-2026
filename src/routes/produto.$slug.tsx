@@ -30,16 +30,9 @@ function ProductDetail() {
     <div className="container mx-auto grid gap-8 px-4 py-10 md:grid-cols-2">
       <div className="aspect-square overflow-hidden rounded-lg bg-muted">
         <img
-          src={resolveProductImage({ images: product.images, name: product.name })}
+          src={resolveProductImage({ images: product.images, name: product.name }, 800)}
           alt={product.name}
           className="h-full w-full object-cover"
-          onError={(e) => {
-            const img = e.currentTarget;
-            if (!img.dataset.fallback) {
-              img.dataset.fallback = "1";
-              img.src = "https://loremflickr.com/800/800/car,auto,parts";
-            }
-          }}
         />
       </div>
       <div>
