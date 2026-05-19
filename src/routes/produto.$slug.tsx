@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ export const Route = createFileRoute("/produto/$slug")({ component: ProductDetai
 function ProductDetail() {
   const { slug } = Route.useParams();
   const { add } = useCart();
+  const navigate = useNavigate();
   const { data: product, isLoading } = useQuery({
     queryKey: ["product", slug],
     queryFn: async () => {
@@ -48,6 +49,7 @@ function ProductDetail() {
             widthCm: product.width_cm, heightCm: product.height_cm,
           });
           toast.success("Adicionado ao carrinho");
+          navigate({ to: "/carrinho" });
         }}>
           Adicionar ao carrinho
         </Button>

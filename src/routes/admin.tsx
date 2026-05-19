@@ -336,13 +336,21 @@ function ProductForm({ initial, onClose }: { initial: Product; onClose: () => vo
 // ============ Orders ============
 function OrdersTab() {
   const [orders, setOrders] = useState<any[]>([]);
-  useEffect(() => {
-    supabase.from("orders").select("*").order("created_at", { ascending: false }).limit(100)
-      .then(({ data, error }) => {
-        if (error) toast.error(error.message);
-        setOrders(data ?? []);
-      });
-  }, []);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*, order_items(*)")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) toast.error(error.message);
+    setOrders(data ?? []);
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
 
   const updateStatus = async (id: string, status: string) => {
     const { error } = await (supabase.from("orders") as any).update({ status }).eq("id", id);
@@ -351,29 +359,87 @@ function OrdersTab() {
     toast.success("Status atualizado");
   };
 
+  const totals = orders.reduce(
+    (acc, o) => {
+      acc.count += 1;
+      acc.gross += o.total_cents || 0;
+      if (["paid", "shipped", "delivered"].includes(o.status)) acc.paid += o.total_cents || 0;
+      return acc;
+    },
+    { count: 0, gross: 0, paid: 0 },
+  );
+
+  if (loading) return <p className="mt-4">Carregando…</p>;
+
   return (
     <div className="mt-4 space-y-3">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card className="p-4"><p className="text-xs text-muted-foreground">Pedidos</p><p className="text-2xl font-bold">{totals.count}</p></Card>
+        <Card className="p-4"><p className="text-xs text-muted-foreground">Faturamento bruto</p><p className="text-2xl font-bold">{formatCents(totals.gross)}</p></Card>
+        <Card className="p-4"><p className="text-xs text-muted-foreground">Confirmado</p><p className="text-2xl font-bold text-primary">{formatCents(totals.paid)}</p></Card>
+      </div>
+
       {orders.length === 0 && <p className="text-sm text-muted-foreground">Nenhum pedido ainda.</p>}
-      {orders.map((o) => (
-        <Card key={o.id} className="p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="font-medium">{o.customer_name} • {o.customer_email}</p>
-              <p className="text-sm text-muted-foreground">
-                {new Date(o.created_at).toLocaleString("pt-BR")} • {formatCents(o.total_cents)}
-              </p>
+      {orders.map((o) => {
+        const isOpen = expanded === o.id;
+        const addr = o.shipping_address || {};
+        return (
+          <Card key={o.id} className="p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium truncate">#{o.id.slice(0, 8)} • {o.customer_name}</p>
+                <p className="text-xs text-muted-foreground truncate">{o.customer_email} • {o.customer_phone}</p>
+                <p className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString("pt-BR")}</p>
+              </div>
+              <div className="text-right">
+                <p className="font-bold text-primary">{formatCents(o.total_cents)}</p>
+                <p className="text-xs text-muted-foreground">{(o.order_items?.length ?? 0)} item(s)</p>
+              </div>
+              <select value={o.status} onChange={(e) => updateStatus(o.id, e.target.value)}
+                className="rounded border bg-background px-2 py-1 text-sm">
+                <option value="pending">Pendente</option>
+                <option value="paid">Pago</option>
+                <option value="shipped">Enviado</option>
+                <option value="delivered">Entregue</option>
+                <option value="cancelled">Cancelado</option>
+              </select>
+              <Button variant="ghost" size="sm" onClick={() => setExpanded(isOpen ? null : o.id)}>
+                {isOpen ? "Ocultar" : "Detalhes"}
+              </Button>
             </div>
-            <select value={o.status} onChange={(e) => updateStatus(o.id, e.target.value as any)}
-              className="rounded border bg-background px-2 py-1 text-sm">
-              <option value="pending">Pendente</option>
-              <option value="paid">Pago</option>
-              <option value="shipped">Enviado</option>
-              <option value="delivered">Entregue</option>
-              <option value="cancelled">Cancelado</option>
-            </select>
-          </div>
-        </Card>
-      ))}
+            {isOpen && (
+              <div className="mt-4 grid gap-4 border-t border-border pt-4 text-sm md:grid-cols-2">
+                <div>
+                  <p className="mb-2 font-semibold">Itens</p>
+                  <ul className="space-y-1">
+                    {o.order_items?.map((it: any) => (
+                      <li key={it.id} className="flex justify-between gap-2">
+                        <span className="truncate">{it.quantity}× {it.product_name}</span>
+                        <span>{formatCents(it.unit_price_cents * it.quantity)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-3 space-y-0.5 border-t border-border pt-2 text-xs">
+                    <div className="flex justify-between"><span>Subtotal</span><span>{formatCents(o.subtotal_cents)}</span></div>
+                    <div className="flex justify-between"><span>Frete ({o.shipping_service || "—"})</span><span>{formatCents(o.shipping_cost_cents)}</span></div>
+                    <div className="flex justify-between font-bold"><span>Total</span><span>{formatCents(o.total_cents)}</span></div>
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-2 font-semibold">Endereço</p>
+                  <p className="text-muted-foreground">
+                    {addr.street}, {addr.number}{addr.complement ? ` — ${addr.complement}` : ""}<br />
+                    {addr.district} — {addr.city}/{addr.state}<br />
+                    CEP {addr.cep}
+                  </p>
+                  {o.notes && (<><p className="mt-3 font-semibold">Observações</p><p className="text-muted-foreground whitespace-pre-line">{o.notes}</p></>)}
+                  {o.mp_payment_id && <p className="mt-3 text-xs text-muted-foreground">MP Payment: {o.mp_payment_id}</p>}
+                </div>
+              </div>
+            )}
+          </Card>
+        );
+      })}
     </div>
   );
 }
