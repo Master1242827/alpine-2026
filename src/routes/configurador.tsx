@@ -89,18 +89,40 @@ function Section({ title, children, onBack }: { title: string; children: React.R
   );
 }
 function Grid({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-2 gap-3 md:grid-cols-3">{children}</div>;
+  return <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{children}</div>;
 }
+
+function initials(s: string) {
+  return s.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+}
+function colorFor(s: string) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+  return `hsl(${h} 60% 45%)`;
+}
+
 function Tile({ label, sub, image, onClick }: { label: string; sub?: string; image?: string | null; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card text-left transition-all hover:border-primary hover:shadow-card">
-      <div className="aspect-video bg-muted">
-        {image ? <img src={image} alt={label} className="h-full w-full object-cover" /> :
-          <div className="flex h-full items-center justify-center text-xs text-muted-foreground">imagem ilustrativa</div>}
+    <button
+      onClick={onClick}
+      className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card text-left transition-all hover:border-primary hover:shadow-elevated hover:-translate-y-0.5"
+    >
+      <div className="relative aspect-square bg-muted">
+        {image ? (
+          <img src={image} alt={label} className="h-full w-full object-cover" />
+        ) : (
+          <div
+            className="flex h-full w-full items-center justify-center text-3xl font-black text-white md:text-4xl"
+            style={{ background: `linear-gradient(135deg, ${colorFor(label)}, ${colorFor(label + "x")})` }}
+            aria-hidden
+          >
+            {initials(label)}
+          </div>
+        )}
       </div>
       <div className="p-3">
-        <p className="font-semibold">{label}</p>
-        {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+        <p className="font-semibold leading-tight">{label}</p>
+        {sub && <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>}
       </div>
     </button>
   );
