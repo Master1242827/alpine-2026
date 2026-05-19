@@ -1,14 +1,12 @@
 import { Link } from "@tanstack/react-router";
+import alpineLogo from "@/assets/alpine-logo.png";
 
 export function SiteFooter() {
   return (
     <footer className="mt-20 bg-dark text-dark-foreground">
       <div className="container mx-auto grid gap-8 px-4 py-12 md:grid-cols-4">
         <div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-lg font-black">AUTO</span>
-            <span className="text-lg font-black text-primary">PREMIUM</span>
-          </div>
+          <img src={alpineLogo} alt="Alpine" className="h-10 w-auto" />
           <p className="mt-3 text-sm text-dark-foreground/70">
             Acessórios automotivos premium para sua picape.
           </p>
@@ -38,7 +36,7 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="border-t border-dark-foreground/10 py-4 text-center text-xs text-dark-foreground/50">
-        © {new Date().getFullYear()} AutoPremium. Todos os direitos reservados.
+        © {new Date().getFullYear()} Alpine. Todos os direitos reservados.
       </div>
     </footer>
   );
