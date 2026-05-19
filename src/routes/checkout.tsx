@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useCart } from "@/lib/cart";
 import { Button } from "@/components/ui/button";
@@ -320,26 +320,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return <div className="flex justify-between"><span className="text-muted-foreground">{label}</span><span>{value}</span></div>;
 }
 
-const Field = (() => {
-  const Cmp = (
-    { label, className, required, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string; className?: string },
-    ref: React.Ref<HTMLInputElement>,
-  ) => (
-    <div className={className}>
-      <Label className="mb-1 block text-xs font-medium">{label}{required && " *"}</Label>
-      <Input ref={ref} required={required} className="h-11" {...props} />
-    </div>
-  );
-  return Object.assign(
-    // forwardRef
-    (require => require)((require: any) => null) && null,
-    {},
-  ) as any;
-})();
-
-// Replace placeholder Field above with real forwardRef component
-import { forwardRef } from "react";
-const FieldImpl = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { label: string; className?: string }>(
+const Field = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { label: string; className?: string }>(
   ({ label, className, required, ...props }, ref) => (
     <div className={className}>
       <Label className="mb-1 block text-xs font-medium">{label}{required && " *"}</Label>
@@ -347,8 +328,4 @@ const FieldImpl = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInp
     </div>
   ),
 );
-FieldImpl.displayName = "Field";
-// override
-(globalThis as any).__noop = Field;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(CheckoutPage as any).__field = FieldImpl;
+Field.displayName = "Field";
