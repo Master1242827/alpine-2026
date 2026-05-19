@@ -8,9 +8,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { adminBootstrap } from "@/lib/admin.functions";
 
-export const Route = createFileRoute("/login")({ component: LoginPage });
+export const Route = createFileRoute("/login")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    redirect: typeof search.redirect === "string" ? search.redirect : "/",
+  }),
+  component: LoginPage,
+});
 
 function LoginPage() {
+  const { redirect } = Route.useSearch();
   const [view, setView] = useState<"customer" | "admin">("customer");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,7 +40,7 @@ function LoginPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Login realizado");
-        window.location.href = "/";
+        window.location.href = redirect || "/";
       }
     } catch (err: any) {
       toast.error(err.message || "Erro");

@@ -12,7 +12,9 @@ import { createCheckoutPreference } from "@/lib/checkout.functions";
 import { quoteShipping } from "@/lib/shipping.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Truck, MapPin, User, ShoppingBag, CheckCircle2, ChevronDown, ChevronUp, Lock } from "lucide-react";
+import { Loader2, Truck, MapPin, User, ShoppingBag, CheckCircle2, ChevronDown, ChevronUp, Lock, UserPlus } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { Card } from "@/components/ui/card";
 
 export const Route = createFileRoute("/checkout")({ component: CheckoutPage });
 
@@ -20,6 +22,7 @@ type ShipOption = { id: string; name: string; priceCents: number; deliveryDays: 
 
 function CheckoutPage() {
   const { items, subtotalCents, clear } = useCart();
+  const { user, loading: authLoading } = useAuth();
   const createPref = useServerFn(createCheckoutPreference);
   const quote = useServerFn(quoteShipping);
 
@@ -38,11 +41,60 @@ function CheckoutPage() {
   const total = subtotalCents + shippingCostCents;
   const lastQuotedCep = useRef<string>("");
 
+  // Pré-preenche e-mail/nome a partir da conta autenticada
+  useEffect(() => {
+    if (user) {
+      setForm((p) => ({
+        ...p,
+        email: p.email || user.email || "",
+        name: p.name || (user.user_metadata?.full_name as string) || "",
+      }));
+    }
+  }, [user]);
+
   if (items.length === 0) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
         <h1 className="text-2xl font-bold">Seu carrinho está vazio</h1>
         <Button asChild className="mt-6"><Link to="/produtos">Ver produtos</Link></Button>
+      </div>
+    );
+  }
+
+  if (authLoading) {
+    return (
+      <div className="container mx-auto flex items-center justify-center px-4 py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="container mx-auto max-w-md px-4 py-12">
+        <Card className="p-6 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <Lock className="h-6 w-6 text-primary" />
+          </div>
+          <h1 className="mt-4 text-xl font-bold">Crie sua conta para finalizar</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Para concluir a compra com segurança e acompanhar o pedido, é necessário ter um cadastro.
+            Você pode continuar olhando os produtos e simulando o frete livremente.
+          </p>
+          <div className="mt-6 flex flex-col gap-2">
+            <Button asChild className="w-full">
+              <Link to="/login" search={{ redirect: "/checkout" } as never}>
+                <UserPlus className="mr-2 h-4 w-4" /> Criar conta ou entrar
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full">
+              <Link to="/carrinho">Voltar ao carrinho</Link>
+            </Button>
+          </div>
+          <p className="mt-4 text-xs text-muted-foreground">
+            Seu carrinho fica salvo enquanto você faz o cadastro.
+          </p>
+        </Card>
       </div>
     );
   }
