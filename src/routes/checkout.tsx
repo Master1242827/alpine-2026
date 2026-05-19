@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useCart } from "@/lib/cart";
@@ -8,32 +8,30 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatCents } from "@/lib/format";
 import { createCheckoutPreference } from "@/lib/checkout.functions";
+import { quoteShipping } from "@/lib/shipping.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Truck } from "lucide-react";
 
 export const Route = createFileRoute("/checkout")({ component: CheckoutPage });
 
+type ShipOption = { id: string; name: string; priceCents: number; deliveryDays: number | null; companyPicture: string | null };
+
 function CheckoutPage() {
   const { items, subtotalCents, clear } = useCart();
-  const navigate = useNavigate();
   const createPref = useServerFn(createCheckoutPreference);
+  const quote = useServerFn(quoteShipping);
 
   const [loading, setLoading] = useState(false);
+  const [quoting, setQuoting] = useState(false);
+  const [shipOptions, setShipOptions] = useState<ShipOption[]>([]);
+  const [selectedShip, setSelectedShip] = useState<ShipOption | null>(null);
   const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    cep: "",
-    street: "",
-    number: "",
-    complement: "",
-    district: "",
-    city: "",
-    state: "",
-    notes: "",
+    name: "", email: "", phone: "",
+    cep: "", street: "", number: "", complement: "",
+    district: "", city: "", state: "", notes: "",
   });
-  const shippingCostCents = 0; // a combinar
+  const shippingCostCents = selectedShip?.priceCents ?? 0;
   const total = subtotalCents + shippingCostCents;
 
   if (items.length === 0) {
