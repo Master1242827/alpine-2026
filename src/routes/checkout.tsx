@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useCart } from "@/lib/cart";
 import { Button } from "@/components/ui/button";
@@ -7,11 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatCents } from "@/lib/format";
+import { formatCep, lookupCep } from "@/lib/cep";
 import { createCheckoutPreference } from "@/lib/checkout.functions";
 import { quoteShipping } from "@/lib/shipping.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Truck } from "lucide-react";
+import { Loader2, Truck, MapPin, User, ShoppingBag, CheckCircle2, ChevronDown, ChevronUp, Lock } from "lucide-react";
 
 export const Route = createFileRoute("/checkout")({ component: CheckoutPage });
 
@@ -26,13 +27,16 @@ function CheckoutPage() {
   const [quoting, setQuoting] = useState(false);
   const [shipOptions, setShipOptions] = useState<ShipOption[]>([]);
   const [selectedShip, setSelectedShip] = useState<ShipOption | null>(null);
+  const [showSummary, setShowSummary] = useState(false);
   const [form, setForm] = useState({
     name: "", email: "", phone: "",
     cep: "", street: "", number: "", complement: "",
     district: "", city: "", state: "", notes: "",
   });
+  const numberRef = useRef<HTMLInputElement>(null);
   const shippingCostCents = selectedShip?.priceCents ?? 0;
   const total = subtotalCents + shippingCostCents;
+  const lastQuotedCep = useRef<string>("");
 
   if (items.length === 0) {
     return (
@@ -46,9 +50,7 @@ function CheckoutPage() {
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((p) => ({ ...p, [k]: e.target.value }));
 
-  async function handleQuote() {
-    const cep = form.cep.replace(/\D/g, "");
-    if (cep.length !== 8) { toast.error("Informe um CEP válido"); return; }
+  async function runQuote(cep: string) {
     setQuoting(true);
     setShipOptions([]);
     setSelectedShip(null);
@@ -76,6 +78,28 @@ function CheckoutPage() {
       setQuoting(false);
     }
   }
+
+  // Auto address lookup + auto quote when CEP becomes valid
+  useEffect(() => {
+    const clean = form.cep.replace(/\D/g, "");
+    if (clean.length !== 8 || clean === lastQuotedCep.current) return;
+    lastQuotedCep.current = clean;
+    (async () => {
+      const addr = await lookupCep(clean);
+      if (addr) {
+        setForm((p) => ({
+          ...p,
+          street: addr.street || p.street,
+          district: addr.district || p.district,
+          city: addr.city || p.city,
+          state: addr.state || p.state,
+        }));
+        setTimeout(() => numberRef.current?.focus(), 50);
+      }
+      runQuote(clean);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.cep]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -113,92 +137,195 @@ function CheckoutPage() {
   }
 
   return (
-    <div className="container mx-auto grid gap-8 px-4 py-10 md:grid-cols-[1fr_320px]">
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <section className="rounded-lg border border-border bg-card p-5">
-          <h2 className="text-lg font-bold">Seus dados</h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <Field label="Nome completo" required value={form.name} onChange={set("name")} className="sm:col-span-2" />
-            <Field label="E-mail" type="email" required value={form.email} onChange={set("email")} />
-            <Field label="WhatsApp" required value={form.phone} onChange={set("phone")} placeholder="(00) 00000-0000" />
-          </div>
-        </section>
-        <section className="rounded-lg border border-border bg-card p-5">
-          <h2 className="text-lg font-bold">Endereço de entrega</h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-6">
-            <Field label="CEP" required value={form.cep} onChange={set("cep")} className="sm:col-span-2" />
-            <Field label="Rua" required value={form.street} onChange={set("street")} className="sm:col-span-4" />
-            <Field label="Número" required value={form.number} onChange={set("number")} className="sm:col-span-2" />
-            <Field label="Complemento" value={form.complement} onChange={set("complement")} className="sm:col-span-4" />
-            <Field label="Bairro" required value={form.district} onChange={set("district")} className="sm:col-span-3" />
-            <Field label="Cidade" required value={form.city} onChange={set("city")} className="sm:col-span-2" />
-            <Field label="UF" required maxLength={2} value={form.state} onChange={set("state")} className="sm:col-span-1" />
-          </div>
-        </section>
-        <section className="rounded-lg border border-border bg-card p-5">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-bold flex items-center gap-2"><Truck className="h-5 w-5" /> Frete</h2>
-            <Button type="button" variant="secondary" size="sm" onClick={handleQuote} disabled={quoting || !form.cep}>
-              {quoting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Calcular frete"}
-            </Button>
-          </div>
-          {shipOptions.length > 0 && (
-            <ul className="mt-4 space-y-2">
-              {shipOptions.map((o) => (
-                <li key={o.id}>
-                  <label className={`flex cursor-pointer items-center justify-between gap-3 rounded-md border p-3 text-sm transition ${selectedShip?.id === o.id ? "border-primary bg-primary/5" : "border-border"}`}>
-                    <div className="flex items-center gap-3">
-                      <input type="radio" name="ship" checked={selectedShip?.id === o.id} onChange={() => setSelectedShip(o)} />
-                      {o.companyPicture && <img src={o.companyPicture} alt="" className="h-6 w-6 rounded object-contain" />}
-                      <div>
-                        <p className="font-medium">{o.name}</p>
-                        {o.deliveryDays != null && <p className="text-xs text-muted-foreground">{o.deliveryDays} dia(s) úteis</p>}
-                      </div>
-                    </div>
-                    <span className="font-semibold text-primary">{formatCents(o.priceCents)}</span>
-                  </label>
+    <div className="bg-muted/30 pb-32 md:pb-12">
+      {/* Mobile sticky summary */}
+      <div className="sticky top-0 z-30 border-b border-border bg-background md:hidden">
+        <button
+          type="button"
+          onClick={() => setShowSummary((s) => !s)}
+          className="flex w-full items-center justify-between px-4 py-3 text-sm"
+        >
+          <span className="flex items-center gap-2 font-medium">
+            <ShoppingBag className="h-4 w-4 text-primary" />
+            {items.length} {items.length === 1 ? "item" : "itens"} · ver resumo
+            {showSummary ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </span>
+          <span className="font-bold text-primary">{formatCents(total)}</span>
+        </button>
+        {showSummary && (
+          <div className="border-t border-border bg-card px-4 py-3 text-sm">
+            <ul className="space-y-1.5">
+              {items.map((i) => (
+                <li key={i.productId} className="flex justify-between gap-2">
+                  <span className="truncate text-muted-foreground">{i.quantity}× {i.name}</span>
+                  <span>{formatCents(i.priceCents * i.quantity)}</span>
                 </li>
               ))}
             </ul>
-          )}
-        </section>
-        <section className="rounded-lg border border-border bg-card p-5">
-          <h2 className="text-lg font-bold">Observações</h2>
-          <Textarea className="mt-3" rows={3} value={form.notes} onChange={set("notes")} placeholder="Modelo do veículo, ano, cor da capota, etc." />
-        </section>
-        <Button type="submit" className="w-full" disabled={loading || !selectedShip} size="lg">
-          {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando…</> : "Pagar com Mercado Pago"}
-        </Button>
-      </form>
+            <div className="mt-2 space-y-1 border-t border-border pt-2 text-xs">
+              <Row label="Subtotal" value={formatCents(subtotalCents)} />
+              <Row label="Frete" value={selectedShip ? formatCents(shippingCostCents) : "—"} />
+            </div>
+          </div>
+        )}
+      </div>
 
-      <aside className="h-fit space-y-4 rounded-lg border border-border bg-card p-5">
-        <h2 className="text-lg font-bold">Resumo</h2>
-        <ul className="space-y-2 text-sm">
-          {items.map((i) => (
-            <li key={i.productId} className="flex justify-between gap-2">
-              <span className="truncate">{i.quantity}× {i.name}</span>
-              <span className="font-medium">{formatCents(i.priceCents * i.quantity)}</span>
-            </li>
-          ))}
-        </ul>
-        <div className="border-t border-border pt-3 text-sm">
-          <div className="flex justify-between"><span>Subtotal</span><span>{formatCents(subtotalCents)}</span></div>
-          <div className="flex justify-between"><span>Frete</span><span>{selectedShip ? formatCents(shippingCostCents) : <span className="text-muted-foreground">A calcular</span>}</span></div>
-          <div className="mt-2 flex justify-between text-base font-bold"><span>Total</span><span className="text-primary">{formatCents(total)}</span></div>
+      <div className="container mx-auto grid gap-6 px-4 py-6 md:grid-cols-[1fr_360px] md:py-10">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Section icon={<User className="h-4 w-4" />} title="Seus dados" step={1}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Nome completo" required value={form.name} onChange={set("name")} className="sm:col-span-2" placeholder="Como aparece no documento" />
+              <Field label="E-mail" type="email" required value={form.email} onChange={set("email")} placeholder="voce@email.com" />
+              <Field label="WhatsApp" required value={form.phone} onChange={set("phone")} placeholder="(00) 00000-0000" inputMode="tel" />
+            </div>
+          </Section>
+
+          <Section icon={<MapPin className="h-4 w-4" />} title="Endereço de entrega" step={2}>
+            <div className="grid gap-3 sm:grid-cols-6">
+              <div className="sm:col-span-3">
+                <Label className="mb-1 block text-xs font-medium">CEP *</Label>
+                <div className="relative">
+                  <Input
+                    required
+                    inputMode="numeric"
+                    maxLength={9}
+                    placeholder="00000-000"
+                    value={form.cep}
+                    onChange={(e) => setForm((p) => ({ ...p, cep: formatCep(e.target.value) }))}
+                    className="h-11 pr-10"
+                  />
+                  {quoting && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
+                </div>
+                <a
+                  href="https://buscacepinter.correios.com.br/app/endereco/index.php"
+                  target="_blank" rel="noreferrer"
+                  className="mt-1 inline-block text-xs text-muted-foreground hover:text-primary"
+                >Não sei meu CEP</a>
+              </div>
+              <Field label="Rua" required value={form.street} onChange={set("street")} className="sm:col-span-3" />
+              <Field label="Número" required ref={numberRef} value={form.number} onChange={set("number")} className="sm:col-span-2" />
+              <Field label="Complemento" value={form.complement} onChange={set("complement")} className="sm:col-span-4" placeholder="Apto, bloco… (opcional)" />
+              <Field label="Bairro" required value={form.district} onChange={set("district")} className="sm:col-span-3" />
+              <Field label="Cidade" required value={form.city} onChange={set("city")} className="sm:col-span-2" />
+              <Field label="UF" required maxLength={2} value={form.state} onChange={set("state")} className="sm:col-span-1" />
+            </div>
+          </Section>
+
+          <Section icon={<Truck className="h-4 w-4" />} title="Entrega" step={3}>
+            {!form.cep && (
+              <p className="text-sm text-muted-foreground">Digite o CEP acima para ver opções de entrega.</p>
+            )}
+            {quoting && (
+              <div className="flex items-center gap-2 rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Calculando opções de frete…
+              </div>
+            )}
+            {!quoting && shipOptions.length > 0 && (
+              <ul className="space-y-2">
+                {shipOptions.map((o) => {
+                  const selected = selectedShip?.id === o.id;
+                  return (
+                    <li key={o.id}>
+                      <label className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-3 text-sm transition ${selected ? "border-primary bg-primary/5" : "border-border bg-background hover:border-primary/40"}`}>
+                        <input type="radio" name="ship" checked={selected} onChange={() => setSelectedShip(o)} className="sr-only" />
+                        <div className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 ${selected ? "border-primary" : "border-muted-foreground/40"}`}>
+                          {selected && <div className="h-2.5 w-2.5 rounded-full bg-primary" />}
+                        </div>
+                        {o.companyPicture ? (
+                          <img src={o.companyPicture} alt="" className="h-8 w-8 shrink-0 rounded object-contain" />
+                        ) : (
+                          <div className="grid h-8 w-8 shrink-0 place-items-center rounded bg-muted">
+                            <Truck className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-semibold">{o.name}</p>
+                          {o.deliveryDays != null && (
+                            <p className="text-xs text-muted-foreground">
+                              Chega em até {o.deliveryDays} dia{o.deliveryDays === 1 ? "" : "s"} útil{o.deliveryDays === 1 ? "" : "eis"}
+                            </p>
+                          )}
+                        </div>
+                        <span className="shrink-0 font-bold text-primary">{formatCents(o.priceCents)}</span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Section>
+
+          <Section icon={<CheckCircle2 className="h-4 w-4" />} title="Observações" step={4}>
+            <Textarea rows={3} value={form.notes} onChange={set("notes")} placeholder="Modelo do veículo, ano, cor da capota, etc. (opcional)" />
+          </Section>
+
+          <Button type="submit" className="hidden h-12 w-full md:flex" disabled={loading || !selectedShip} size="lg">
+            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando…</> : <><Lock className="mr-2 h-4 w-4" /> Pagar {formatCents(total)}</>}
+          </Button>
+        </form>
+
+        {/* Desktop summary */}
+        <aside className="hidden h-fit space-y-4 rounded-xl border border-border bg-card p-5 md:sticky md:top-6 md:block">
+          <h2 className="text-lg font-bold">Resumo do pedido</h2>
+          <ul className="space-y-3 text-sm">
+            {items.map((i) => (
+              <li key={i.productId} className="flex gap-3">
+                {i.image && <img src={i.image} alt="" className="h-14 w-14 rounded object-cover" />}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{i.name}</p>
+                  <p className="text-xs text-muted-foreground">Qtd: {i.quantity}</p>
+                </div>
+                <span className="text-sm font-semibold">{formatCents(i.priceCents * i.quantity)}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="space-y-1.5 border-t border-border pt-3 text-sm">
+            <Row label="Subtotal" value={formatCents(subtotalCents)} />
+            <Row label="Frete" value={selectedShip ? formatCents(shippingCostCents) : <span className="text-muted-foreground">A calcular</span>} />
+            <div className="flex justify-between pt-2 text-base font-bold">
+              <span>Total</span><span className="text-primary">{formatCents(total)}</span>
+            </div>
+          </div>
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Lock className="h-3 w-3" /> Pagamento seguro via Mercado Pago
+          </p>
+        </aside>
+
+        {/* Mobile bottom bar */}
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background p-3 shadow-lg md:hidden">
+          <Button type="button" onClick={handleSubmit as any} className="h-12 w-full" disabled={loading || !selectedShip} size="lg">
+            {loading
+              ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando…</>
+              : <><Lock className="mr-2 h-4 w-4" /> Pagar {formatCents(total)}</>}
+          </Button>
         </div>
-        <p className="text-xs text-muted-foreground">Pagamento processado de forma segura pelo Mercado Pago. Cartão, PIX e boleto disponíveis.</p>
-      </aside>
+      </div>
     </div>
   );
 }
 
-function Field({
-  label, className, required, ...props
-}: React.InputHTMLAttributes<HTMLInputElement> & { label: string; className?: string }) {
+function Section({ icon, title, step, children }: { icon: React.ReactNode; title: string; step: number; children: React.ReactNode }) {
   return (
-    <div className={className}>
-      <Label className="mb-1 block text-xs">{label}{required && " *"}</Label>
-      <Input required={required} {...props} />
-    </div>
+    <section className="rounded-xl border border-border bg-card p-4 md:p-5">
+      <header className="mb-4 flex items-center gap-3">
+        <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{step}</div>
+        <h2 className="flex items-center gap-2 text-base font-bold">{icon}{title}</h2>
+      </header>
+      {children}
+    </section>
   );
 }
+
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
+  return <div className="flex justify-between"><span className="text-muted-foreground">{label}</span><span>{value}</span></div>;
+}
+
+const Field = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { label: string; className?: string }>(
+  ({ label, className, required, ...props }, ref) => (
+    <div className={className}>
+      <Label className="mb-1 block text-xs font-medium">{label}{required && " *"}</Label>
+      <Input ref={ref} required={required} className="h-11" {...props} />
+    </div>
+  ),
+);
+Field.displayName = "Field";
