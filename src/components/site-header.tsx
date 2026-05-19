@@ -4,6 +4,7 @@ import { useCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import alpineLogo from "@/assets/alpine-logo.png";
 
 export function SiteHeader() {
   const { count } = useCart();
@@ -24,9 +25,8 @@ export function SiteHeader() {
         </div>
       </div>
       <div className="container mx-auto flex h-16 items-center justify-between gap-2 px-4">
-        <Link to="/" className="flex items-baseline gap-1">
-          <span className="text-xl font-black tracking-tight">AUTO</span>
-          <span className="text-xl font-black tracking-tight text-primary">PREMIUM</span>
+        <Link to="/" className="flex items-center" aria-label="Alpine">
+          <img src={alpineLogo} alt="Alpine" className="h-10 w-auto" />
         </Link>
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
           <Link to="/" className="hover:text-primary transition-colors">Início</Link>

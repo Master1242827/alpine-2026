@@ -72,10 +72,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "AutoPremium — Acessórios Automotivos Premium" },
+      { title: "Alpine — Acessórios Automotivos Premium" },
       { name: "description", content: "Capotas marítimas e acessórios premium para sua picape. Frete grátis, parcelamento em 10x e 5% off no PIX." },
-      { property: "og:title", content: "AutoPremium — Acessórios Automotivos Premium" },
-      { name: "twitter:title", content: "AutoPremium — Acessórios Automotivos Premium" },
+      { property: "og:title", content: "Alpine — Acessórios Automotivos Premium" },
+      { name: "twitter:title", content: "Alpine — Acessórios Automotivos Premium" },
       { property: "og:description", content: "Capotas marítimas e acessórios premium para sua picape. Frete grátis, parcelamento em 10x e 5% off no PIX." },
       { name: "twitter:description", content: "Capotas marítimas e acessórios premium para sua picape. Frete grátis, parcelamento em 10x e 5% off no PIX." },
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/67dde647-e7bc-4031-a20a-5dc19d4a8632/id-preview-eaaff4a9--b370b26e-0ef1-41ec-ae73-c00c6755b5d3.lovable.app-1779227894283.png" },

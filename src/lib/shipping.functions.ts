@@ -55,7 +55,7 @@ export const quoteShipping = createServerFn({ method: "POST" })
         Authorization: `Bearer ${token}`,
         Accept: "application/json",
         "Content-Type": "application/json",
-        "User-Agent": "AutoPremium (contato@autopremium.local)",
+        "User-Agent": "Alpine (contato@alpine.local)",
       },
       body: JSON.stringify({
         from: { postal_code: fromCep },
