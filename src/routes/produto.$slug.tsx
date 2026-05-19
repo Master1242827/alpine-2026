@@ -28,12 +28,18 @@ function ProductDetail() {
 
   return (
     <div className="container mx-auto grid gap-8 px-4 py-10 md:grid-cols-2">
-      <div className="aspect-square overflow-hidden rounded-lg bg-muted">
-        <img
-          src={resolveProductImage({ images: product.images, name: product.name }, 800)}
-          alt={product.name}
-          className="h-full w-full object-cover"
-        />
+      <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-muted text-muted-foreground">
+        {(() => {
+          const src = resolveProductImage({ images: product.images, name: product.name }, 800);
+          return src ? (
+            <img src={src} alt={product.name} className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex flex-col items-center gap-2 text-sm">
+              <span className="text-3xl">🖼️</span>
+              <span className="uppercase tracking-wide">Sem imagem</span>
+            </div>
+          );
+        })()}
       </div>
       <div>
         <h1 className="text-2xl font-bold md:text-3xl">{product.name}</h1>

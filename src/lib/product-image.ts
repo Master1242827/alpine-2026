@@ -116,23 +116,26 @@ export interface ProductImageInput {
   categoryName?: string | null;
 }
 
-export function resolveProductImage(p: ProductImageInput, size = 600): string {
-  const real = p.images?.[0];
-  if (real) return real;
-  const text = `${p.name ?? ""} ${p.categoryName ?? ""}`;
-  const token = pickToken(text, PRODUCT_TOKENS, PRODUCT_DEFAULT);
-  return svgTile(token, p.name || p.categoryName || "Produto", size);
+// Returns the real image URL, or null when none is cadastrada.
+// Fallback tiles foram removidos a pedido — os consumidores devem renderizar
+// um placeholder neutro quando o retorno for null.
+export function resolveProductImage(p: ProductImageInput, _size = 600): string | null {
+  return p.images?.[0] ?? null;
 }
 
 export function resolveVehicleImage(
   opts: { image?: string | null; name: string; kind?: "make" | "model" | "cabin" },
-  size = 600,
-): string {
-  if (opts.image) return opts.image;
-  const table =
-    opts.kind === "cabin" ? CABIN_TOKENS :
-    opts.kind === "model" ? VEHICLE_MODEL_TOKENS :
-    VEHICLE_BRAND_TOKENS;
-  const token = pickToken(opts.name, table, VEHICLE_DEFAULT);
-  return svgTile(token, opts.name, size);
+  _size = 600,
+): string | null {
+  return opts.image ?? null;
 }
+
+// Kept exported to avoid breaking any other importers; intentionally unused.
+void svgTile;
+void PRODUCT_TOKENS;
+void PRODUCT_DEFAULT;
+void VEHICLE_BRAND_TOKENS;
+void VEHICLE_MODEL_TOKENS;
+void CABIN_TOKENS;
+void VEHICLE_DEFAULT;
+void pickToken;

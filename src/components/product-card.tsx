@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { formatCents, formatPix } from "@/lib/format";
-import { Star } from "lucide-react";
+import { Star, ImageOff } from "lucide-react";
 import { resolveProductImage } from "@/lib/product-image";
 
 interface ProductCardProps {
@@ -27,12 +27,19 @@ export function ProductCard({ slug, name, image, categoryName, priceCents, compa
             Mais vendido
           </span>
         )}
-        <img
-          src={src}
-          alt={name}
-          className="h-full w-full object-cover transition-transform group-hover:scale-105"
-          loading="lazy"
-        />
+        {src ? (
+          <img
+            src={src}
+            alt={name}
+            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground">
+            <ImageOff className="h-8 w-8" />
+            <span className="text-[10px] uppercase tracking-wide">Sem imagem</span>
+          </div>
+        )}
       </div>
       <div className="flex flex-1 flex-col gap-1 p-3">
         <h3 className="line-clamp-2 text-sm font-semibold leading-tight">{name}</h3>
