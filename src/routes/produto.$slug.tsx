@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useCart } from "@/lib/cart";
 import { formatCents, formatPix } from "@/lib/format";
 import { toast } from "sonner";
+import { ShippingCalculator } from "@/components/shipping-calculator";
 
 export const Route = createFileRoute("/produto/$slug")({ component: ProductDetail });
 
@@ -41,6 +42,21 @@ function ProductDetail() {
           <p className="text-3xl font-bold text-primary">10x de {formatCents(product.price_cents / 10)}</p>
           <p className="text-sm text-muted-foreground">ou <strong>{formatPix(product.price_cents)}</strong> no PIX (5% off)</p>
         </div>
+
+        <div className="mt-6">
+          <ShippingCalculator
+            items={[{
+              productId: product.id,
+              priceCents: product.price_cents,
+              quantity: 1,
+              weightKg: Number(product.weight_kg),
+              lengthCm: product.length_cm,
+              widthCm: product.width_cm,
+              heightCm: product.height_cm,
+            }]}
+          />
+        </div>
+
         <Button size="lg" className="mt-6 w-full md:w-auto" onClick={() => {
           add({
             productId: product.id, slug: product.slug, name: product.name,
