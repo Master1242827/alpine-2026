@@ -172,7 +172,7 @@ function ProductsTab() {
                 {p.featured && <Badge>Destaque</Badge>}
               </div>
               <p className="text-sm text-muted-foreground">
-                {formatBRL(p.price_cents / 100)} • Estoque: {p.stock}
+                {formatCents(p.price_cents)} • Estoque: {p.stock}
               </p>
             </div>
             <div className="flex gap-2">
@@ -342,10 +342,10 @@ function OrdersTab() {
             <div>
               <p className="font-medium">{o.customer_name} • {o.customer_email}</p>
               <p className="text-sm text-muted-foreground">
-                {new Date(o.created_at).toLocaleString("pt-BR")} • {formatBRL(o.total_cents / 100)}
+                {new Date(o.created_at).toLocaleString("pt-BR")} • {formatCents(o.total_cents)}
               </p>
             </div>
-            <select value={o.status} onChange={(e) => updateStatus(o.id, e.target.value)}
+            <select value={o.status} onChange={(e) => updateStatus(o.id, e.target.value as any)}
               className="rounded border bg-background px-2 py-1 text-sm">
               <option value="pending">Pendente</option>
               <option value="paid">Pago</option>
