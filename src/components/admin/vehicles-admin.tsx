@@ -538,6 +538,10 @@ function FlowsPanel() {
     await sb.from("vehicle_question_flow").update({ year_from: yf, year_to: yt }).eq("id", f.id);
     load();
   };
+  const updateFlow = async (f: Flow, patch: Partial<Flow>) => {
+    await sb.from("vehicle_question_flow").update(patch as any).eq("id", f.id);
+    load();
+  };
 
   const selectedModelObj = models.find((m) => m.id === selectedModel);
 
