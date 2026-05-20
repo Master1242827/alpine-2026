@@ -6,7 +6,7 @@ export function SiteFooter() {
     <footer className="mt-20 bg-dark text-dark-foreground">
       <div className="container mx-auto grid gap-8 px-4 py-12 md:grid-cols-4">
         <div>
-          <img src={alpineLogo} alt="Alpine" className="h-10 w-auto" />
+          <img src={alpineLogo} alt="Alpine" className="h-12 w-auto" />
           <p className="mt-3 text-sm text-dark-foreground/70">
             Acessórios automotivos premium para sua picape.
           </p>
