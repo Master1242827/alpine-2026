@@ -19,6 +19,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProdutoSlugRouteImport } from './routes/produto.$slug'
 import { Route as CheckoutSucessoRouteImport } from './routes/checkout.sucesso'
+import { Route as CheckoutPixRouteImport } from './routes/checkout.pix'
 import { Route as CheckoutFalhaRouteImport } from './routes/checkout.falha'
 import { Route as ApiPublicWebhooksMercadopagoRouteImport } from './routes/api/public/webhooks/mercadopago'
 
@@ -72,6 +73,11 @@ const CheckoutSucessoRoute = CheckoutSucessoRouteImport.update({
   path: '/sucesso',
   getParentRoute: () => CheckoutRoute,
 } as any)
+const CheckoutPixRoute = CheckoutPixRouteImport.update({
+  id: '/pix',
+  path: '/pix',
+  getParentRoute: () => CheckoutRoute,
+} as any)
 const CheckoutFalhaRoute = CheckoutFalhaRouteImport.update({
   id: '/falha',
   path: '/falha',
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/produtos': typeof ProdutosRoute
   '/checkout/falha': typeof CheckoutFalhaRoute
+  '/checkout/pix': typeof CheckoutPixRoute
   '/checkout/sucesso': typeof CheckoutSucessoRoute
   '/produto/$slug': typeof ProdutoSlugRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
@@ -108,6 +115,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/produtos': typeof ProdutosRoute
   '/checkout/falha': typeof CheckoutFalhaRoute
+  '/checkout/pix': typeof CheckoutPixRoute
   '/checkout/sucesso': typeof CheckoutSucessoRoute
   '/produto/$slug': typeof ProdutoSlugRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
@@ -123,6 +131,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/produtos': typeof ProdutosRoute
   '/checkout/falha': typeof CheckoutFalhaRoute
+  '/checkout/pix': typeof CheckoutPixRoute
   '/checkout/sucesso': typeof CheckoutSucessoRoute
   '/produto/$slug': typeof ProdutoSlugRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
@@ -139,6 +148,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/produtos'
     | '/checkout/falha'
+    | '/checkout/pix'
     | '/checkout/sucesso'
     | '/produto/$slug'
     | '/api/public/webhooks/mercadopago'
@@ -153,6 +163,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/produtos'
     | '/checkout/falha'
+    | '/checkout/pix'
     | '/checkout/sucesso'
     | '/produto/$slug'
     | '/api/public/webhooks/mercadopago'
@@ -167,6 +178,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/produtos'
     | '/checkout/falha'
+    | '/checkout/pix'
     | '/checkout/sucesso'
     | '/produto/$slug'
     | '/api/public/webhooks/mercadopago'
@@ -257,6 +269,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CheckoutSucessoRouteImport
       parentRoute: typeof CheckoutRoute
     }
+    '/checkout/pix': {
+      id: '/checkout/pix'
+      path: '/pix'
+      fullPath: '/checkout/pix'
+      preLoaderRoute: typeof CheckoutPixRouteImport
+      parentRoute: typeof CheckoutRoute
+    }
     '/checkout/falha': {
       id: '/checkout/falha'
       path: '/falha'
@@ -276,11 +295,13 @@ declare module '@tanstack/react-router' {
 
 interface CheckoutRouteChildren {
   CheckoutFalhaRoute: typeof CheckoutFalhaRoute
+  CheckoutPixRoute: typeof CheckoutPixRoute
   CheckoutSucessoRoute: typeof CheckoutSucessoRoute
 }
 
 const CheckoutRouteChildren: CheckoutRouteChildren = {
   CheckoutFalhaRoute: CheckoutFalhaRoute,
+  CheckoutPixRoute: CheckoutPixRoute,
   CheckoutSucessoRoute: CheckoutSucessoRoute,
 }
 
