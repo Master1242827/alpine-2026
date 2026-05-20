@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { formatCents } from "@/lib/format";
 import { checkIsAdmin } from "@/lib/admin.functions";
+import { VehiclesAdmin } from "@/components/admin/vehicles-admin";
 
 export const Route = createFileRoute("/admin")({ component: AdminPage });
 
