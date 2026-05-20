@@ -93,7 +93,29 @@ function Configurator() {
   });
 
   const orderedFlow = useMemo(() => (flow ?? []).slice().sort((a, b) => a.display_order - b.display_order), [flow]);
-  const dynamicSteps = orderedFlow.map((f) => questions?.find((q) => q.id === f.question_id)).filter(Boolean) as Question[];
+  // Questions visible to the customer: not hidden AND no auto-answer set
+  const visibleFlow = useMemo(
+    () => orderedFlow.filter((f) => !f.hidden && !f.auto_answer),
+    [orderedFlow]
+  );
+  const dynamicSteps = visibleFlow.map((f) => questions?.find((q) => q.id === f.question_id)).filter(Boolean) as Question[];
+
+  // Auto-prefill answers for hidden / auto-answer questions so matching uses them
+  useEffect(() => {
+    if (!flow || !questions || !options) return;
+    const additions: Record<string, { value: string; label: string }> = {};
+    for (const f of orderedFlow) {
+      if (!f.auto_answer) continue;
+      const q = questions.find((x) => x.id === f.question_id);
+      if (!q || sel.answers[q.key]) continue;
+      const opt = options.find((o) => o.question_id === f.question_id && o.value === f.auto_answer);
+      additions[q.key] = { value: f.auto_answer, label: opt?.label ?? f.auto_answer };
+    }
+    if (Object.keys(additions).length > 0) {
+      setSel((s) => ({ ...s, answers: { ...s.answers, ...additions } }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flow, questions, options]);
 
   // current step index: 3 + answeredCount, until all answered → final
   const answeredCount = dynamicSteps.filter((q) => sel.answers[q.key]).length;
