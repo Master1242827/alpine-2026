@@ -12,7 +12,7 @@ import { createCheckoutPreference } from "@/lib/checkout.functions";
 import { quoteShipping } from "@/lib/shipping.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Truck, MapPin, User, ShoppingBag, CheckCircle2, ChevronDown, ChevronUp, Lock, UserPlus } from "lucide-react";
+import { Loader2, Truck, MapPin, User, ShoppingBag, CheckCircle2, ChevronDown, ChevronUp, Lock, UserPlus, CreditCard, QrCode } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 
