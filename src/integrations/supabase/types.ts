@@ -540,8 +540,10 @@ export type Database = {
       vehicle_question_flow: {
         Row: {
           active: boolean
+          auto_answer: string | null
           created_at: string
           display_order: number
+          hidden: boolean
           id: string
           model_id: string
           question_id: string
@@ -551,8 +553,10 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          auto_answer?: string | null
           created_at?: string
           display_order?: number
+          hidden?: boolean
           id?: string
           model_id: string
           question_id: string
@@ -562,8 +566,10 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          auto_answer?: string | null
           created_at?: string
           display_order?: number
+          hidden?: boolean
           id?: string
           model_id?: string
           question_id?: string

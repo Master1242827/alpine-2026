@@ -11,7 +11,7 @@ type Make = { id: string; name: string; image_url: string | null };
 type Model = { id: string; name: string; image_url: string | null; year_from: number | null; year_to: number | null };
 type Question = { id: string; key: string; label: string; help_text: string | null };
 type Option = { id: string; question_id: string; value: string; label: string; image_url: string | null };
-type FlowItem = { question_id: string; display_order: number; required: boolean; year_from: number | null; year_to: number | null };
+type FlowItem = { question_id: string; display_order: number; required: boolean; year_from: number | null; year_to: number | null; hidden?: boolean; auto_answer?: string | null };
 
 type Selection = {
   make?: { id: string; name: string };
@@ -50,7 +50,7 @@ function Configurator() {
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("vehicle_question_flow")
-        .select("question_id, display_order, required, year_from, year_to, active")
+        .select("question_id, display_order, required, year_from, year_to, active, hidden, auto_answer")
         .eq("model_id", sel.model!.id)
         .eq("active", true)
         .order("display_order");
@@ -93,7 +93,29 @@ function Configurator() {
   });
 
   const orderedFlow = useMemo(() => (flow ?? []).slice().sort((a, b) => a.display_order - b.display_order), [flow]);
-  const dynamicSteps = orderedFlow.map((f) => questions?.find((q) => q.id === f.question_id)).filter(Boolean) as Question[];
+  // Questions visible to the customer: not hidden AND no auto-answer set
+  const visibleFlow = useMemo(
+    () => orderedFlow.filter((f) => !f.hidden && !f.auto_answer),
+    [orderedFlow]
+  );
+  const dynamicSteps = visibleFlow.map((f) => questions?.find((q) => q.id === f.question_id)).filter(Boolean) as Question[];
+
+  // Auto-prefill answers for hidden / auto-answer questions so matching uses them
+  useEffect(() => {
+    if (!flow || !questions || !options) return;
+    const additions: Record<string, { value: string; label: string }> = {};
+    for (const f of orderedFlow) {
+      if (!f.auto_answer) continue;
+      const q = questions.find((x) => x.id === f.question_id);
+      if (!q || sel.answers[q.key]) continue;
+      const opt = options.find((o) => o.question_id === f.question_id && o.value === f.auto_answer);
+      additions[q.key] = { value: f.auto_answer, label: opt?.label ?? f.auto_answer };
+    }
+    if (Object.keys(additions).length > 0) {
+      setSel((s) => ({ ...s, answers: { ...s.answers, ...additions } }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flow, questions, options]);
 
   // current step index: 3 + answeredCount, until all answered → final
   const answeredCount = dynamicSteps.filter((q) => sel.answers[q.key]).length;
@@ -144,7 +166,10 @@ function Configurator() {
       if (!r.products?.active) return false;
       const required = (r.answers ?? {}) as Record<string, string>;
       for (const k of Object.keys(required)) {
-        if (userAns[k] !== required[k]) return false;
+        const req = required[k];
+        // wildcards: empty, "*", or "qualquer" mean "any value accepted"
+        if (req == null || req === "" || req === "*" || req === "qualquer") continue;
+        if (userAns[k] !== req) return false;
       }
       return true;
     });
