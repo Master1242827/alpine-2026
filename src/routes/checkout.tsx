@@ -437,12 +437,15 @@ function CheckoutPage() {
           <div className="space-y-1.5 border-t border-border pt-3 text-sm">
             <Row label="Subtotal" value={formatCents(subtotalCents)} />
             <Row label="Frete" value={selectedShip ? formatCents(shippingCostCents) : <span className="text-muted-foreground">A calcular</span>} />
+            {discountCents > 0 && (
+              <Row label={`Desconto PIX (${pixDiscountPercent}%)`} value={<span className="text-primary">- {formatCents(discountCents)}</span>} />
+            )}
             <div className="flex justify-between pt-2 text-base font-bold">
               <span>Total</span><span className="text-primary">{formatCents(total)}</span>
             </div>
           </div>
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Lock className="h-3 w-3" /> Pagamento seguro via Mercado Pago
+            <Lock className="h-3 w-3" /> Pagamento seguro
           </p>
         </aside>
 
