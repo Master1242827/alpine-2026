@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       cabin_types: {
         Row: {
+          active: boolean
           description: string | null
           display_order: number
           id: string
@@ -23,6 +24,7 @@ export type Database = {
           name: string
         }
         Insert: {
+          active?: boolean
           description?: string | null
           display_order?: number
           id?: string
@@ -30,6 +32,7 @@ export type Database = {
           name: string
         }
         Update: {
+          active?: boolean
           description?: string | null
           display_order?: number
           id?: string
@@ -306,18 +309,21 @@ export type Database = {
       }
       vehicle_makes: {
         Row: {
+          active: boolean
           display_order: number
           id: string
           image_url: string | null
           name: string
         }
         Insert: {
+          active?: boolean
           display_order?: number
           id?: string
           image_url?: string | null
           name: string
         }
         Update: {
+          active?: boolean
           display_order?: number
           id?: string
           image_url?: string | null
@@ -327,28 +333,37 @@ export type Database = {
       }
       vehicle_models: {
         Row: {
+          active: boolean
           display_order: number
           id: string
           image_url: string | null
           make_id: string | null
           name: string
+          year_from: number | null
           year_range: string | null
+          year_to: number | null
         }
         Insert: {
+          active?: boolean
           display_order?: number
           id?: string
           image_url?: string | null
           make_id?: string | null
           name: string
+          year_from?: number | null
           year_range?: string | null
+          year_to?: number | null
         }
         Update: {
+          active?: boolean
           display_order?: number
           id?: string
           image_url?: string | null
           make_id?: string | null
           name?: string
+          year_from?: number | null
           year_range?: string | null
+          year_to?: number | null
         }
         Relationships: [
           {
@@ -362,6 +377,7 @@ export type Database = {
       }
       vehicle_product_map: {
         Row: {
+          active: boolean
           cabin_type_id: string | null
           id: string
           model_id: string | null
@@ -370,6 +386,7 @@ export type Database = {
           year_to: number | null
         }
         Insert: {
+          active?: boolean
           cabin_type_id?: string | null
           id?: string
           model_id?: string | null
@@ -378,6 +395,7 @@ export type Database = {
           year_to?: number | null
         }
         Update: {
+          active?: boolean
           cabin_type_id?: string | null
           id?: string
           model_id?: string | null
