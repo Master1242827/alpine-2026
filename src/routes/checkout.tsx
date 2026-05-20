@@ -370,7 +370,47 @@ function CheckoutPage() {
             )}
           </Section>
 
-          <Section icon={<CheckCircle2 className="h-4 w-4" />} title="Observações" step={4}>
+          <Section icon={<CreditCard className="h-4 w-4" />} title="Forma de pagamento" step={4}>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("mercadopago")}
+                className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left transition ${paymentMethod === "mercadopago" ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
+              >
+                <CreditCard className="mt-0.5 h-5 w-5 text-primary" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold">Cartão / Boleto</p>
+                  <p className="text-xs text-muted-foreground">Mercado Pago — até 10x</p>
+                  <p className="mt-1 text-sm font-bold">{formatCents(baseTotal)}</p>
+                </div>
+              </button>
+              {pixSettings?.pix_enabled && (
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("pix")}
+                  className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left transition ${paymentMethod === "pix" ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
+                >
+                  <QrCode className="mt-0.5 h-5 w-5 text-primary" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold">
+                      PIX{" "}
+                      {pixDiscountPercent > 0 && (
+                        <span className="rounded bg-primary/15 px-1.5 py-0.5 text-xs text-primary">
+                          -{pixDiscountPercent}%
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Aprovação rápida</p>
+                    <p className="mt-1 text-sm font-bold text-primary">
+                      {formatCents(baseTotal - Math.round((baseTotal * pixDiscountPercent) / 100))}
+                    </p>
+                  </div>
+                </button>
+              )}
+            </div>
+          </Section>
+
+          <Section icon={<CheckCircle2 className="h-4 w-4" />} title="Observações" step={5}>
             <Textarea rows={3} value={form.notes} onChange={set("notes")} placeholder="Modelo do veículo, ano, cor da capota, etc. (opcional)" />
           </Section>
 
