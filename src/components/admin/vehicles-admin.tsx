@@ -9,12 +9,17 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus, ImageIcon } from "lucide-react";
+import { Pencil, Trash2, Plus, ImageIcon, ChevronUp, ChevronDown } from "lucide-react";
 
 type Make = { id: string; name: string; image_url: string | null; display_order: number; active: boolean };
 type Model = { id: string; make_id: string; name: string; image_url: string | null; year_from: number | null; year_to: number | null; year_range: string | null; display_order: number; active: boolean };
 type Cabin = { id: string; name: string; description: string | null; image_url: string | null; display_order: number; active: boolean };
-type Mapping = { id: string; model_id: string | null; cabin_type_id: string | null; product_id: string | null; year_from: number | null; year_to: number | null; active: boolean };
+type Mapping = { id: string; model_id: string | null; cabin_type_id: string | null; product_id: string | null; year_from: number | null; year_to: number | null; active: boolean; answers: Record<string, string> | null };
+type Question = { id: string; key: string; label: string; help_text: string | null; type: string; active: boolean };
+type Option = { id: string; question_id: string; value: string; label: string; image_url: string | null; display_order: number; active: boolean };
+type Flow = { id: string; model_id: string; question_id: string; year_from: number | null; year_to: number | null; display_order: number; required: boolean; active: boolean };
+
+const sb = supabase as any;
 
 export function VehiclesAdmin() {
   return (
@@ -23,11 +28,15 @@ export function VehiclesAdmin() {
         <TabsTrigger value="makes">Marcas</TabsTrigger>
         <TabsTrigger value="models">Modelos</TabsTrigger>
         <TabsTrigger value="cabins">Cabines</TabsTrigger>
+        <TabsTrigger value="questions">Perguntas</TabsTrigger>
+        <TabsTrigger value="flows">Fluxos</TabsTrigger>
         <TabsTrigger value="mappings">Compatibilidades</TabsTrigger>
       </TabsList>
       <TabsContent value="makes"><MakesPanel /></TabsContent>
       <TabsContent value="models"><ModelsPanel /></TabsContent>
       <TabsContent value="cabins"><CabinsPanel /></TabsContent>
+      <TabsContent value="questions"><QuestionsPanel /></TabsContent>
+      <TabsContent value="flows"><FlowsPanel /></TabsContent>
       <TabsContent value="mappings"><MappingsPanel /></TabsContent>
     </Tabs>
   );
@@ -83,9 +92,7 @@ function MakesPanel() {
     if (res.error) return toast.error(res.error.message);
     toast.success("Marca salva"); setEditing(null); load();
   };
-  const toggle = async (m: Make) => {
-    await supabase.from("vehicle_makes").update({ active: !m.active }).eq("id", m.id); load();
-  };
+  const toggle = async (m: Make) => { await supabase.from("vehicle_makes").update({ active: !m.active }).eq("id", m.id); load(); };
   const remove = async (m: Make) => {
     if (!confirm(`Excluir "${m.name}"? Modelos vinculados serão removidos.`)) return;
     const { error } = await supabase.from("vehicle_makes").delete().eq("id", m.id);
@@ -300,30 +307,341 @@ function CabinsPanel() {
   );
 }
 
+// ---------- Perguntas ----------
+function QuestionsPanel() {
+  const [items, setItems] = useState<Question[]>([]);
+  const [options, setOptions] = useState<Option[]>([]);
+  const [editing, setEditing] = useState<Partial<Question> | null>(null);
+  const [optionsFor, setOptionsFor] = useState<Question | null>(null);
+
+  const load = async () => {
+    const [q, o] = await Promise.all([
+      sb.from("configurator_questions").select("*").order("label"),
+      sb.from("configurator_options").select("*").order("display_order"),
+    ]);
+    setItems((q.data as Question[]) ?? []);
+    setOptions((o.data as Option[]) ?? []);
+  };
+  useEffect(() => { load(); }, []);
+
+  const save = async () => {
+    if (!editing?.key || !editing?.label) return toast.error("Chave e rótulo são obrigatórios");
+    const payload = {
+      key: editing.key.toLowerCase().replace(/[^a-z0-9_]/g, "_"),
+      label: editing.label,
+      help_text: editing.help_text ?? null,
+      type: "single_choice",
+      active: editing.active ?? true,
+    };
+    const res = editing.id
+      ? await sb.from("configurator_questions").update(payload).eq("id", editing.id)
+      : await sb.from("configurator_questions").insert(payload);
+    if (res.error) return toast.error(res.error.message);
+    toast.success("Pergunta salva"); setEditing(null); load();
+  };
+  const toggle = async (q: Question) => { await sb.from("configurator_questions").update({ active: !q.active }).eq("id", q.id); load(); };
+  const remove = async (q: Question) => {
+    if (!confirm(`Excluir pergunta "${q.label}"? Opções e fluxos vinculados serão removidos.`)) return;
+    const { error } = await sb.from("configurator_questions").delete().eq("id", q.id);
+    if (error) return toast.error(error.message);
+    load();
+  };
+
+  return (
+    <div className="mt-4 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-lg font-semibold">{items.length} pergunta(s)</h3>
+        <Button onClick={() => setEditing({ active: true })}><Plus className="mr-1 h-4 w-4" /> Nova pergunta</Button>
+      </div>
+
+      {editing && (
+        <Card className="space-y-3 p-4">
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <Label>Chave técnica</Label>
+              <Input value={editing.key ?? ""} onChange={(e) => setEditing({ ...editing, key: e.target.value })} placeholder="ex: cabine, versao, grade" />
+              <p className="mt-1 text-xs text-muted-foreground">Use letras minúsculas, sem espaços. É como o sistema identifica a pergunta.</p>
+            </div>
+            <div>
+              <Label>Rótulo (texto da pergunta)</Label>
+              <Input value={editing.label ?? ""} onChange={(e) => setEditing({ ...editing, label: e.target.value })} placeholder="ex: Qual o tipo de cabine?" />
+            </div>
+          </div>
+          <div><Label>Texto de ajuda (opcional)</Label><Textarea rows={2} value={editing.help_text ?? ""} onChange={(e) => setEditing({ ...editing, help_text: e.target.value })} /></div>
+          <label className="flex items-center gap-2 text-sm"><Switch checked={editing.active ?? true} onCheckedChange={(v) => setEditing({ ...editing, active: v })} /> Ativa</label>
+          <div className="flex gap-2"><Button onClick={save}>Salvar</Button><Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button></div>
+        </Card>
+      )}
+
+      <div className="grid gap-2">
+        {items.map((q) => {
+          const count = options.filter((o) => o.question_id === q.id).length;
+          return (
+            <Card key={q.id} className="flex flex-wrap items-center gap-3 p-3">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium truncate">{q.label}</p>
+                <p className="text-xs text-muted-foreground">chave: <code>{q.key}</code> · {count} opção(ões)</p>
+              </div>
+              {!q.active && <Badge variant="secondary">Inativa</Badge>}
+              <Button variant="outline" size="sm" onClick={() => setOptionsFor(q)}>Opções</Button>
+              <Switch checked={q.active} onCheckedChange={() => toggle(q)} />
+              <Button variant="ghost" size="icon" onClick={() => setEditing(q)}><Pencil className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => remove(q)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+            </Card>
+          );
+        })}
+        {items.length === 0 && (
+          <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            Nenhuma pergunta cadastrada. Crie perguntas como "Cabine", "Versão", "Grade", "Ganchos", "Estepe" — depois associe a modelos na aba Fluxos.
+          </div>
+        )}
+      </div>
+
+      {optionsFor && (
+        <OptionsEditor
+          question={optionsFor}
+          onClose={() => { setOptionsFor(null); load(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function OptionsEditor({ question, onClose }: { question: Question; onClose: () => void }) {
+  const [items, setItems] = useState<Option[]>([]);
+  const [editing, setEditing] = useState<Partial<Option> | null>(null);
+
+  const load = async () => {
+    const { data } = await sb.from("configurator_options").select("*").eq("question_id", question.id).order("display_order");
+    setItems((data as Option[]) ?? []);
+  };
+  useEffect(() => { load(); }, [question.id]);
+
+  const save = async () => {
+    if (!editing?.value || !editing?.label) return toast.error("Valor e rótulo são obrigatórios");
+    const payload = {
+      question_id: question.id,
+      value: editing.value.toLowerCase().replace(/[^a-z0-9_-]/g, "_"),
+      label: editing.label,
+      image_url: editing.image_url ?? null,
+      display_order: editing.display_order ?? items.length,
+      active: editing.active ?? true,
+    };
+    const res = editing.id
+      ? await sb.from("configurator_options").update(payload).eq("id", editing.id)
+      : await sb.from("configurator_options").insert(payload);
+    if (res.error) return toast.error(res.error.message);
+    toast.success("Opção salva"); setEditing(null); load();
+  };
+  const remove = async (o: Option) => {
+    if (!confirm(`Excluir opção "${o.label}"?`)) return;
+    await sb.from("configurator_options").delete().eq("id", o.id); load();
+  };
+
+  return (
+    <Card className="space-y-3 border-primary/40 p-4">
+      <div className="flex items-center justify-between">
+        <h4 className="font-semibold">Opções de "{question.label}"</h4>
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => setEditing({ active: true, display_order: items.length })}><Plus className="mr-1 h-4 w-4" /> Nova opção</Button>
+          <Button size="sm" variant="outline" onClick={onClose}>Fechar</Button>
+        </div>
+      </div>
+
+      {editing && (
+        <Card className="space-y-3 bg-muted/30 p-3">
+          <div className="grid gap-2 md:grid-cols-3">
+            <div><Label>Valor</Label><Input value={editing.value ?? ""} onChange={(e) => setEditing({ ...editing, value: e.target.value })} placeholder="ex: dupla, simples, sim, nao" /></div>
+            <div><Label>Rótulo</Label><Input value={editing.label ?? ""} onChange={(e) => setEditing({ ...editing, label: e.target.value })} placeholder="ex: Cabine dupla" /></div>
+            <div><Label>Ordem</Label><Input type="number" value={editing.display_order ?? 0} onChange={(e) => setEditing({ ...editing, display_order: parseInt(e.target.value || "0") })} /></div>
+          </div>
+          <div><Label>Imagem (opcional)</Label><ImageField value={editing.image_url ?? null} onChange={(v) => setEditing({ ...editing, image_url: v })} /></div>
+          <label className="flex items-center gap-2 text-sm"><Switch checked={editing.active ?? true} onCheckedChange={(v) => setEditing({ ...editing, active: v })} /> Ativa</label>
+          <div className="flex gap-2"><Button size="sm" onClick={save}>Salvar</Button><Button size="sm" variant="outline" onClick={() => setEditing(null)}>Cancelar</Button></div>
+        </Card>
+      )}
+
+      <div className="grid gap-2">
+        {items.map((o) => (
+          <div key={o.id} className="flex items-center gap-2 rounded border border-border bg-background p-2">
+            <div className="h-10 w-10 shrink-0 overflow-hidden rounded bg-muted">
+              {o.image_url ? <img src={o.image_url} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">—</div>}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">{o.label}</p>
+              <p className="text-xs text-muted-foreground">valor: <code>{o.value}</code></p>
+            </div>
+            {!o.active && <Badge variant="secondary" className="text-xs">Inativa</Badge>}
+            <Button size="icon" variant="ghost" onClick={() => setEditing(o)}><Pencil className="h-4 w-4" /></Button>
+            <Button size="icon" variant="ghost" onClick={() => remove(o)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+          </div>
+        ))}
+        {items.length === 0 && <p className="rounded border border-dashed border-border p-3 text-center text-xs text-muted-foreground">Sem opções ainda.</p>}
+      </div>
+    </Card>
+  );
+}
+
+// ---------- Fluxos por veículo ----------
+function FlowsPanel() {
+  const [makes, setMakes] = useState<Make[]>([]);
+  const [models, setModels] = useState<Model[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [flows, setFlows] = useState<Flow[]>([]);
+  const [filterMake, setFilterMake] = useState("");
+  const [selectedModel, setSelectedModel] = useState<string>("");
+
+  const load = async () => {
+    const [ma, mo, q, f] = await Promise.all([
+      supabase.from("vehicle_makes").select("*").order("display_order"),
+      supabase.from("vehicle_models").select("*").order("display_order"),
+      sb.from("configurator_questions").select("*").eq("active", true).order("label"),
+      sb.from("vehicle_question_flow").select("*").order("display_order"),
+    ]);
+    setMakes((ma.data as Make[]) ?? []);
+    setModels((mo.data as Model[]) ?? []);
+    setQuestions((q.data as Question[]) ?? []);
+    setFlows((f.data as Flow[]) ?? []);
+  };
+  useEffect(() => { load(); }, []);
+
+  const modelOptions = filterMake ? models.filter((m) => m.make_id === filterMake) : models;
+  const modelFlows = flows.filter((f) => f.model_id === selectedModel).sort((a, b) => a.display_order - b.display_order);
+  const usedQuestionIds = new Set(modelFlows.map((f) => f.question_id));
+  const available = questions.filter((q) => !usedQuestionIds.has(q.id));
+
+  const addQuestion = async (questionId: string) => {
+    if (!selectedModel) return;
+    const { error } = await sb.from("vehicle_question_flow").insert({
+      model_id: selectedModel, question_id: questionId,
+      display_order: modelFlows.length, required: true, active: true,
+    });
+    if (error) return toast.error(error.message);
+    load();
+  };
+  const removeFlow = async (id: string) => { await sb.from("vehicle_question_flow").delete().eq("id", id); load(); };
+  const toggleFlow = async (f: Flow) => { await sb.from("vehicle_question_flow").update({ active: !f.active }).eq("id", f.id); load(); };
+  const move = async (f: Flow, dir: -1 | 1) => {
+    const idx = modelFlows.findIndex((x) => x.id === f.id);
+    const swap = modelFlows[idx + dir];
+    if (!swap) return;
+    await Promise.all([
+      sb.from("vehicle_question_flow").update({ display_order: swap.display_order }).eq("id", f.id),
+      sb.from("vehicle_question_flow").update({ display_order: f.display_order }).eq("id", swap.id),
+    ]);
+    load();
+  };
+  const updateYears = async (f: Flow, yf: number | null, yt: number | null) => {
+    await sb.from("vehicle_question_flow").update({ year_from: yf, year_to: yt }).eq("id", f.id);
+    load();
+  };
+
+  const selectedModelObj = models.find((m) => m.id === selectedModel);
+
+  return (
+    <div className="mt-4 space-y-4">
+      <div className="flex flex-wrap gap-2">
+        <select value={filterMake} onChange={(e) => { setFilterMake(e.target.value); setSelectedModel(""); }} className="rounded border bg-background px-3 py-2 text-sm">
+          <option value="">Selecione a marca…</option>
+          {makes.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+        </select>
+        <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="rounded border bg-background px-3 py-2 text-sm" disabled={!filterMake}>
+          <option value="">Selecione o modelo…</option>
+          {modelOptions.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+        </select>
+      </div>
+
+      {!selectedModel && (
+        <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+          Escolha uma marca e um modelo para configurar o fluxo de perguntas do configurador.
+        </div>
+      )}
+
+      {selectedModel && (
+        <div className="space-y-4">
+          <Card className="p-4">
+            <h4 className="font-semibold">Perguntas do fluxo — {selectedModelObj?.name}</h4>
+            <p className="mt-1 text-xs text-muted-foreground">Na ordem em que serão apresentadas ao cliente. Use a faixa de anos para variar perguntas entre gerações do mesmo modelo (deixe em branco para todos os anos).</p>
+            <div className="mt-3 space-y-2">
+              {modelFlows.map((f, i) => {
+                const q = questions.find((x) => x.id === f.question_id);
+                return (
+                  <div key={f.id} className="flex flex-wrap items-center gap-2 rounded border border-border bg-background p-2">
+                    <div className="flex flex-col">
+                      <button onClick={() => move(f, -1)} disabled={i === 0} className="disabled:opacity-30"><ChevronUp className="h-3 w-3" /></button>
+                      <button onClick={() => move(f, 1)} disabled={i === modelFlows.length - 1} className="disabled:opacity-30"><ChevronDown className="h-3 w-3" /></button>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{q?.label ?? "?"}</p>
+                      <p className="text-xs text-muted-foreground">chave: <code>{q?.key}</code></p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Input type="number" placeholder="de" className="h-8 w-20 text-xs"
+                        defaultValue={f.year_from ?? ""}
+                        onBlur={(e) => updateYears(f, e.target.value ? parseInt(e.target.value) : null, f.year_to)} />
+                      <span className="text-xs text-muted-foreground">a</span>
+                      <Input type="number" placeholder="até" className="h-8 w-20 text-xs"
+                        defaultValue={f.year_to ?? ""}
+                        onBlur={(e) => updateYears(f, f.year_from, e.target.value ? parseInt(e.target.value) : null)} />
+                    </div>
+                    {!f.active && <Badge variant="secondary" className="text-xs">Inativa</Badge>}
+                    <Switch checked={f.active} onCheckedChange={() => toggleFlow(f)} />
+                    <Button size="icon" variant="ghost" onClick={() => removeFlow(f.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  </div>
+                );
+              })}
+              {modelFlows.length === 0 && <p className="rounded border border-dashed border-border p-3 text-center text-xs text-muted-foreground">Sem perguntas — adicione abaixo.</p>}
+            </div>
+          </Card>
+
+          {available.length > 0 && (
+            <Card className="p-4">
+              <h4 className="text-sm font-semibold">Adicionar pergunta ao fluxo</h4>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {available.map((q) => (
+                  <Button key={q.id} size="sm" variant="outline" onClick={() => addQuestion(q.id)}>
+                    <Plus className="mr-1 h-3 w-3" /> {q.label}
+                  </Button>
+                ))}
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---------- Compatibilidades ----------
 function MappingsPanel() {
   const [items, setItems] = useState<Mapping[]>([]);
   const [makes, setMakes] = useState<Make[]>([]);
   const [models, setModels] = useState<Model[]>([]);
-  const [cabins, setCabins] = useState<Cabin[]>([]);
   const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [options, setOptions] = useState<Option[]>([]);
+  const [flows, setFlows] = useState<Flow[]>([]);
   const [editing, setEditing] = useState<(Partial<Mapping> & { _make_id?: string }) | null>(null);
   const [filterMake, setFilterMake] = useState("");
   const [filterModel, setFilterModel] = useState("");
 
   const load = async () => {
-    const [vpm, ma, mo, c, p] = await Promise.all([
-      supabase.from("vehicle_product_map").select("*"),
+    const [vpm, ma, mo, p, q, o, f] = await Promise.all([
+      sb.from("vehicle_product_map").select("*"),
       supabase.from("vehicle_makes").select("*").order("display_order"),
       supabase.from("vehicle_models").select("*").order("display_order"),
-      supabase.from("cabin_types").select("*").order("display_order"),
       supabase.from("products").select("id, name").order("name"),
+      sb.from("configurator_questions").select("*"),
+      sb.from("configurator_options").select("*").order("display_order"),
+      sb.from("vehicle_question_flow").select("*").order("display_order"),
     ]);
     setItems((vpm.data as Mapping[]) ?? []);
     setMakes((ma.data as Make[]) ?? []);
     setModels((mo.data as Model[]) ?? []);
-    setCabins((c.data as Cabin[]) ?? []);
     setProducts((p.data as any) ?? []);
+    setQuestions((q.data as Question[]) ?? []);
+    setOptions((o.data as Option[]) ?? []);
+    setFlows((f.data as Flow[]) ?? []);
   };
   useEffect(() => { load(); }, []);
 
@@ -338,25 +656,37 @@ function MappingsPanel() {
   });
 
   const save = async () => {
-    if (!editing?.model_id || !editing?.cabin_type_id || !editing?.product_id) return toast.error("Modelo, cabine e produto são obrigatórios");
+    if (!editing?.model_id || !editing?.product_id) return toast.error("Modelo e produto são obrigatórios");
     const payload = {
-      model_id: editing.model_id, cabin_type_id: editing.cabin_type_id, product_id: editing.product_id,
-      year_from: editing.year_from ?? null, year_to: editing.year_to ?? null, active: editing.active ?? true,
+      model_id: editing.model_id,
+      cabin_type_id: editing.cabin_type_id ?? null,
+      product_id: editing.product_id,
+      year_from: editing.year_from ?? null,
+      year_to: editing.year_to ?? null,
+      active: editing.active ?? true,
+      answers: editing.answers ?? {},
     };
     const res = editing.id
-      ? await supabase.from("vehicle_product_map").update(payload).eq("id", editing.id)
-      : await supabase.from("vehicle_product_map").insert(payload);
+      ? await sb.from("vehicle_product_map").update(payload).eq("id", editing.id)
+      : await sb.from("vehicle_product_map").insert(payload);
     if (res.error) return toast.error(res.error.message);
     toast.success("Compatibilidade salva"); setEditing(null); load();
   };
-  const toggle = async (m: Mapping) => { await supabase.from("vehicle_product_map").update({ active: !m.active }).eq("id", m.id); load(); };
+  const toggle = async (m: Mapping) => { await sb.from("vehicle_product_map").update({ active: !m.active }).eq("id", m.id); load(); };
   const remove = async (m: Mapping) => {
     if (!confirm("Excluir esta compatibilidade?")) return;
-    await supabase.from("vehicle_product_map").delete().eq("id", m.id); load();
+    await sb.from("vehicle_product_map").delete().eq("id", m.id); load();
   };
 
   const editMakeId = editing?._make_id || (editing?.model_id ? modelMakeMap.get(editing.model_id) : "") || "";
   const modelOptions = editMakeId ? models.filter((m) => m.make_id === editMakeId) : models;
+
+  // Dynamic questions of the selected model
+  const modelFlowQuestions = useMemo(() => {
+    if (!editing?.model_id) return [];
+    const fs = flows.filter((f) => f.model_id === editing.model_id && f.active).sort((a, b) => a.display_order - b.display_order);
+    return fs.map((f) => questions.find((q) => q.id === f.question_id)).filter(Boolean) as Question[];
+  }, [editing?.model_id, flows, questions]);
 
   return (
     <div className="mt-4 space-y-4">
@@ -371,7 +701,7 @@ function MappingsPanel() {
             <option value="">Todos os modelos</option>
             {(filterMake ? models.filter((m) => m.make_id === filterMake) : models).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
-          <Button onClick={() => setEditing({ active: true })}><Plus className="mr-1 h-4 w-4" /> Nova</Button>
+          <Button onClick={() => setEditing({ active: true, answers: {} })}><Plus className="mr-1 h-4 w-4" /> Nova</Button>
         </div>
       </div>
 
@@ -380,23 +710,16 @@ function MappingsPanel() {
           <div className="grid gap-3 md:grid-cols-2">
             <div>
               <Label>Marca</Label>
-              <select value={editMakeId} onChange={(e) => setEditing({ ...editing, _make_id: e.target.value, model_id: undefined })} className="w-full rounded border bg-background px-3 py-2 text-sm">
+              <select value={editMakeId} onChange={(e) => setEditing({ ...editing, _make_id: e.target.value, model_id: undefined, answers: {} })} className="w-full rounded border bg-background px-3 py-2 text-sm">
                 <option value="">Selecione…</option>
                 {makes.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
             </div>
             <div>
               <Label>Modelo</Label>
-              <select value={editing.model_id ?? ""} onChange={(e) => setEditing({ ...editing, model_id: e.target.value })} className="w-full rounded border bg-background px-3 py-2 text-sm">
+              <select value={editing.model_id ?? ""} onChange={(e) => setEditing({ ...editing, model_id: e.target.value, answers: {} })} className="w-full rounded border bg-background px-3 py-2 text-sm">
                 <option value="">Selecione…</option>
                 {modelOptions.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <Label>Cabine</Label>
-              <select value={editing.cabin_type_id ?? ""} onChange={(e) => setEditing({ ...editing, cabin_type_id: e.target.value })} className="w-full rounded border bg-background px-3 py-2 text-sm">
-                <option value="">Selecione…</option>
-                {cabins.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
@@ -406,10 +729,46 @@ function MappingsPanel() {
                 {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
-            <div><Label>Ano inicial (opcional)</Label><Input type="number" value={editing.year_from ?? ""} onChange={(e) => setEditing({ ...editing, year_from: e.target.value ? parseInt(e.target.value) : null })} /></div>
-            <div><Label>Ano final (opcional)</Label><Input type="number" value={editing.year_to ?? ""} onChange={(e) => setEditing({ ...editing, year_to: e.target.value ? parseInt(e.target.value) : null })} /></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div><Label>Ano inicial</Label><Input type="number" value={editing.year_from ?? ""} onChange={(e) => setEditing({ ...editing, year_from: e.target.value ? parseInt(e.target.value) : null })} /></div>
+              <div><Label>Ano final</Label><Input type="number" value={editing.year_to ?? ""} onChange={(e) => setEditing({ ...editing, year_to: e.target.value ? parseInt(e.target.value) : null })} /></div>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground">Deixe os anos em branco para valer para todos os anos do modelo.</p>
+
+          {editing.model_id && (
+            <div className="rounded border border-border bg-muted/30 p-3">
+              <h4 className="text-sm font-semibold">Respostas que ativam este produto</h4>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Marque "qualquer" para que essa resposta não influencie. Só perguntas configuradas no fluxo do modelo aparecem aqui.
+              </p>
+              {modelFlowQuestions.length === 0 && <p className="mt-2 text-xs text-muted-foreground">Esse modelo ainda não tem perguntas no fluxo. Vá na aba <strong>Fluxos</strong> para configurar.</p>}
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                {modelFlowQuestions.map((q) => {
+                  const opts = options.filter((o) => o.question_id === q.id && o.active);
+                  const current = editing.answers?.[q.key] ?? "";
+                  return (
+                    <div key={q.id}>
+                      <Label className="text-xs">{q.label}</Label>
+                      <select
+                        value={current}
+                        onChange={(e) => {
+                          const next = { ...(editing.answers ?? {}) };
+                          if (e.target.value) next[q.key] = e.target.value;
+                          else delete next[q.key];
+                          setEditing({ ...editing, answers: next });
+                        }}
+                        className="w-full rounded border bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="">(qualquer)</option>
+                        {opts.map((o) => <option key={o.id} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <label className="flex items-center gap-2 text-sm"><Switch checked={editing.active ?? true} onCheckedChange={(v) => setEditing({ ...editing, active: v })} /> Ativa</label>
           <div className="flex gap-2"><Button onClick={save}>Salvar</Button><Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button></div>
         </Card>
@@ -419,14 +778,21 @@ function MappingsPanel() {
         {filtered.map((it) => {
           const model = models.find((m) => m.id === it.model_id);
           const make = model ? makes.find((m) => m.id === model.make_id) : null;
-          const cabin = cabins.find((c) => c.id === it.cabin_type_id);
           const product = products.find((p) => p.id === it.product_id);
           const years = it.year_from || it.year_to ? `${it.year_from ?? "—"}–${it.year_to ?? "—"}` : "todos anos";
+          const ansEntries = Object.entries(it.answers ?? {});
           return (
             <Card key={it.id} className="flex flex-wrap items-center gap-3 p-3">
               <div className="min-w-0 flex-1">
-                <p className="font-medium truncate">{make?.name} {model?.name} · {cabin?.name} · {years}</p>
+                <p className="font-medium truncate">{make?.name} {model?.name} · {years}</p>
                 <p className="text-xs text-muted-foreground truncate">→ {product?.name ?? <span className="text-destructive">produto removido</span>}</p>
+                {ansEntries.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {ansEntries.map(([k, v]) => (
+                      <span key={k} className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{k}: <strong>{v}</strong></span>
+                    ))}
+                  </div>
+                )}
               </div>
               {!it.active && <Badge variant="secondary">Inativa</Badge>}
               <Switch checked={it.active} onCheckedChange={() => toggle(it)} />
@@ -437,7 +803,7 @@ function MappingsPanel() {
         })}
         {filtered.length === 0 && (
           <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-            Nenhuma compatibilidade cadastrada. Adicione uma para que o configurador encontre o produto certo.
+            Nenhuma compatibilidade cadastrada. Crie uma para que o configurador encontre o produto certo.
           </div>
         )}
       </div>
