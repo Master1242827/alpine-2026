@@ -572,28 +572,52 @@ function FlowsPanel() {
             <div className="mt-3 space-y-2">
               {modelFlows.map((f, i) => {
                 const q = questions.find((x) => x.id === f.question_id);
+                const qOpts = options.filter((o) => o.question_id === f.question_id);
                 return (
-                  <div key={f.id} className="flex flex-wrap items-center gap-2 rounded border border-border bg-background p-2">
-                    <div className="flex flex-col">
-                      <button onClick={() => move(f, -1)} disabled={i === 0} className="disabled:opacity-30"><ChevronUp className="h-3 w-3" /></button>
-                      <button onClick={() => move(f, 1)} disabled={i === modelFlows.length - 1} className="disabled:opacity-30"><ChevronDown className="h-3 w-3" /></button>
+                  <div key={f.id} className="rounded border border-border bg-background p-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-col">
+                        <button onClick={() => move(f, -1)} disabled={i === 0} className="disabled:opacity-30"><ChevronUp className="h-3 w-3" /></button>
+                        <button onClick={() => move(f, 1)} disabled={i === modelFlows.length - 1} className="disabled:opacity-30"><ChevronDown className="h-3 w-3" /></button>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium">{q?.label ?? "?"}</p>
+                        <p className="text-xs text-muted-foreground">chave: <code>{q?.key}</code></p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Input type="number" placeholder="de" className="h-8 w-20 text-xs"
+                          defaultValue={f.year_from ?? ""}
+                          onBlur={(e) => updateYears(f, e.target.value ? parseInt(e.target.value) : null, f.year_to)} />
+                        <span className="text-xs text-muted-foreground">a</span>
+                        <Input type="number" placeholder="até" className="h-8 w-20 text-xs"
+                          defaultValue={f.year_to ?? ""}
+                          onBlur={(e) => updateYears(f, f.year_from, e.target.value ? parseInt(e.target.value) : null)} />
+                      </div>
+                      {!f.active && <Badge variant="secondary" className="text-xs">Inativa</Badge>}
+                      {f.hidden && <Badge className="text-xs">Oculta</Badge>}
+                      <Switch checked={f.active} onCheckedChange={() => toggleFlow(f)} />
+                      <Button size="icon" variant="ghost" onClick={() => removeFlow(f.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">{q?.label ?? "?"}</p>
-                      <p className="text-xs text-muted-foreground">chave: <code>{q?.key}</code></p>
+                    <div className="mt-2 flex flex-wrap items-center gap-3 border-t border-dashed border-border pt-2">
+                      <label className="flex items-center gap-2 text-xs">
+                        <Switch checked={!!f.hidden} onCheckedChange={(v) => updateFlow(f, { hidden: v })} />
+                        Ocultar do cliente
+                      </label>
+                      <div className="flex items-center gap-1">
+                        <Label className="text-xs text-muted-foreground">Resposta automática:</Label>
+                        <select
+                          value={f.auto_answer ?? ""}
+                          onChange={(e) => updateFlow(f, { auto_answer: e.target.value || null })}
+                          className="h-8 rounded border bg-background px-2 text-xs"
+                        >
+                          <option value="">— nenhuma —</option>
+                          {qOpts.map((o) => <option key={o.id} value={o.value}>{o.label}</option>)}
+                        </select>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">
+                        Oculta + resposta automática = item de fábrica (ex.: ganchos sempre "sim").
+                      </span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Input type="number" placeholder="de" className="h-8 w-20 text-xs"
-                        defaultValue={f.year_from ?? ""}
-                        onBlur={(e) => updateYears(f, e.target.value ? parseInt(e.target.value) : null, f.year_to)} />
-                      <span className="text-xs text-muted-foreground">a</span>
-                      <Input type="number" placeholder="até" className="h-8 w-20 text-xs"
-                        defaultValue={f.year_to ?? ""}
-                        onBlur={(e) => updateYears(f, f.year_from, e.target.value ? parseInt(e.target.value) : null)} />
-                    </div>
-                    {!f.active && <Badge variant="secondary" className="text-xs">Inativa</Badge>}
-                    <Switch checked={f.active} onCheckedChange={() => toggleFlow(f)} />
-                    <Button size="icon" variant="ghost" onClick={() => removeFlow(f.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </div>
                 );
               })}
