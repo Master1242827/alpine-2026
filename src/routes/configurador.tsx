@@ -166,7 +166,10 @@ function Configurator() {
       if (!r.products?.active) return false;
       const required = (r.answers ?? {}) as Record<string, string>;
       for (const k of Object.keys(required)) {
-        if (userAns[k] !== required[k]) return false;
+        const req = required[k];
+        // wildcards: empty, "*", or "qualquer" mean "any value accepted"
+        if (req == null || req === "" || req === "*" || req === "qualquer") continue;
+        if (userAns[k] !== req) return false;
       }
       return true;
     });
