@@ -31,6 +31,11 @@ function CheckoutPage() {
   const [shipOptions, setShipOptions] = useState<ShipOption[]>([]);
   const [selectedShip, setSelectedShip] = useState<ShipOption | null>(null);
   const [showSummary, setShowSummary] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"mercadopago" | "pix">("mercadopago");
+  const [pixSettings, setPixSettings] = useState<{
+    pix_enabled: boolean;
+    pix_discount_percent: number;
+  } | null>(null);
   const [form, setForm] = useState({
     name: "", email: "", phone: "",
     cep: "", street: "", number: "", complement: "",
@@ -38,8 +43,23 @@ function CheckoutPage() {
   });
   const numberRef = useRef<HTMLInputElement>(null);
   const shippingCostCents = selectedShip?.priceCents ?? 0;
-  const total = subtotalCents + shippingCostCents;
+  const baseTotal = subtotalCents + shippingCostCents;
+  const pixDiscountPercent = pixSettings?.pix_enabled ? Number(pixSettings.pix_discount_percent) || 0 : 0;
+  const discountCents =
+    paymentMethod === "pix" ? Math.round((baseTotal * pixDiscountPercent) / 100) : 0;
+  const total = baseTotal - discountCents;
   const lastQuotedCep = useRef<string>("");
+
+  useEffect(() => {
+    supabase
+      .from("store_settings")
+      .select("pix_enabled, pix_discount_percent")
+      .eq("id", 1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setPixSettings(data as any);
+      });
+  }, []);
 
   // Pré-preenche e-mail/nome a partir da conta autenticada
   useEffect(() => {
