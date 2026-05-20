@@ -65,6 +65,80 @@ export type Database = {
         }
         Relationships: []
       }
+      configurator_options: {
+        Row: {
+          active: boolean
+          created_at: string
+          display_order: number
+          id: string
+          image_url: string | null
+          label: string
+          question_id: string
+          value: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          display_order?: number
+          id?: string
+          image_url?: string | null
+          label: string
+          question_id: string
+          value: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          display_order?: number
+          id?: string
+          image_url?: string | null
+          label?: string
+          question_id?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "configurator_options_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "configurator_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      configurator_questions: {
+        Row: {
+          active: boolean
+          created_at: string
+          help_text: string | null
+          id: string
+          key: string
+          label: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          help_text?: string | null
+          id?: string
+          key: string
+          label: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          help_text?: string | null
+          id?: string
+          key?: string
+          label?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           id: string
@@ -378,6 +452,7 @@ export type Database = {
       vehicle_product_map: {
         Row: {
           active: boolean
+          answers: Json
           cabin_type_id: string | null
           id: string
           model_id: string | null
@@ -387,6 +462,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          answers?: Json
           cabin_type_id?: string | null
           id?: string
           model_id?: string | null
@@ -396,6 +472,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          answers?: Json
           cabin_type_id?: string | null
           id?: string
           model_id?: string | null
@@ -423,6 +500,57 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicle_question_flow: {
+        Row: {
+          active: boolean
+          created_at: string
+          display_order: number
+          id: string
+          model_id: string
+          question_id: string
+          required: boolean
+          year_from: number | null
+          year_to: number | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          display_order?: number
+          id?: string
+          model_id: string
+          question_id: string
+          required?: boolean
+          year_from?: number | null
+          year_to?: number | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          display_order?: number
+          id?: string
+          model_id?: string
+          question_id?: string
+          required?: boolean
+          year_from?: number | null
+          year_to?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_question_flow_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_models"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_question_flow_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "configurator_questions"
             referencedColumns: ["id"]
           },
         ]
