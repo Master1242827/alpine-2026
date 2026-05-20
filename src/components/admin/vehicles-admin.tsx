@@ -487,20 +487,23 @@ function FlowsPanel() {
   const [makes, setMakes] = useState<Make[]>([]);
   const [models, setModels] = useState<Model[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [options, setOptions] = useState<Option[]>([]);
   const [flows, setFlows] = useState<Flow[]>([]);
   const [filterMake, setFilterMake] = useState("");
   const [selectedModel, setSelectedModel] = useState<string>("");
 
   const load = async () => {
-    const [ma, mo, q, f] = await Promise.all([
+    const [ma, mo, q, o, f] = await Promise.all([
       supabase.from("vehicle_makes").select("*").order("display_order"),
       supabase.from("vehicle_models").select("*").order("display_order"),
       sb.from("configurator_questions").select("*").eq("active", true).order("label"),
+      sb.from("configurator_options").select("*").eq("active", true).order("display_order"),
       sb.from("vehicle_question_flow").select("*").order("display_order"),
     ]);
     setMakes((ma.data as Make[]) ?? []);
     setModels((mo.data as Model[]) ?? []);
     setQuestions((q.data as Question[]) ?? []);
+    setOptions((o.data as Option[]) ?? []);
     setFlows((f.data as Flow[]) ?? []);
   };
   useEffect(() => { load(); }, []);
