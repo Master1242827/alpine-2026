@@ -98,11 +98,13 @@ function AdminPage() {
           <TabsTrigger value="products">Produtos</TabsTrigger>
           <TabsTrigger value="orders">Pedidos</TabsTrigger>
           <TabsTrigger value="vehicles">Veículos</TabsTrigger>
+          <TabsTrigger value="payments">Pagamentos</TabsTrigger>
           <TabsTrigger value="settings">Configurações</TabsTrigger>
         </TabsList>
         <TabsContent value="products"><ProductsTab /></TabsContent>
         <TabsContent value="orders"><OrdersTab /></TabsContent>
         <TabsContent value="vehicles"><VehiclesAdmin /></TabsContent>
+        <TabsContent value="payments"><PaymentsTab /></TabsContent>
         <TabsContent value="settings"><SettingsTab /></TabsContent>
       </Tabs>
     </div>
@@ -490,5 +492,198 @@ function SettingsTab() {
         toast.success("Configurações salvas");
       }}>Salvar</Button>
     </Card>
+  );
+}
+
+// ============ Payments (PIX) ============
+function PaymentsTab() {
+  const [s, setS] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    supabase.from("store_settings").select("*").eq("id", 1).maybeSingle()
+      .then(({ data }) => setS(data));
+  }, []);
+
+  if (!s) return <p className="mt-4">Carregando…</p>;
+
+  const upload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const path = `pix-qr/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
+      const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+      setS({ ...s, pix_qr_image_url: data.publicUrl });
+      toast.success("QR Code enviado");
+    } catch (err: any) {
+      toast.error(err.message || "Erro no upload");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const save = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("store_settings").update({
+      pix_enabled: s.pix_enabled,
+      pix_key: s.pix_key || "",
+      pix_key_type: s.pix_key_type || "cpf",
+      pix_holder_name: s.pix_holder_name || "",
+      pix_bank: s.pix_bank || "",
+      pix_discount_percent: Number(s.pix_discount_percent) || 0,
+      pix_message: s.pix_message || "",
+      pix_qr_image_url: s.pix_qr_image_url || null,
+      pix_copy_paste: s.pix_copy_paste || null,
+    } as any).eq("id", 1);
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success("Configurações de PIX salvas");
+  };
+
+  return (
+    <div className="mt-4 space-y-6">
+      <Card className="space-y-4 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold">PIX</h2>
+            <p className="text-sm text-muted-foreground">
+              Configure os dados do PIX exibidos ao cliente no checkout.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <Switch
+              checked={!!s.pix_enabled}
+              onCheckedChange={(v) => setS({ ...s, pix_enabled: v })}
+            />
+            {s.pix_enabled ? "Ativo" : "Desativado"}
+          </label>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <Label>Tipo da chave</Label>
+            <select
+              className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
+              value={s.pix_key_type || "cpf"}
+              onChange={(e) => setS({ ...s, pix_key_type: e.target.value })}
+            >
+              <option value="cpf">CPF</option>
+              <option value="cnpj">CNPJ</option>
+              <option value="email">E-mail</option>
+              <option value="phone">Telefone</option>
+              <option value="random">Chave aleatória</option>
+            </select>
+          </div>
+          <div>
+            <Label>Chave PIX</Label>
+            <Input
+              value={s.pix_key || ""}
+              onChange={(e) => setS({ ...s, pix_key: e.target.value })}
+              placeholder="Ex.: 000.000.000-00"
+            />
+          </div>
+          <div>
+            <Label>Nome do favorecido</Label>
+            <Input
+              value={s.pix_holder_name || ""}
+              onChange={(e) => setS({ ...s, pix_holder_name: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label>Banco</Label>
+            <Input
+              value={s.pix_bank || ""}
+              onChange={(e) => setS({ ...s, pix_bank: e.target.value })}
+              placeholder="Ex.: Nubank, Itaú…"
+            />
+          </div>
+          <div>
+            <Label>Desconto no PIX (%)</Label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              step="0.5"
+              value={s.pix_discount_percent ?? 0}
+              onChange={(e) => setS({ ...s, pix_discount_percent: e.target.value })}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Aplicado automaticamente sobre subtotal + frete.
+            </p>
+          </div>
+          <div>
+            <Label>Código PIX Copia e Cola (opcional)</Label>
+            <Input
+              value={s.pix_copy_paste || ""}
+              onChange={(e) => setS({ ...s, pix_copy_paste: e.target.value })}
+              placeholder="EMV gerado pelo seu banco"
+            />
+          </div>
+        </div>
+
+        <div>
+          <Label>Mensagem exibida ao cliente</Label>
+          <Textarea
+            rows={3}
+            value={s.pix_message || ""}
+            onChange={(e) => setS({ ...s, pix_message: e.target.value })}
+            placeholder="Ex.: Após o pagamento, envie o comprovante no WhatsApp."
+          />
+        </div>
+
+        <div>
+          <Label>QR Code PIX (imagem)</Label>
+          <div className="mt-2 flex items-start gap-4">
+            {s.pix_qr_image_url ? (
+              <div className="relative">
+                <img
+                  src={s.pix_qr_image_url}
+                  alt="QR PIX"
+                  className="h-32 w-32 rounded border bg-white object-contain p-1"
+                />
+                <button
+                  type="button"
+                  onClick={() => setS({ ...s, pix_qr_image_url: null })}
+                  className="absolute right-0 top-0 bg-destructive px-1.5 text-xs text-destructive-foreground"
+                >×</button>
+              </div>
+            ) : (
+              <div className="grid h-32 w-32 place-items-center rounded border border-dashed text-xs text-muted-foreground">
+                Sem QR
+              </div>
+            )}
+            <Input type="file" accept="image/*" onChange={upload} disabled={uploading} />
+          </div>
+        </div>
+
+        <Button onClick={save} disabled={saving}>
+          {saving ? "Salvando…" : "Salvar configurações de PIX"}
+        </Button>
+      </Card>
+
+      <Card className="space-y-3 p-6">
+        <h2 className="text-lg font-bold">Outros gateways</h2>
+        <p className="text-sm text-muted-foreground">
+          Mercado Pago já está integrado para cartão e boleto. Os gateways abaixo serão
+          conectados sob demanda — a estrutura de pedidos já está pronta para receber
+          confirmação automática.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {["Mercado Pago", "Asaas", "PagSeguro", "Stripe", "Efí"].map((g) => (
+            <div key={g} className="flex items-center justify-between rounded-md border p-3 text-sm">
+              <span>{g}</span>
+              <Badge variant={g === "Mercado Pago" ? "default" : "secondary"}>
+                {g === "Mercado Pago" ? "Conectado" : "Em breve"}
+              </Badge>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
   );
 }

@@ -12,7 +12,7 @@ import { createCheckoutPreference } from "@/lib/checkout.functions";
 import { quoteShipping } from "@/lib/shipping.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Truck, MapPin, User, ShoppingBag, CheckCircle2, ChevronDown, ChevronUp, Lock, UserPlus } from "lucide-react";
+import { Loader2, Truck, MapPin, User, ShoppingBag, CheckCircle2, ChevronDown, ChevronUp, Lock, UserPlus, CreditCard, QrCode } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 
@@ -31,6 +31,11 @@ function CheckoutPage() {
   const [shipOptions, setShipOptions] = useState<ShipOption[]>([]);
   const [selectedShip, setSelectedShip] = useState<ShipOption | null>(null);
   const [showSummary, setShowSummary] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"mercadopago" | "pix">("mercadopago");
+  const [pixSettings, setPixSettings] = useState<{
+    pix_enabled: boolean;
+    pix_discount_percent: number;
+  } | null>(null);
   const [form, setForm] = useState({
     name: "", email: "", phone: "",
     cep: "", street: "", number: "", complement: "",
@@ -38,8 +43,23 @@ function CheckoutPage() {
   });
   const numberRef = useRef<HTMLInputElement>(null);
   const shippingCostCents = selectedShip?.priceCents ?? 0;
-  const total = subtotalCents + shippingCostCents;
+  const baseTotal = subtotalCents + shippingCostCents;
+  const pixDiscountPercent = pixSettings?.pix_enabled ? Number(pixSettings.pix_discount_percent) || 0 : 0;
+  const discountCents =
+    paymentMethod === "pix" ? Math.round((baseTotal * pixDiscountPercent) / 100) : 0;
+  const total = baseTotal - discountCents;
   const lastQuotedCep = useRef<string>("");
+
+  useEffect(() => {
+    supabase
+      .from("store_settings")
+      .select("pix_enabled, pix_discount_percent")
+      .eq("id", 1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setPixSettings(data as any);
+      });
+  }, []);
 
   // Pré-preenche e-mail/nome a partir da conta autenticada
   useEffect(() => {
@@ -162,6 +182,47 @@ function CheckoutPage() {
     try {
       const { data: sess } = await supabase.auth.getSession();
       const userId = sess.session?.user.id ?? null;
+
+      if (paymentMethod === "pix") {
+        const { data: order, error: orderErr } = await supabase
+          .from("orders")
+          .insert({
+            user_id: userId,
+            customer_name: form.name,
+            customer_email: form.email,
+            customer_phone: form.phone,
+            shipping_address: {
+              cep: form.cep, street: form.street, number: form.number,
+              complement: form.complement, district: form.district,
+              city: form.city, state: form.state.toUpperCase(),
+            },
+            shipping_cost_cents: shippingCostCents,
+            shipping_service: selectedShip.name,
+            subtotal_cents: subtotalCents,
+            discount_cents: discountCents,
+            total_cents: total,
+            notes: form.notes,
+            status: "pending",
+            payment_method: "pix",
+          } as any)
+          .select("id")
+          .single();
+        if (orderErr || !order) throw new Error(orderErr?.message ?? "Falha ao criar pedido");
+        const itemsRows = items.map((i) => ({
+          order_id: order.id,
+          product_id: i.productId,
+          product_name: i.name,
+          unit_price_cents: i.priceCents,
+          quantity: i.quantity,
+          vehicle_config: i.vehicleConfig ?? null,
+        }));
+        const { error: itemsErr } = await supabase.from("order_items").insert(itemsRows);
+        if (itemsErr) throw new Error(itemsErr.message);
+        clear();
+        window.location.href = `/checkout/pix?order=${order.id}`;
+        return;
+      }
+
       const res = await createPref({
         data: {
           customer: { name: form.name, email: form.email, phone: form.phone },
@@ -309,7 +370,47 @@ function CheckoutPage() {
             )}
           </Section>
 
-          <Section icon={<CheckCircle2 className="h-4 w-4" />} title="Observações" step={4}>
+          <Section icon={<CreditCard className="h-4 w-4" />} title="Forma de pagamento" step={4}>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("mercadopago")}
+                className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left transition ${paymentMethod === "mercadopago" ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
+              >
+                <CreditCard className="mt-0.5 h-5 w-5 text-primary" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold">Cartão / Boleto</p>
+                  <p className="text-xs text-muted-foreground">Mercado Pago — até 10x</p>
+                  <p className="mt-1 text-sm font-bold">{formatCents(baseTotal)}</p>
+                </div>
+              </button>
+              {pixSettings?.pix_enabled && (
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("pix")}
+                  className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left transition ${paymentMethod === "pix" ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
+                >
+                  <QrCode className="mt-0.5 h-5 w-5 text-primary" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold">
+                      PIX{" "}
+                      {pixDiscountPercent > 0 && (
+                        <span className="rounded bg-primary/15 px-1.5 py-0.5 text-xs text-primary">
+                          -{pixDiscountPercent}%
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Aprovação rápida</p>
+                    <p className="mt-1 text-sm font-bold text-primary">
+                      {formatCents(baseTotal - Math.round((baseTotal * pixDiscountPercent) / 100))}
+                    </p>
+                  </div>
+                </button>
+              )}
+            </div>
+          </Section>
+
+          <Section icon={<CheckCircle2 className="h-4 w-4" />} title="Observações" step={5}>
             <Textarea rows={3} value={form.notes} onChange={set("notes")} placeholder="Modelo do veículo, ano, cor da capota, etc. (opcional)" />
           </Section>
 
@@ -336,12 +437,15 @@ function CheckoutPage() {
           <div className="space-y-1.5 border-t border-border pt-3 text-sm">
             <Row label="Subtotal" value={formatCents(subtotalCents)} />
             <Row label="Frete" value={selectedShip ? formatCents(shippingCostCents) : <span className="text-muted-foreground">A calcular</span>} />
+            {discountCents > 0 && (
+              <Row label={`Desconto PIX (${pixDiscountPercent}%)`} value={<span className="text-primary">- {formatCents(discountCents)}</span>} />
+            )}
             <div className="flex justify-between pt-2 text-base font-bold">
               <span>Total</span><span className="text-primary">{formatCents(total)}</span>
             </div>
           </div>
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Lock className="h-3 w-3" /> Pagamento seguro via Mercado Pago
+            <Lock className="h-3 w-3" /> Pagamento seguro
           </p>
         </aside>
 
