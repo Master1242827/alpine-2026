@@ -11,7 +11,7 @@ type Make = { id: string; name: string; image_url: string | null };
 type Model = { id: string; name: string; image_url: string | null; year_from: number | null; year_to: number | null };
 type Question = { id: string; key: string; label: string; help_text: string | null };
 type Option = { id: string; question_id: string; value: string; label: string; image_url: string | null };
-type FlowItem = { question_id: string; display_order: number; required: boolean; year_from: number | null; year_to: number | null };
+type FlowItem = { question_id: string; display_order: number; required: boolean; year_from: number | null; year_to: number | null; hidden?: boolean; auto_answer?: string | null };
 
 type Selection = {
   make?: { id: string; name: string };
