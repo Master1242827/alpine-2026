@@ -102,7 +102,7 @@ function AdminPage() {
         </TabsList>
         <TabsContent value="products"><ProductsTab /></TabsContent>
         <TabsContent value="orders"><OrdersTab /></TabsContent>
-        <TabsContent value="vehicles"><VehiclesTab /></TabsContent>
+        <TabsContent value="vehicles"><VehiclesAdmin /></TabsContent>
         <TabsContent value="settings"><SettingsTab /></TabsContent>
       </Tabs>
     </div>
