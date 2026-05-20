@@ -190,10 +190,12 @@ export type Database = {
           customer_email: string
           customer_name: string
           customer_phone: string | null
+          discount_cents: number
           id: string
           mp_payment_id: string | null
           mp_preference_id: string | null
           notes: string | null
+          payment_method: string
           shipping_address: Json | null
           shipping_cost_cents: number
           shipping_service: string | null
@@ -208,10 +210,12 @@ export type Database = {
           customer_email: string
           customer_name: string
           customer_phone?: string | null
+          discount_cents?: number
           id?: string
           mp_payment_id?: string | null
           mp_preference_id?: string | null
           notes?: string | null
+          payment_method?: string
           shipping_address?: Json | null
           shipping_cost_cents?: number
           shipping_service?: string | null
@@ -226,10 +230,12 @@ export type Database = {
           customer_email?: string
           customer_name?: string
           customer_phone?: string | null
+          discount_cents?: number
           id?: string
           mp_payment_id?: string | null
           mp_preference_id?: string | null
           notes?: string | null
+          payment_method?: string
           shipping_address?: Json | null
           shipping_cost_cents?: number
           shipping_service?: string | null
@@ -343,18 +349,45 @@ export type Database = {
         Row: {
           id: number
           origin_cep: string
+          pix_bank: string
+          pix_copy_paste: string | null
+          pix_discount_percent: number
+          pix_enabled: boolean
+          pix_holder_name: string
+          pix_key: string
+          pix_key_type: string
+          pix_message: string
+          pix_qr_image_url: string | null
           store_name: string
           whatsapp_number: string
         }
         Insert: {
           id?: number
           origin_cep?: string
+          pix_bank?: string
+          pix_copy_paste?: string | null
+          pix_discount_percent?: number
+          pix_enabled?: boolean
+          pix_holder_name?: string
+          pix_key?: string
+          pix_key_type?: string
+          pix_message?: string
+          pix_qr_image_url?: string | null
           store_name?: string
           whatsapp_number?: string
         }
         Update: {
           id?: number
           origin_cep?: string
+          pix_bank?: string
+          pix_copy_paste?: string | null
+          pix_discount_percent?: number
+          pix_enabled?: boolean
+          pix_holder_name?: string
+          pix_key?: string
+          pix_key_type?: string
+          pix_message?: string
+          pix_qr_image_url?: string | null
           store_name?: string
           whatsapp_number?: string
         }
