@@ -301,7 +301,15 @@ function ProductForm({ initial, onClose }: { initial: Product; onClose: () => vo
         </div>
         <div>
           <Label>Descrição completa</Label>
-          <Textarea rows={6} value={p.description ?? ""} onChange={(e) => setP({ ...p, description: e.target.value })} />
+          <Textarea
+            rows={20}
+            className="min-h-[420px] font-mono text-sm leading-relaxed"
+            value={p.description ?? ""}
+            onChange={(e) => setP({ ...p, description: e.target.value })}
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Dica: arraste o canto inferior direito para aumentar ainda mais.
+          </p>
         </div>
         <div className="flex flex-wrap gap-6">
           <label className="flex items-center gap-2">
@@ -316,14 +324,38 @@ function ProductForm({ initial, onClose }: { initial: Product; onClose: () => vo
         </div>
         <div>
           <Label>Imagens</Label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            A primeira imagem é a capa do produto. Use as setas para reordenar.
+          </p>
           <div className="mt-2 flex flex-wrap gap-2">
-            {p.images.map((url, i) => (
-              <div key={url} className="relative h-24 w-24 overflow-hidden rounded border">
-                <img src={url} alt="" className="h-full w-full object-cover" />
-                <button onClick={() => setP({ ...p, images: p.images.filter((_, j) => j !== i) })}
-                  className="absolute right-0 top-0 bg-destructive px-1.5 text-xs text-destructive-foreground">×</button>
-              </div>
-            ))}
+            {p.images.map((url, i) => {
+              const move = (dir: -1 | 1) => {
+                const j = i + dir;
+                if (j < 0 || j >= p.images.length) return;
+                const next = [...p.images];
+                [next[i], next[j]] = [next[j], next[i]];
+                setP({ ...p, images: next });
+              };
+              return (
+                <div key={url} className="relative h-28 w-28 overflow-hidden rounded border bg-muted">
+                  <img src={url} alt="" className="h-full w-full object-cover" />
+                  {i === 0 && (
+                    <span className="absolute left-1 top-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
+                      CAPA
+                    </span>
+                  )}
+                  <button type="button" onClick={() => setP({ ...p, images: p.images.filter((_, j) => j !== i) })}
+                    className="absolute right-0 top-0 bg-destructive px-1.5 text-xs text-destructive-foreground" aria-label="Remover">×</button>
+                  <div className="absolute inset-x-0 bottom-0 flex justify-between bg-black/60 text-white">
+                    <button type="button" onClick={() => move(-1)} disabled={i === 0}
+                      className="flex-1 py-0.5 text-xs disabled:opacity-30 hover:bg-black/40" aria-label="Mover para a esquerda">‹</button>
+                    <span className="px-1 py-0.5 text-[10px] opacity-70">{i + 1}</span>
+                    <button type="button" onClick={() => move(1)} disabled={i === p.images.length - 1}
+                      className="flex-1 py-0.5 text-xs disabled:opacity-30 hover:bg-black/40" aria-label="Mover para a direita">›</button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
           <Input type="file" multiple accept="image/*" onChange={handleUpload} className="mt-3" disabled={uploading} />
         </div>
