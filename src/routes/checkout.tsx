@@ -200,29 +200,8 @@ function CheckoutPage() {
     }
   }
 
-  // Auto address lookup + auto quote when CEP becomes valid
-  useEffect(() => {
-    const clean = form.cep.replace(/\D/g, "");
-    if (clean.length !== 8 || clean === lastQuotedCep.current) return;
-    lastQuotedCep.current = clean;
-    (async () => {
-      const addr = await lookupCep(clean);
-      if (addr) {
-        setForm((p) => ({
-          ...p,
-          street: addr.street || p.street,
-          district: addr.district || p.district,
-          city: addr.city || p.city,
-          state: addr.state || p.state,
-        }));
-        setTimeout(() => numberRef.current?.focus(), 50);
-      }
-      runQuote(clean);
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.cep]);
-
   async function handleSubmit(e: React.FormEvent) {
+
     e.preventDefault();
     if (!selectedShip) { toast.error("Calcule e selecione uma opção de frete"); return; }
     setLoading(true);
