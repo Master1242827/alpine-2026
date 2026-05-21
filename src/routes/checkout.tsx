@@ -244,7 +244,7 @@ function CheckoutPage() {
               city: form.city, state: form.state.toUpperCase(),
             },
             shipping_cost_cents: shippingCostCents,
-            shipping_service: selectedShip.name,
+            shipping_service: ship.name,
             subtotal_cents: subtotalCents,
             discount_cents: discountCents,
             total_cents: total,
@@ -279,7 +279,7 @@ function CheckoutPage() {
             city: form.city, state: form.state.toUpperCase(),
           },
           shippingCostCents,
-          shippingService: selectedShip.name,
+          shippingService: ship.name,
           notes: form.notes,
           items: items.map((i) => ({
             productId: i.productId, name: i.name,
