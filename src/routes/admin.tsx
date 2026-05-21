@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { formatCents } from "@/lib/format";
 import { checkIsAdmin } from "@/lib/admin.functions";
 import { VehiclesAdmin } from "@/components/admin/vehicles-admin";
+import { ShippingAdmin } from "@/components/admin/shipping-admin";
 
 export const Route = createFileRoute("/admin")({ component: AdminPage });
 
