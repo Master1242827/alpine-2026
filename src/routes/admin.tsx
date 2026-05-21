@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { formatCents } from "@/lib/format";
 import { checkIsAdmin } from "@/lib/admin.functions";
 import { VehiclesAdmin } from "@/components/admin/vehicles-admin";
+import { ShippingAdmin } from "@/components/admin/shipping-admin";
 
 export const Route = createFileRoute("/admin")({ component: AdminPage });
 
@@ -99,12 +100,14 @@ function AdminPage() {
           <TabsTrigger value="orders">Pedidos</TabsTrigger>
           <TabsTrigger value="vehicles">Veículos</TabsTrigger>
           <TabsTrigger value="payments">Pagamentos</TabsTrigger>
+          <TabsTrigger value="shipping">Frete</TabsTrigger>
           <TabsTrigger value="settings">Configurações</TabsTrigger>
         </TabsList>
         <TabsContent value="products"><ProductsTab /></TabsContent>
         <TabsContent value="orders"><OrdersTab /></TabsContent>
         <TabsContent value="vehicles"><VehiclesAdmin /></TabsContent>
         <TabsContent value="payments"><PaymentsTab /></TabsContent>
+        <TabsContent value="shipping"><ShippingAdmin /></TabsContent>
         <TabsContent value="settings"><SettingsTab /></TabsContent>
       </Tabs>
     </div>

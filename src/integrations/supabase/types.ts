@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_integrations: {
+        Row: {
+          id: number
+          melhor_envio_env: string
+          melhor_envio_token: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          melhor_envio_env?: string
+          melhor_envio_token?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          melhor_envio_env?: string
+          melhor_envio_token?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cabin_types: {
         Row: {
           active: boolean
