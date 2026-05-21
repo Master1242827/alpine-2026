@@ -1,6 +1,40 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+
+const MP_PREFERENCES_ENDPOINT = "https://api.mercadopago.com/checkout/preferences";
+const MP_PAYMENTS_ENDPOINT = "https://api.mercadopago.com/v1/payments";
+
+type OrderStatus = "pending" | "paid" | "cancelled";
+
+function mapPaymentStatus(status?: string): OrderStatus {
+  if (status === "approved" || status === "authorized") return "paid";
+  if (["cancelled", "rejected", "refunded", "charged_back"].includes(status ?? "")) return "cancelled";
+  return "pending";
+}
+
+function getRuntimeOrigin() {
+  try {
+    return new URL(getRequest().url).origin;
+  } catch {
+    return process.env.SITE_URL || "https://project--b370b26e-0ef1-41ec-ae73-c00c6755b5d3.lovable.app";
+  }
+}
+
+async function readMercadoPagoResponse(res: Response) {
+  const text = await res.text();
+  try {
+    return { text, json: JSON.parse(text) as any };
+  } catch {
+    return { text, json: {} as any };
+  }
+}
+
+function mercadoPagoMessage(json: any, fallback: string) {
+  return json?.message || json?.error || json?.cause?.[0]?.description || fallback;
+}
 
 const ItemSchema = z.object({
   productId: z.string().uuid(),
