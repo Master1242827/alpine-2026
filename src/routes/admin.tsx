@@ -306,7 +306,16 @@ function ProductForm({ initial, onClose }: { initial: Product; onClose: () => vo
         requires_vehicle_config: p.requires_vehicle_config,
         allowed_carriers: p.allowed_carriers,
         blocked_carriers: p.blocked_carriers,
+        weight_kg: p.weight_kg,
+        length_cm: p.length_cm,
+        width_cm: p.width_cm,
+        height_cm: p.height_cm,
+        shipping_weight_kg: p.shipping_weight_kg,
+        shipping_length_cm: p.shipping_length_cm,
+        shipping_width_cm: p.shipping_width_cm,
+        shipping_height_cm: p.shipping_height_cm,
       };
+
       const res = p.id
         ? await supabase.from("products").update(payload).eq("id", p.id)
         : await supabase.from("products").insert(payload);
