@@ -251,7 +251,7 @@ function CheckoutPage() {
 
       const res = await createPref({
         data: {
-          customer: { name: form.name, email: form.email, phone: form.phone },
+          customer: { name: form.name.trim(), email: form.email.trim(), phone: form.phone.replace(/\D/g, "") },
           shipping: {
             cep: form.cep, street: form.street, number: form.number,
             complement: form.complement, district: form.district,
