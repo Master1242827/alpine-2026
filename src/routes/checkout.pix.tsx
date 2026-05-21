@@ -38,7 +38,8 @@ function PixPage() {
     (async () => {
       const { data: o } = await supabase.from("orders").select("*").eq("id", order).maybeSingle();
       setOrderRow(o);
-      if (o?.status) setStatus(o.status);
+      if (o?.status === "paid" || o?.status === "cancelled") setStatus(o.status);
+      else if (o?.status) setStatus("pending");
 
       const raw = sessionStorage.getItem(`pix:${order}`);
       if (raw) {
