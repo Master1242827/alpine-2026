@@ -263,10 +263,13 @@ function ProductForm({ initial, onClose }: { initial: Product; onClose: () => vo
         active: p.active,
         featured: p.featured,
         requires_vehicle_config: p.requires_vehicle_config,
+        allowed_carriers: p.allowed_carriers,
+        blocked_carriers: p.blocked_carriers,
       };
       const res = p.id
         ? await supabase.from("products").update(payload).eq("id", p.id)
         : await supabase.from("products").insert(payload);
+
       if (res.error) throw res.error;
       toast.success("Produto salvo");
       onClose();
