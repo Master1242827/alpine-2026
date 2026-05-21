@@ -223,53 +223,6 @@ function CheckoutPage() {
     setLoading(true);
     const ship = selectedShip!;
     try {
-      const { data: sess } = await supabase.auth.getSession();
-      const userId = sess.session?.user.id ?? null;
-
-
-
-
-
-      if (paymentMethod === "pix") {
-        const { data: order, error: orderErr } = await supabase
-          .from("orders")
-          .insert({
-            user_id: userId,
-            customer_name: form.name,
-            customer_email: form.email,
-            customer_phone: form.phone,
-            shipping_address: {
-              cep: form.cep, street: form.street, number: form.number,
-              complement: form.complement, district: form.district,
-              city: form.city, state: form.state.toUpperCase(),
-            },
-            shipping_cost_cents: shippingCostCents,
-            shipping_service: ship.name,
-            subtotal_cents: subtotalCents,
-            discount_cents: discountCents,
-            total_cents: total,
-            notes: form.notes,
-            status: "pending",
-            payment_method: "pix",
-          } as any)
-          .select("id")
-          .single();
-        if (orderErr || !order) throw new Error(orderErr?.message ?? "Falha ao criar pedido");
-        const itemsRows = items.map((i) => ({
-          order_id: order.id,
-          product_id: i.productId,
-          product_name: i.name,
-          unit_price_cents: i.priceCents,
-          quantity: i.quantity,
-          vehicle_config: i.vehicleConfig ?? null,
-        }));
-        const { error: itemsErr } = await supabase.from("order_items").insert(itemsRows);
-        if (itemsErr) throw new Error(itemsErr.message);
-        clear();
-        window.location.href = `/checkout/pix?order=${order.id}`;
-        return;
-      }
-
       const res = await createPref({
         data: {
           customer: { name: form.name.trim(), email: form.email.trim(), phone: form.phone.replace(/\D/g, "") },
@@ -281,19 +234,21 @@ function CheckoutPage() {
           shippingCostCents,
           shippingService: ship.name,
           notes: form.notes,
+          paymentMethod,
+          discountCents,
           items: items.map((i) => ({
             productId: i.productId, name: i.name,
             priceCents: i.priceCents, quantity: i.quantity,
             vehicleConfig: i.vehicleConfig,
           })),
-          userId,
         },
       });
+      if (!res?.initPoint) throw new Error("Mercado Pago não retornou link de pagamento");
       clear();
-      window.location.href = res.initPoint;
+      window.location.assign(res.initPoint);
     } catch (err: any) {
-      console.error(err);
-      toast.error(err?.message ?? "Falha ao iniciar pagamento");
+      console.error("[Checkout] erro ao iniciar Mercado Pago", err);
+      toast.error(err?.message ?? "Falha ao iniciar pagamento no Mercado Pago");
       setLoading(false);
     }
   }
