@@ -137,6 +137,10 @@ type Product = {
   length_cm: number;
   width_cm: number;
   height_cm: number;
+  shipping_weight_kg: number | null;
+  shipping_length_cm: number | null;
+  shipping_width_cm: number | null;
+  shipping_height_cm: number | null;
 };
 
 const emptyProduct: Product = {
@@ -159,7 +163,12 @@ const emptyProduct: Product = {
   length_cm: 30,
   width_cm: 30,
   height_cm: 10,
+  shipping_weight_kg: null,
+  shipping_length_cm: null,
+  shipping_width_cm: null,
+  shipping_height_cm: null,
 };
+
 
 
 
