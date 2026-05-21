@@ -129,6 +129,8 @@ type Product = {
   featured: boolean;
   requires_vehicle_config: boolean;
   category_id: string | null;
+  allowed_carriers: string[];
+  blocked_carriers: string[];
 };
 
 const emptyProduct: Product = {
@@ -145,7 +147,10 @@ const emptyProduct: Product = {
   featured: false,
   requires_vehicle_config: false,
   category_id: null,
+  allowed_carriers: [],
+  blocked_carriers: [],
 };
+
 
 function ProductsTab() {
   const [items, setItems] = useState<Product[]>([]);
