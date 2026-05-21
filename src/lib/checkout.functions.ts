@@ -128,7 +128,7 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
           currency_id: "BRL",
           unit_price: Number((i.priceCents / 100).toFixed(2)),
         }));
-    if (data.shippingCostCents > 0) {
+    if (!(data.paymentMethod === "pix" && data.discountCents > 0) && data.shippingCostCents > 0) {
       mpItems.push({
         id: "shipping",
         title: `Frete (${data.shippingService})`,
