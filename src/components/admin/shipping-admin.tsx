@@ -42,7 +42,7 @@ export function ShippingAdmin() {
           setLoadingTest(false);
         }
       } else {
-        setStatus({ ok: false, status: "missing", message: "Token não configurado." });
+        setStatus({ ok: false, status: "missing", message: "Token do Melhor Envio não configurado. Cadastre um token para ativar o cálculo de frete." });
       }
     } catch (e) {
       console.error(e);
