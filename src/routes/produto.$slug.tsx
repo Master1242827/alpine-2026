@@ -54,6 +54,7 @@ function ProductDetail() {
 
         <div className="mt-6">
           <ShippingCalculator
+            selectable={false}
             items={[{
               productId: product.id,
               priceCents: product.price_cents,
@@ -64,7 +65,11 @@ function ProductDetail() {
               heightCm: product.height_cm,
             }]}
           />
+          <p className="mt-2 text-xs text-muted-foreground">
+            Valor estimado para este produto. O frete final é calculado no carrinho com todos os itens.
+          </p>
         </div>
+
 
         <Button size="lg" className="mt-6 w-full md:w-auto" onClick={() => {
           add({
