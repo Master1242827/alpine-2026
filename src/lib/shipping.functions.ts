@@ -61,23 +61,31 @@ export const quoteShipping = createServerFn({ method: "POST" })
       return { options: [], unavailable: true as const };
     }
 
-    // Carregar dados dos produtos (nome, categoria, overrides) para filtro inteligente
+    // Carregar dados dos produtos (nome, categoria, overrides, dimensões de envio)
     const productIds = data.products.map((p) => p.id);
     const { data: productRows } = await supabaseAdmin
       .from("products")
-      .select("id, name, allowed_carriers, blocked_carriers, categories(slug, name)")
+      .select("id, name, allowed_carriers, blocked_carriers, shipping_weight_kg, shipping_length_cm, shipping_width_cm, shipping_height_cm, categories(slug, name)")
       .in("id", productIds);
     const productMap = new Map<string, {
       name: string;
       categoryName?: string;
       allowed: string[];
       blocked: string[];
+      shipWeight?: number | null;
+      shipLength?: number | null;
+      shipWidth?: number | null;
+      shipHeight?: number | null;
     }>();
     for (const r of (productRows ?? []) as Array<{
       id: string;
       name: string;
       allowed_carriers: string[] | null;
       blocked_carriers: string[] | null;
+      shipping_weight_kg: number | null;
+      shipping_length_cm: number | null;
+      shipping_width_cm: number | null;
+      shipping_height_cm: number | null;
       categories: { slug: string; name: string } | { slug: string; name: string }[] | null;
     }>) {
       const cat = Array.isArray(r.categories) ? r.categories[0] : r.categories;
@@ -86,8 +94,24 @@ export const quoteShipping = createServerFn({ method: "POST" })
         categoryName: cat?.name,
         allowed: r.allowed_carriers ?? [],
         blocked: r.blocked_carriers ?? [],
+        shipWeight: r.shipping_weight_kg,
+        shipLength: r.shipping_length_cm,
+        shipWidth: r.shipping_width_cm,
+        shipHeight: r.shipping_height_cm,
       });
     }
+
+    // Aplicar dimensões de envio (quando preenchidas pelo admin) — ex.: capota enrolada
+    const shippedProducts = data.products.map((p) => {
+      const info = productMap.get(p.id);
+      return {
+        ...p,
+        weight: info?.shipWeight ?? p.weight,
+        length: info?.shipLength ?? p.length,
+        width: info?.shipWidth ?? p.width,
+        height: info?.shipHeight ?? p.height,
+      };
+    });
 
     let res: Response;
     try {
@@ -102,9 +126,10 @@ export const quoteShipping = createServerFn({ method: "POST" })
         body: JSON.stringify({
           from: { postal_code: fromCep },
           to: { postal_code: data.toCep.replace(/\D/g, "") },
-          products: data.products,
+          products: shippedProducts,
         }),
       });
+
     } catch (err) {
       console.error("Melhor Envio: falha de rede", err);
       return { options: [], unavailable: true as const };
