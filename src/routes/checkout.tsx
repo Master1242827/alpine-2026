@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatCents } from "@/lib/format";
 import { formatCep, lookupCep } from "@/lib/cep";
-import { createCheckoutPreference } from "@/lib/checkout.functions";
+import { createCheckoutPreference, createPixPayment } from "@/lib/checkout.functions";
 import { quoteShipping } from "@/lib/shipping.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -24,6 +24,7 @@ function CheckoutPage() {
   const { items, subtotalCents, clear, shipping: cartShipping, cep: cartCep, setShipping: setCartShipping } = useCart();
   const { user, loading: authLoading } = useAuth();
   const createPref = useServerFn(createCheckoutPreference);
+  const createPix = useServerFn(createPixPayment);
   const quote = useServerFn(quoteShipping);
 
   const [loading, setLoading] = useState(false);
@@ -222,27 +223,39 @@ function CheckoutPage() {
     if (validationError) { toast.error(validationError); return; }
     setLoading(true);
     const ship = selectedShip!;
+    const payload = {
+      customer: { name: form.name.trim(), email: form.email.trim(), phone: form.phone.replace(/\D/g, "") },
+      shipping: {
+        cep: form.cep, street: form.street, number: form.number,
+        complement: form.complement, district: form.district,
+        city: form.city, state: form.state.toUpperCase(),
+      },
+      shippingCostCents,
+      shippingService: ship.name,
+      notes: form.notes,
+      paymentMethod,
+      discountCents,
+      items: items.map((i) => ({
+        productId: i.productId, name: i.name,
+        priceCents: i.priceCents, quantity: i.quantity,
+        vehicleConfig: i.vehicleConfig,
+      })),
+    };
     try {
-      const res = await createPref({
-        data: {
-          customer: { name: form.name.trim(), email: form.email.trim(), phone: form.phone.replace(/\D/g, "") },
-          shipping: {
-            cep: form.cep, street: form.street, number: form.number,
-            complement: form.complement, district: form.district,
-            city: form.city, state: form.state.toUpperCase(),
-          },
-          shippingCostCents,
-          shippingService: ship.name,
-          notes: form.notes,
-          paymentMethod,
-          discountCents,
-          items: items.map((i) => ({
-            productId: i.productId, name: i.name,
-            priceCents: i.priceCents, quantity: i.quantity,
-            vehicleConfig: i.vehicleConfig,
-          })),
-        },
-      });
+      if (paymentMethod === "pix") {
+        const res = await createPix({ data: payload });
+        if (!res?.qrCode) throw new Error("Mercado Pago não retornou o QR PIX");
+        sessionStorage.setItem(`pix:${res.orderId}`, JSON.stringify({
+          qrCode: res.qrCode,
+          qrCodeBase64: res.qrCodeBase64,
+          ticketUrl: res.ticketUrl,
+          expiresAt: res.expiresAt,
+        }));
+        clear();
+        window.location.assign(`/checkout/pix?order=${res.orderId}`);
+        return;
+      }
+      const res = await createPref({ data: payload });
       if (!res?.initPoint) throw new Error("Mercado Pago não retornou link de pagamento");
       clear();
       window.location.assign(res.initPoint);
