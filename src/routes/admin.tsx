@@ -137,6 +137,10 @@ type Product = {
   length_cm: number;
   width_cm: number;
   height_cm: number;
+  shipping_weight_kg: number | null;
+  shipping_length_cm: number | null;
+  shipping_width_cm: number | null;
+  shipping_height_cm: number | null;
 };
 
 const emptyProduct: Product = {
@@ -159,7 +163,12 @@ const emptyProduct: Product = {
   length_cm: 30,
   width_cm: 30,
   height_cm: 10,
+  shipping_weight_kg: null,
+  shipping_length_cm: null,
+  shipping_width_cm: null,
+  shipping_height_cm: null,
 };
+
 
 
 
@@ -297,7 +306,16 @@ function ProductForm({ initial, onClose }: { initial: Product; onClose: () => vo
         requires_vehicle_config: p.requires_vehicle_config,
         allowed_carriers: p.allowed_carriers,
         blocked_carriers: p.blocked_carriers,
+        weight_kg: p.weight_kg,
+        length_cm: p.length_cm,
+        width_cm: p.width_cm,
+        height_cm: p.height_cm,
+        shipping_weight_kg: p.shipping_weight_kg,
+        shipping_length_cm: p.shipping_length_cm,
+        shipping_width_cm: p.shipping_width_cm,
+        shipping_height_cm: p.shipping_height_cm,
       };
+
       const res = p.id
         ? await supabase.from("products").update(payload).eq("id", p.id)
         : await supabase.from("products").insert(payload);
@@ -365,6 +383,68 @@ function ProductForm({ initial, onClose }: { initial: Product; onClose: () => vo
             <Switch checked={p.requires_vehicle_config} onCheckedChange={(v) => setP({ ...p, requires_vehicle_config: v })} /> Exige configurador de veículo
           </label>
         </div>
+
+        <div className="rounded-lg border border-border bg-muted/30 p-4">
+          <h4 className="text-sm font-semibold">Dimensões e peso</h4>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Dimensões do produto montado. Usadas como padrão no cálculo de frete.
+          </p>
+          <div className="mt-3 grid gap-3 md:grid-cols-4">
+            <div>
+              <Label>Peso (kg)</Label>
+              <Input type="number" step="0.01" value={p.weight_kg}
+                onChange={(e) => setP({ ...p, weight_kg: parseFloat(e.target.value || "0") })} />
+            </div>
+            <div>
+              <Label>Comprimento (cm)</Label>
+              <Input type="number" value={p.length_cm}
+                onChange={(e) => setP({ ...p, length_cm: parseInt(e.target.value || "0") })} />
+            </div>
+            <div>
+              <Label>Largura (cm)</Label>
+              <Input type="number" value={p.width_cm}
+                onChange={(e) => setP({ ...p, width_cm: parseInt(e.target.value || "0") })} />
+            </div>
+            <div>
+              <Label>Altura (cm)</Label>
+              <Input type="number" value={p.height_cm}
+                onChange={(e) => setP({ ...p, height_cm: parseInt(e.target.value || "0") })} />
+            </div>
+          </div>
+
+          <h4 className="mt-5 text-sm font-semibold">Dimensões de envio (embalagem)</h4>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Preencha apenas se o produto é despachado em embalagem diferente — ex.: capota
+            enviada enrolada (110×30×30 cm). Quando preenchidos, esses valores substituem
+            os de cima no cálculo de frete. Deixe em branco para usar os padrões.
+          </p>
+          <div className="mt-3 grid gap-3 md:grid-cols-4">
+            {([
+              ["shipping_weight_kg", "Peso envio (kg)", "0.01", "number"],
+              ["shipping_length_cm", "Comprimento envio (cm)", "1", "int"],
+              ["shipping_width_cm", "Largura envio (cm)", "1", "int"],
+              ["shipping_height_cm", "Altura envio (cm)", "1", "int"],
+            ] as const).map(([key, label, step, kind]) => (
+              <div key={key}>
+                <Label>{label}</Label>
+                <Input
+                  type="number"
+                  step={step}
+                  placeholder="—"
+                  value={p[key] ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setP({
+                      ...p,
+                      [key]: v === "" ? null : (kind === "int" ? parseInt(v) : parseFloat(v)),
+                    });
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
 
         <div className="rounded-lg border border-border bg-muted/30 p-4">
           <h4 className="text-sm font-semibold">Transportadoras (override manual)</h4>
