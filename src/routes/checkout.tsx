@@ -221,9 +221,12 @@ function CheckoutPage() {
     const validationError = validateForm();
     if (validationError) { toast.error(validationError); return; }
     setLoading(true);
+    const ship = selectedShip!;
     try {
       const { data: sess } = await supabase.auth.getSession();
       const userId = sess.session?.user.id ?? null;
+
+
 
 
 
