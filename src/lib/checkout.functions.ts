@@ -112,18 +112,22 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
     const { error: itemsErr } = await supabaseAdmin.from("order_items").insert(itemsRows);
     if (itemsErr) throw new Error(itemsErr.message);
 
-    // Build MP preference
-    const origin =
-      process.env.SITE_URL ||
-      `https://project--${process.env.VITE_LOVABLE_PROJECT_ID ?? "b370b26e-0ef1-41ec-ae73-c00c6755b5d3"}.lovable.app`;
-
-    const mpItems = data.items.map((i) => ({
-      id: i.productId,
-      title: i.name.slice(0, 250),
-      quantity: i.quantity,
-      currency_id: "BRL",
-      unit_price: Number((i.priceCents / 100).toFixed(2)),
-    }));
+    const origin = getRuntimeOrigin();
+    const mpItems = data.paymentMethod === "pix" && data.discountCents > 0
+      ? [{
+          id: order.id,
+          title: `Pedido Alpine #${String(order.id).slice(0, 8)} com frete e desconto PIX`,
+          quantity: 1,
+          currency_id: "BRL",
+          unit_price: Number((total / 100).toFixed(2)),
+        }]
+      : data.items.map((i) => ({
+          id: i.productId,
+          title: i.name.slice(0, 250),
+          quantity: i.quantity,
+          currency_id: "BRL",
+          unit_price: Number((i.priceCents / 100).toFixed(2)),
+        }));
     if (data.shippingCostCents > 0) {
       mpItems.push({
         id: "shipping",
@@ -135,6 +139,9 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
     }
 
     const [firstName, ...rest] = data.customer.name.split(" ");
+    const paymentMethods = data.paymentMethod === "pix"
+      ? { excluded_payment_types: [{ id: "credit_card" }, { id: "debit_card" }, { id: "ticket" }, { id: "atm" }] }
+      : { excluded_payment_types: [{ id: "bank_transfer" }] };
     const preferenceBody = {
       items: mpItems,
       payer: {
@@ -156,10 +163,12 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
         pending: `${origin}/checkout/sucesso?order=${order.id}`,
       },
       auto_return: "approved",
+      payment_methods: paymentMethods,
       statement_descriptor: "ALPINE",
     };
 
-    const res = await fetch("https://api.mercadopago.com/checkout/preferences", {
+    console.info("[MercadoPago] create preference", { endpoint: MP_PREFERENCES_ENDPOINT, orderId: order.id, paymentMethod: data.paymentMethod, totalCents: total });
+    const res = await fetch(MP_PREFERENCES_ENDPOINT, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -167,15 +176,19 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
       },
       body: JSON.stringify(preferenceBody),
     });
-    const json = (await res.json()) as { id?: string; init_point?: string; message?: string };
-    if (!res.ok || !json.id || !json.init_point) {
-      throw new Error(`Mercado Pago error [${res.status}]: ${json.message ?? "preference failed"}`);
+    const { text, json } = await readMercadoPagoResponse(res);
+    const redirectUrl = json.init_point || json.sandbox_init_point;
+    if (!res.ok || !json.id || !redirectUrl) {
+      console.error("[MercadoPago] preference error", { endpoint: MP_PREFERENCES_ENDPOINT, status: res.status, body: text, orderId: order.id });
+      throw new Error(`Mercado Pago preference_id error [${res.status}]: ${mercadoPagoMessage(json, "preference failed")}`);
     }
 
-    await supabaseAdmin
+    const { error: updateErr } = await supabaseAdmin
       .from("orders")
       .update({ mp_preference_id: json.id })
       .eq("id", order.id);
+    if (updateErr) console.error("[MercadoPago] order preference update error", { orderId: order.id, message: updateErr.message });
 
-    return { orderId: order.id, initPoint: json.init_point, preferenceId: json.id };
+    console.info("[MercadoPago] preference ready", { orderId: order.id, preferenceId: json.id, redirectUrl });
+    return { orderId: order.id, initPoint: redirectUrl as string, preferenceId: json.id as string };
   });
