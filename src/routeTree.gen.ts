@@ -19,8 +19,11 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProdutoSlugRouteImport } from './routes/produto.$slug'
 import { Route as CheckoutSucessoRouteImport } from './routes/checkout.sucesso'
+import { Route as CheckoutRecusadoRouteImport } from './routes/checkout.recusado'
 import { Route as CheckoutPixRouteImport } from './routes/checkout.pix'
+import { Route as CheckoutPendenteRouteImport } from './routes/checkout.pendente'
 import { Route as CheckoutFalhaRouteImport } from './routes/checkout.falha'
+import { Route as CheckoutAprovadoRouteImport } from './routes/checkout.aprovado'
 import { Route as ApiPublicWebhooksMercadopagoRouteImport } from './routes/api/public/webhooks/mercadopago'
 
 const ProdutosRoute = ProdutosRouteImport.update({
@@ -73,14 +76,29 @@ const CheckoutSucessoRoute = CheckoutSucessoRouteImport.update({
   path: '/sucesso',
   getParentRoute: () => CheckoutRoute,
 } as any)
+const CheckoutRecusadoRoute = CheckoutRecusadoRouteImport.update({
+  id: '/recusado',
+  path: '/recusado',
+  getParentRoute: () => CheckoutRoute,
+} as any)
 const CheckoutPixRoute = CheckoutPixRouteImport.update({
   id: '/pix',
   path: '/pix',
   getParentRoute: () => CheckoutRoute,
 } as any)
+const CheckoutPendenteRoute = CheckoutPendenteRouteImport.update({
+  id: '/pendente',
+  path: '/pendente',
+  getParentRoute: () => CheckoutRoute,
+} as any)
 const CheckoutFalhaRoute = CheckoutFalhaRouteImport.update({
   id: '/falha',
   path: '/falha',
+  getParentRoute: () => CheckoutRoute,
+} as any)
+const CheckoutAprovadoRoute = CheckoutAprovadoRouteImport.update({
+  id: '/aprovado',
+  path: '/aprovado',
   getParentRoute: () => CheckoutRoute,
 } as any)
 const ApiPublicWebhooksMercadopagoRoute =
@@ -99,8 +117,11 @@ export interface FileRoutesByFullPath {
   '/conta': typeof ContaRoute
   '/login': typeof LoginRoute
   '/produtos': typeof ProdutosRoute
+  '/checkout/aprovado': typeof CheckoutAprovadoRoute
   '/checkout/falha': typeof CheckoutFalhaRoute
+  '/checkout/pendente': typeof CheckoutPendenteRoute
   '/checkout/pix': typeof CheckoutPixRoute
+  '/checkout/recusado': typeof CheckoutRecusadoRoute
   '/checkout/sucesso': typeof CheckoutSucessoRoute
   '/produto/$slug': typeof ProdutoSlugRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
@@ -114,8 +135,11 @@ export interface FileRoutesByTo {
   '/conta': typeof ContaRoute
   '/login': typeof LoginRoute
   '/produtos': typeof ProdutosRoute
+  '/checkout/aprovado': typeof CheckoutAprovadoRoute
   '/checkout/falha': typeof CheckoutFalhaRoute
+  '/checkout/pendente': typeof CheckoutPendenteRoute
   '/checkout/pix': typeof CheckoutPixRoute
+  '/checkout/recusado': typeof CheckoutRecusadoRoute
   '/checkout/sucesso': typeof CheckoutSucessoRoute
   '/produto/$slug': typeof ProdutoSlugRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
@@ -130,8 +154,11 @@ export interface FileRoutesById {
   '/conta': typeof ContaRoute
   '/login': typeof LoginRoute
   '/produtos': typeof ProdutosRoute
+  '/checkout/aprovado': typeof CheckoutAprovadoRoute
   '/checkout/falha': typeof CheckoutFalhaRoute
+  '/checkout/pendente': typeof CheckoutPendenteRoute
   '/checkout/pix': typeof CheckoutPixRoute
+  '/checkout/recusado': typeof CheckoutRecusadoRoute
   '/checkout/sucesso': typeof CheckoutSucessoRoute
   '/produto/$slug': typeof ProdutoSlugRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
@@ -147,8 +174,11 @@ export interface FileRouteTypes {
     | '/conta'
     | '/login'
     | '/produtos'
+    | '/checkout/aprovado'
     | '/checkout/falha'
+    | '/checkout/pendente'
     | '/checkout/pix'
+    | '/checkout/recusado'
     | '/checkout/sucesso'
     | '/produto/$slug'
     | '/api/public/webhooks/mercadopago'
@@ -162,8 +192,11 @@ export interface FileRouteTypes {
     | '/conta'
     | '/login'
     | '/produtos'
+    | '/checkout/aprovado'
     | '/checkout/falha'
+    | '/checkout/pendente'
     | '/checkout/pix'
+    | '/checkout/recusado'
     | '/checkout/sucesso'
     | '/produto/$slug'
     | '/api/public/webhooks/mercadopago'
@@ -177,8 +210,11 @@ export interface FileRouteTypes {
     | '/conta'
     | '/login'
     | '/produtos'
+    | '/checkout/aprovado'
     | '/checkout/falha'
+    | '/checkout/pendente'
     | '/checkout/pix'
+    | '/checkout/recusado'
     | '/checkout/sucesso'
     | '/produto/$slug'
     | '/api/public/webhooks/mercadopago'
@@ -269,6 +305,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CheckoutSucessoRouteImport
       parentRoute: typeof CheckoutRoute
     }
+    '/checkout/recusado': {
+      id: '/checkout/recusado'
+      path: '/recusado'
+      fullPath: '/checkout/recusado'
+      preLoaderRoute: typeof CheckoutRecusadoRouteImport
+      parentRoute: typeof CheckoutRoute
+    }
     '/checkout/pix': {
       id: '/checkout/pix'
       path: '/pix'
@@ -276,11 +319,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CheckoutPixRouteImport
       parentRoute: typeof CheckoutRoute
     }
+    '/checkout/pendente': {
+      id: '/checkout/pendente'
+      path: '/pendente'
+      fullPath: '/checkout/pendente'
+      preLoaderRoute: typeof CheckoutPendenteRouteImport
+      parentRoute: typeof CheckoutRoute
+    }
     '/checkout/falha': {
       id: '/checkout/falha'
       path: '/falha'
       fullPath: '/checkout/falha'
       preLoaderRoute: typeof CheckoutFalhaRouteImport
+      parentRoute: typeof CheckoutRoute
+    }
+    '/checkout/aprovado': {
+      id: '/checkout/aprovado'
+      path: '/aprovado'
+      fullPath: '/checkout/aprovado'
+      preLoaderRoute: typeof CheckoutAprovadoRouteImport
       parentRoute: typeof CheckoutRoute
     }
     '/api/public/webhooks/mercadopago': {
@@ -294,14 +351,20 @@ declare module '@tanstack/react-router' {
 }
 
 interface CheckoutRouteChildren {
+  CheckoutAprovadoRoute: typeof CheckoutAprovadoRoute
   CheckoutFalhaRoute: typeof CheckoutFalhaRoute
+  CheckoutPendenteRoute: typeof CheckoutPendenteRoute
   CheckoutPixRoute: typeof CheckoutPixRoute
+  CheckoutRecusadoRoute: typeof CheckoutRecusadoRoute
   CheckoutSucessoRoute: typeof CheckoutSucessoRoute
 }
 
 const CheckoutRouteChildren: CheckoutRouteChildren = {
+  CheckoutAprovadoRoute: CheckoutAprovadoRoute,
   CheckoutFalhaRoute: CheckoutFalhaRoute,
+  CheckoutPendenteRoute: CheckoutPendenteRoute,
   CheckoutPixRoute: CheckoutPixRoute,
+  CheckoutRecusadoRoute: CheckoutRecusadoRoute,
   CheckoutSucessoRoute: CheckoutSucessoRoute,
 }
 
@@ -324,3 +387,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

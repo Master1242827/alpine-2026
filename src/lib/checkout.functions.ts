@@ -158,9 +158,9 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
       external_reference: order.id,
       notification_url: `${origin}/api/public/webhooks/mercadopago`,
       back_urls: {
-        success: `${origin}/checkout/sucesso?order=${order.id}`,
-        failure: `${origin}/checkout/falha?order=${order.id}`,
-        pending: `${origin}/checkout/sucesso?order=${order.id}`,
+        success: `${origin}/checkout/aprovado?order=${order.id}`,
+        failure: `${origin}/checkout/recusado?order=${order.id}`,
+        pending: `${origin}/checkout/pendente?order=${order.id}`,
       },
       auto_return: "approved",
       payment_methods: paymentMethods,
