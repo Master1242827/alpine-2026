@@ -20,6 +20,17 @@ type Selection = {
   answers: Record<string, { value: string; label: string }>;
 };
 
+const WILDCARD_VALUES = new Set(["", "*", "any", "all", "qualquer", "(qualquer)", "todos", "todas"]);
+
+function normalizeCompatValue(value: unknown) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function isWildcardCompatValue(value: unknown) {
+  const normalized = normalizeCompatValue(value);
+  return WILDCARD_VALUES.has(normalized) || normalized.replace(/[()]/g, "").trim() === "qualquer";
+}
+
 function Configurator() {
   const navigate = useNavigate();
   const [sel, setSel] = useState<Selection>({ answers: {} });
@@ -159,20 +170,38 @@ function Configurator() {
 
     const yr = sel.year!;
     const userAns = Object.fromEntries(Object.entries(sel.answers).map(([k, v]) => [k, v.value]));
+    console.groupCollapsed("[Configurador] Compatibilidade");
+    console.info("Seleção do cliente", { modelo: sel.model?.name, ano: yr, respostas: userAns });
     const matches = ((data ?? []) as any[]).filter((r) => {
+      const productName = r.products?.name ?? r.product_id ?? "Produto sem nome";
       const yf = r.year_from ?? 0;
       const yt = r.year_to ?? 9999;
-      if (!(yr >= yf && yr <= yt)) return false;
-      if (!r.products?.active) return false;
+      if (!(yr >= yf && yr <= yt)) {
+        console.debug("[Configurador] Produto rejeitado", { produto: productName, motivo: "ano fora da faixa", anoCliente: yr, anoInicial: yf, anoFinal: yt });
+        return false;
+      }
+      if (!r.products?.active) {
+        console.debug("[Configurador] Produto rejeitado", { produto: productName, motivo: "produto inativo" });
+        return false;
+      }
       const required = (r.answers ?? {}) as Record<string, string>;
       for (const k of Object.keys(required)) {
         const req = required[k];
-        // wildcards: empty, "*", or "qualquer" mean "any value accepted"
-        if (req == null || req === "" || req === "*" || req === "qualquer") continue;
-        if (userAns[k] !== req) return false;
+        if (isWildcardCompatValue(req)) {
+          console.debug("[Configurador] Filtro ignorado", { produto: productName, campo: k, valorAdmin: req, respostaCliente: userAns[k] });
+          continue;
+        }
+        console.debug("[Configurador] Filtro aplicado", { produto: productName, campo: k, valorAdmin: req, respostaCliente: userAns[k] });
+        if (normalizeCompatValue(userAns[k]) !== normalizeCompatValue(req)) {
+          console.debug("[Configurador] Produto rejeitado", { produto: productName, motivo: "resposta diferente", campo: k, esperado: req, recebido: userAns[k] });
+          return false;
+        }
       }
+      console.debug("[Configurador] Produto compatível", { produto: productName });
       return true;
     });
+    console.info("Resultado da compatibilidade", { encontrados: matches.length, produtos: matches.map((m: any) => m.products?.name ?? m.product_id) });
+    console.groupEnd();
 
     setSearching(false);
     if (matches.length === 1) {
