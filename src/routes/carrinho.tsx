@@ -3,11 +3,12 @@ import { useCart } from "@/lib/cart";
 import { Button } from "@/components/ui/button";
 import { formatCents } from "@/lib/format";
 import { Trash2 } from "lucide-react";
+import { ShippingCalculator } from "@/components/shipping-calculator";
 
 export const Route = createFileRoute("/carrinho")({ component: CartPage });
 
 function CartPage() {
-  const { items, remove, setQty, subtotalCents } = useCart();
+  const { items, remove, setQty, subtotalCents, shipping, shippingCostCents, totalCents } = useCart();
   if (items.length === 0) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
@@ -17,7 +18,7 @@ function CartPage() {
     );
   }
   return (
-    <div className="container mx-auto grid gap-8 px-4 py-10 md:grid-cols-[1fr_320px]">
+    <div className="container mx-auto grid gap-8 px-4 py-10 md:grid-cols-[1fr_360px]">
       <div className="space-y-3">
         {items.map((i) => (
           <div key={i.productId} className="flex gap-4 rounded-lg border border-border bg-card p-3">
@@ -36,13 +37,42 @@ function CartPage() {
             </div>
           </div>
         ))}
+
+        <div className="mt-4">
+          <ShippingCalculator
+            items={items.map((i) => ({
+              productId: i.productId,
+              priceCents: i.priceCents,
+              quantity: i.quantity,
+              weightKg: i.weightKg,
+              lengthCm: i.lengthCm,
+              widthCm: i.widthCm,
+              heightCm: i.heightCm,
+            }))}
+          />
+        </div>
       </div>
       <aside className="h-fit rounded-lg border border-border bg-card p-5">
         <h2 className="text-lg font-bold">Resumo</h2>
-        <div className="mt-4 flex justify-between text-sm">
-          <span>Subtotal</span><span className="font-semibold">{formatCents(subtotalCents)}</span>
+        <div className="mt-4 space-y-1.5 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Subtotal</span>
+            <span className="font-semibold">{formatCents(subtotalCents)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Frete{shipping ? ` (${shipping.name})` : ""}</span>
+            <span className="font-semibold">
+              {shipping ? formatCents(shippingCostCents) : <span className="text-xs text-muted-foreground">a calcular</span>}
+            </span>
+          </div>
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">Frete e pagamento na próxima etapa.</p>
+        <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+          <span className="text-sm font-medium">Total</span>
+          <span className="text-xl font-bold text-primary">{formatCents(totalCents)}</span>
+        </div>
+        {!shipping && (
+          <p className="mt-2 text-xs text-muted-foreground">Calcule o frete ao lado para somar ao total.</p>
+        )}
         <Button asChild className="mt-4 w-full"><Link to="/checkout">Finalizar compra</Link></Button>
         <p className="mt-2 text-center text-xs text-muted-foreground">Pagamento seguro via Mercado Pago</p>
       </aside>
