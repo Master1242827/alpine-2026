@@ -90,10 +90,13 @@ export function CheckoutStatusCard({ orderId, variant }: { orderId: string; vari
         )}
 
         <div className="mt-6 flex flex-col gap-2">
+          <Button asChild className="w-full">
+            <Link to="/pedido/$id" params={{ id: orderId }}>Acompanhar status em tempo real</Link>
+          </Button>
           {isRejected ? (
-            <Button asChild className="w-full"><Link to="/carrinho">Tentar novamente</Link></Button>
+            <Button asChild variant="outline" className="w-full"><Link to="/carrinho">Tentar novamente</Link></Button>
           ) : (
-            <Button asChild className="w-full"><Link to="/">Voltar para a loja</Link></Button>
+            <Button asChild variant="outline" className="w-full"><Link to="/">Voltar para a loja</Link></Button>
           )}
           <Button asChild variant="outline" className="w-full">
             <a href="https://wa.me/5500000000000" target="_blank" rel="noreferrer">Falar no WhatsApp</a>
