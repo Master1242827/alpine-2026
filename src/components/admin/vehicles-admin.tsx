@@ -21,6 +21,13 @@ type Flow = { id: string; model_id: string; question_id: string; year_from: numb
 
 const sb = supabase as any;
 
+const WILDCARD_COMPAT_VALUES = new Set(["", "*", "any", "all", "qualquer", "(qualquer)", "todos", "todas"]);
+
+function isWildcardCompatValue(value: unknown) {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  return WILDCARD_COMPAT_VALUES.has(normalized) || normalized.replace(/[()]/g, "").trim() === "qualquer";
+}
+
 export function VehiclesAdmin() {
   return (
     <Tabs defaultValue="makes" className="mt-4">
@@ -688,6 +695,15 @@ function MappingsPanel() {
 
   const save = async () => {
     if (!editing?.model_id || !editing?.product_id) return toast.error("Modelo e produto são obrigatórios");
+    const allowedKeys = new Set(
+      flows
+        .filter((f) => f.model_id === editing.model_id && f.active)
+        .map((f) => questions.find((q) => q.id === f.question_id)?.key)
+        .filter(Boolean) as string[],
+    );
+    const cleanAnswers = Object.fromEntries(
+      Object.entries(editing.answers ?? {}).filter(([key, value]) => allowedKeys.has(key) && !isWildcardCompatValue(value)),
+    );
     const payload = {
       model_id: editing.model_id,
       cabin_type_id: editing.cabin_type_id ?? null,
@@ -695,7 +711,7 @@ function MappingsPanel() {
       year_from: editing.year_from ?? null,
       year_to: editing.year_to ?? null,
       active: editing.active ?? true,
-      answers: editing.answers ?? {},
+      answers: cleanAnswers,
     };
     const res = editing.id
       ? await sb.from("vehicle_product_map").update(payload).eq("id", editing.id)
