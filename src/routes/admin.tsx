@@ -15,6 +15,8 @@ import { formatCents } from "@/lib/format";
 import { checkIsAdmin } from "@/lib/admin.functions";
 import { VehiclesAdmin } from "@/components/admin/vehicles-admin";
 import { ShippingAdmin } from "@/components/admin/shipping-admin";
+import { classifyProductSize, SIZE_LABEL } from "@/lib/shipping-classify";
+
 
 export const Route = createFileRoute("/admin")({ component: AdminPage });
 
@@ -131,6 +133,10 @@ type Product = {
   category_id: string | null;
   allowed_carriers: string[];
   blocked_carriers: string[];
+  weight_kg: number;
+  length_cm: number;
+  width_cm: number;
+  height_cm: number;
 };
 
 const emptyProduct: Product = {
@@ -149,7 +155,12 @@ const emptyProduct: Product = {
   category_id: null,
   allowed_carriers: [],
   blocked_carriers: [],
+  weight_kg: 1,
+  length_cm: 30,
+  width_cm: 30,
+  height_cm: 10,
 };
+
 
 
 function ProductsTab() {
@@ -199,7 +210,28 @@ function ProductsTab() {
                 <p className="truncate font-medium">{p.name}</p>
                 {!p.active && <Badge variant="secondary">Inativo</Badge>}
                 {p.featured && <Badge>Destaque</Badge>}
+                {(() => {
+                  const size = classifyProductSize({
+                    name: p.name,
+                    weightKg: Number(p.weight_kg ?? 0),
+                    lengthCm: Number(p.length_cm ?? 0),
+                    widthCm: Number(p.width_cm ?? 0),
+                    heightCm: Number(p.height_cm ?? 0),
+                  });
+                  const cls =
+                    size === "large"
+                      ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                      : size === "medium"
+                      ? "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30"
+                      : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30";
+                  return (
+                    <Badge variant="outline" className={cls} title="Classificação automática para o frete">
+                      Frete: {SIZE_LABEL[size]}
+                    </Badge>
+                  );
+                })()}
               </div>
+
               <p className="text-sm text-muted-foreground">
                 {formatCents(p.price_cents)} • Estoque: {p.stock}
               </p>
