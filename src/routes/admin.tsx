@@ -131,6 +131,10 @@ type Product = {
   category_id: string | null;
   allowed_carriers: string[];
   blocked_carriers: string[];
+  weight_kg: number;
+  length_cm: number;
+  width_cm: number;
+  height_cm: number;
 };
 
 const emptyProduct: Product = {
@@ -149,7 +153,12 @@ const emptyProduct: Product = {
   category_id: null,
   allowed_carriers: [],
   blocked_carriers: [],
+  weight_kg: 1,
+  length_cm: 30,
+  width_cm: 30,
+  height_cm: 10,
 };
+
 
 
 function ProductsTab() {
