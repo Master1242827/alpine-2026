@@ -21,7 +21,7 @@ export const Route = createFileRoute("/checkout")({ component: CheckoutPage });
 type ShipOption = { id: string; name: string; priceCents: number; deliveryDays: number | null; companyPicture: string | null };
 
 function CheckoutPage() {
-  const { items, subtotalCents, clear } = useCart();
+  const { items, subtotalCents, clear, shipping: cartShipping, cep: cartCep, setShipping: setCartShipping } = useCart();
   const { user, loading: authLoading } = useAuth();
   const createPref = useServerFn(createCheckoutPreference);
   const quote = useServerFn(quoteShipping);
@@ -29,7 +29,17 @@ function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [quoting, setQuoting] = useState(false);
   const [shipOptions, setShipOptions] = useState<ShipOption[]>([]);
-  const [selectedShip, setSelectedShip] = useState<ShipOption | null>(null);
+  const [selectedShip, setSelectedShip] = useState<ShipOption | null>(
+    cartShipping
+      ? {
+          id: cartShipping.id,
+          name: cartShipping.name,
+          priceCents: cartShipping.priceCents,
+          deliveryDays: cartShipping.deliveryDays,
+          companyPicture: cartShipping.companyPicture,
+        }
+      : null,
+  );
   const [showSummary, setShowSummary] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"mercadopago" | "pix">("mercadopago");
   const [pixSettings, setPixSettings] = useState<{
@@ -38,7 +48,7 @@ function CheckoutPage() {
   } | null>(null);
   const [form, setForm] = useState({
     name: "", email: "", phone: "",
-    cep: "", street: "", number: "", complement: "",
+    cep: cartCep ? formatCep(cartCep) : "", street: "", number: "", complement: "",
     district: "", city: "", state: "", notes: "",
   });
   const numberRef = useRef<HTMLInputElement>(null);
