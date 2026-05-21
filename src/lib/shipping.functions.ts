@@ -61,6 +61,34 @@ export const quoteShipping = createServerFn({ method: "POST" })
       return { options: [], unavailable: true as const };
     }
 
+    // Carregar dados dos produtos (nome, categoria, overrides) para filtro inteligente
+    const productIds = data.products.map((p) => p.id);
+    const { data: productRows } = await supabaseAdmin
+      .from("products")
+      .select("id, name, allowed_carriers, blocked_carriers, categories(slug, name)")
+      .in("id", productIds);
+    const productMap = new Map<string, {
+      name: string;
+      categoryName?: string;
+      allowed: string[];
+      blocked: string[];
+    }>();
+    for (const r of (productRows ?? []) as Array<{
+      id: string;
+      name: string;
+      allowed_carriers: string[] | null;
+      blocked_carriers: string[] | null;
+      categories: { slug: string; name: string } | { slug: string; name: string }[] | null;
+    }>) {
+      const cat = Array.isArray(r.categories) ? r.categories[0] : r.categories;
+      productMap.set(r.id, {
+        name: r.name,
+        categoryName: cat?.name,
+        allowed: r.allowed_carriers ?? [],
+        blocked: r.blocked_carriers ?? [],
+      });
+    }
+
     let res: Response;
     try {
       res = await fetch(`${base}/api/v2/me/shipment/calculate`, {
@@ -99,15 +127,21 @@ export const quoteShipping = createServerFn({ method: "POST" })
       return { options: [], unavailable: true as const };
     }
 
+    // ===== Filtro inteligente por tamanho/peso/categoria/nome =====
+    const sizeClass = classifyShipmentSize(data.products, productMap);
+
     const options = parsed
       .filter((s) => !s.error && (s.price ?? s.custom_price))
       .map((s) => ({
         id: String(s.id),
         name: `${s.company?.name ?? ""} ${s.name}`.trim(),
+        companyName: s.company?.name ?? "",
+        serviceName: s.name,
         priceCents: Math.round(Number(s.custom_price ?? s.price) * 100),
         deliveryDays: s.delivery_time ?? null,
         companyPicture: s.company?.picture ?? null,
       }))
+      .filter((opt) => isCarrierCompatible(opt, sizeClass, data.products, productMap))
       .sort((a, b) => a.priceCents - b.priceCents);
 
     return { options, unavailable: false as const };
