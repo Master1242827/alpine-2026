@@ -192,3 +192,67 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
     console.info("[MercadoPago] preference ready", { orderId: order.id, preferenceId: json.id, redirectUrl });
     return { orderId: order.id, initPoint: redirectUrl as string, preferenceId: json.id as string };
   });
+
+export const getOrderPaymentStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => OrderLookupSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: order, error } = await supabaseAdmin
+      .from("orders")
+      .select("id,user_id,total_cents,status,payment_method,mp_payment_id,mp_preference_id,created_at")
+      .eq("id", data.orderId)
+      .maybeSingle();
+
+    if (error) throw new Error(`Erro ao buscar pedido: ${error.message}`);
+    if (!order || order.user_id !== context.userId) throw new Error("Pedido não encontrado");
+
+    const token = process.env.MERCADO_PAGO_ACCESS_TOKEN;
+    if (token && order.status === "pending") {
+      const endpoint = order.mp_payment_id
+        ? `${MP_PAYMENTS_ENDPOINT}/${order.mp_payment_id}`
+        : `${MP_PAYMENTS_ENDPOINT}/search?external_reference=${encodeURIComponent(order.id)}&sort=date_created&criteria=desc`;
+      try {
+        console.info("[MercadoPago] status check", { endpoint, orderId: order.id });
+        const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}` } });
+        const { text, json } = await readMercadoPagoResponse(res);
+        if (!res.ok) {
+          console.error("[MercadoPago] status check error", { endpoint, status: res.status, body: text, orderId: order.id });
+        } else {
+          const payment = order.mp_payment_id ? json : json?.results?.[0];
+          if (payment?.id && payment?.status) {
+            const nextStatus = mapPaymentStatus(payment.status);
+            const { error: updateErr } = await supabaseAdmin
+              .from("orders")
+              .update({ status: nextStatus, mp_payment_id: String(payment.id) })
+              .eq("id", order.id);
+            if (updateErr) console.error("[MercadoPago] status update error", { orderId: order.id, message: updateErr.message });
+            return {
+              id: order.id,
+              shortId: String(order.id).slice(0, 8).toUpperCase(),
+              totalCents: order.total_cents,
+              status: nextStatus,
+              paymentMethod: order.payment_method,
+              paymentId: String(payment.id),
+              preferenceId: order.mp_preference_id,
+              paymentStatus: payment.status as string,
+              statusDetail: payment.status_detail as string | undefined,
+            };
+          }
+        }
+      } catch (err) {
+        console.error("[MercadoPago] status check failed", { orderId: order.id, message: err instanceof Error ? err.message : String(err) });
+      }
+    }
+
+    return {
+      id: order.id,
+      shortId: String(order.id).slice(0, 8).toUpperCase(),
+      totalCents: order.total_cents,
+      status: order.status,
+      paymentMethod: order.payment_method,
+      paymentId: order.mp_payment_id,
+      preferenceId: order.mp_preference_id,
+      paymentStatus: order.status,
+      statusDetail: undefined,
+    };
+  });
