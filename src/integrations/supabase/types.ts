@@ -348,6 +348,7 @@ export type Database = {
       store_settings: {
         Row: {
           id: number
+          melhor_envio_token: string | null
           origin_cep: string
           pix_bank: string
           pix_copy_paste: string | null
@@ -363,6 +364,7 @@ export type Database = {
         }
         Insert: {
           id?: number
+          melhor_envio_token?: string | null
           origin_cep?: string
           pix_bank?: string
           pix_copy_paste?: string | null
@@ -378,6 +380,7 @@ export type Database = {
         }
         Update: {
           id?: number
+          melhor_envio_token?: string | null
           origin_cep?: string
           pix_bank?: string
           pix_copy_paste?: string | null
