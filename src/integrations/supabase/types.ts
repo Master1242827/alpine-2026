@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_integrations: {
+        Row: {
+          id: number
+          melhor_envio_env: string
+          melhor_envio_token: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          melhor_envio_env?: string
+          melhor_envio_token?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          melhor_envio_env?: string
+          melhor_envio_token?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cabin_types: {
         Row: {
           active: boolean
@@ -348,7 +369,6 @@ export type Database = {
       store_settings: {
         Row: {
           id: number
-          melhor_envio_token: string | null
           origin_cep: string
           pix_bank: string
           pix_copy_paste: string | null
@@ -364,7 +384,6 @@ export type Database = {
         }
         Insert: {
           id?: number
-          melhor_envio_token?: string | null
           origin_cep?: string
           pix_bank?: string
           pix_copy_paste?: string | null
@@ -380,7 +399,6 @@ export type Database = {
         }
         Update: {
           id?: number
-          melhor_envio_token?: string | null
           origin_cep?: string
           pix_bank?: string
           pix_copy_paste?: string | null
