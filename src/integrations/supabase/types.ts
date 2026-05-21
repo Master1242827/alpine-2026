@@ -160,6 +160,42 @@ export type Database = {
         }
         Relationships: []
       }
+      mp_webhook_events: {
+        Row: {
+          id: string
+          mapped_status: string | null
+          order_id: string | null
+          payment_id: string
+          payment_status: string | null
+          processed_at: string
+          query_string: string | null
+          raw_body: string | null
+          topic: string | null
+        }
+        Insert: {
+          id?: string
+          mapped_status?: string | null
+          order_id?: string | null
+          payment_id: string
+          payment_status?: string | null
+          processed_at?: string
+          query_string?: string | null
+          raw_body?: string | null
+          topic?: string | null
+        }
+        Update: {
+          id?: string
+          mapped_status?: string | null
+          order_id?: string | null
+          payment_id?: string
+          payment_status?: string | null
+          processed_at?: string
+          query_string?: string | null
+          raw_body?: string | null
+          topic?: string | null
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           id: string
