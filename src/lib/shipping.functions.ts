@@ -152,8 +152,9 @@ export const quoteShipping = createServerFn({ method: "POST" })
       return { options: [], unavailable: true as const };
     }
 
-    // ===== Filtro inteligente por tamanho/peso/categoria/nome =====
-    const sizeClass = classifyShipmentSize(data.products, productMap);
+    // ===== Filtro inteligente: classifica com dimensões de envio efetivas =====
+    const sizeClass = classifyShipmentSize(shippedProducts, productMap);
+
 
     const options = parsed
       .filter((s) => !s.error && (s.price ?? s.custom_price))
