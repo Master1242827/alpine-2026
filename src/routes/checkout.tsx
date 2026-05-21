@@ -200,14 +200,32 @@ function CheckoutPage() {
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function validateForm(): string | null {
+    if (!form.name.trim() || form.name.trim().length < 3) return "Informe seu nome completo";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return "Informe um e-mail válido";
+    const phoneDigits = form.phone.replace(/\D/g, "");
+    if (phoneDigits.length < 10 || phoneDigits.length > 13) return "WhatsApp inválido. Use DDD + número (ex: 11 91234-5678)";
+    const cepDigits = form.cep.replace(/\D/g, "");
+    if (cepDigits.length !== 8) return "CEP inválido";
+    if (!form.street.trim()) return "Informe a rua";
+    if (!form.number.trim()) return "Informe o número do endereço";
+    if (!form.district.trim()) return "Informe o bairro";
+    if (!form.city.trim()) return "Informe a cidade";
+    if (!/^[A-Za-z]{2}$/.test(form.state.trim())) return "Informe a UF (2 letras)";
+    if (!selectedShip) return "Calcule e selecione uma opção de frete";
+    return null;
+  }
 
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedShip) { toast.error("Calcule e selecione uma opção de frete"); return; }
+    const validationError = validateForm();
+    if (validationError) { toast.error(validationError); return; }
     setLoading(true);
     try {
       const { data: sess } = await supabase.auth.getSession();
       const userId = sess.session?.user.id ?? null;
+
+
 
       if (paymentMethod === "pix") {
         const { data: order, error: orderErr } = await supabase
