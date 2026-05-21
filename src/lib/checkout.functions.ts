@@ -256,3 +256,100 @@ export const getOrderPaymentStatus = createServerFn({ method: "POST" })
       statusDetail: undefined,
     };
   });
+
+export const createPixPayment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => InputSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const token = process.env.MERCADO_PAGO_ACCESS_TOKEN;
+    if (!token) throw new Error("MERCADO_PAGO_ACCESS_TOKEN is not configured");
+
+    const subtotal = data.items.reduce((s, i) => s + i.priceCents * i.quantity, 0);
+    const total = Math.max(0, subtotal + data.shippingCostCents - data.discountCents);
+
+    const { data: order, error: orderErr } = await supabaseAdmin
+      .from("orders")
+      .insert({
+        user_id: context.userId,
+        customer_name: data.customer.name,
+        customer_email: data.customer.email,
+        customer_phone: data.customer.phone,
+        shipping_address: data.shipping,
+        shipping_cost_cents: data.shippingCostCents,
+        shipping_service: data.shippingService,
+        subtotal_cents: subtotal,
+        discount_cents: data.discountCents,
+        total_cents: total,
+        notes: data.notes,
+        status: "pending",
+        payment_method: "pix",
+      })
+      .select("id")
+      .single();
+    if (orderErr || !order) throw new Error(orderErr?.message ?? "Falha ao criar pedido");
+
+    const itemsRows = data.items.map((i) => ({
+      order_id: order.id,
+      product_id: i.productId,
+      product_name: i.name,
+      unit_price_cents: i.priceCents,
+      quantity: i.quantity,
+      vehicle_config: i.vehicleConfig ?? null,
+    }));
+    const { error: itemsErr } = await supabaseAdmin.from("order_items").insert(itemsRows);
+    if (itemsErr) throw new Error(itemsErr.message);
+
+    const origin = getRuntimeOrigin();
+    const [firstName, ...rest] = data.customer.name.split(" ");
+    const expiration = new Date(Date.now() + 30 * 60 * 1000).toISOString().replace("Z", "-00:00");
+    const pixBody = {
+      transaction_amount: Number((total / 100).toFixed(2)),
+      description: `Pedido Alpine #${String(order.id).slice(0, 8)}`,
+      payment_method_id: "pix",
+      external_reference: order.id,
+      notification_url: `${origin}/api/public/webhooks/mercadopago`,
+      date_of_expiration: expiration,
+      payer: {
+        email: data.customer.email,
+        first_name: firstName,
+        last_name: rest.join(" ") || firstName,
+      },
+    };
+
+    console.info("[MercadoPago] create pix payment", { endpoint: MP_PAYMENTS_ENDPOINT, orderId: order.id, totalCents: total });
+    const res = await fetch(MP_PAYMENTS_ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "X-Idempotency-Key": `pix-${order.id}`,
+      },
+      body: JSON.stringify(pixBody),
+    });
+    const { text, json } = await readMercadoPagoResponse(res);
+    const qrCode = json?.point_of_interaction?.transaction_data?.qr_code as string | undefined;
+    const qrCodeBase64 = json?.point_of_interaction?.transaction_data?.qr_code_base64 as string | undefined;
+    const ticketUrl = json?.point_of_interaction?.transaction_data?.ticket_url as string | undefined;
+    if (!res.ok || !json?.id || !qrCode) {
+      console.error("[MercadoPago] pix error", { endpoint: MP_PAYMENTS_ENDPOINT, status: res.status, body: text, orderId: order.id });
+      throw new Error(`Mercado Pago PIX error [${res.status}]: ${mercadoPagoMessage(json, "pix failed")}`);
+    }
+
+    const { error: updateErr } = await supabaseAdmin
+      .from("orders")
+      .update({ mp_payment_id: String(json.id) })
+      .eq("id", order.id);
+    if (updateErr) console.error("[MercadoPago] order pix update error", { orderId: order.id, message: updateErr.message });
+
+    console.info("[MercadoPago] pix ready", { orderId: order.id, paymentId: json.id });
+    return {
+      orderId: order.id,
+      paymentId: String(json.id),
+      qrCode,
+      qrCodeBase64,
+      ticketUrl,
+      totalCents: total,
+      expiresAt: expiration,
+    };
+  });
+
