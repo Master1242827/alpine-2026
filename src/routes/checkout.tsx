@@ -82,6 +82,32 @@ function CheckoutPage() {
     }
   }, [user]);
 
+  // Auto address lookup + auto quote when CEP becomes valid.
+  // IMPORTANT: declared BEFORE any conditional early-return below so hook order stays stable.
+  useEffect(() => {
+    const clean = form.cep.replace(/\D/g, "");
+    if (clean.length !== 8 || clean === lastQuotedCep.current) return;
+    if (items.length === 0) return;
+    lastQuotedCep.current = clean;
+    (async () => {
+      const addr = await lookupCep(clean);
+      if (addr) {
+        setForm((p) => ({
+          ...p,
+          street: addr.street || p.street,
+          district: addr.district || p.district,
+          city: addr.city || p.city,
+          state: addr.state || p.state,
+        }));
+        setTimeout(() => numberRef.current?.focus(), 50);
+      }
+      runQuote(clean);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.cep, items.length]);
+
+
+
   if (items.length === 0) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
