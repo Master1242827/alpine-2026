@@ -363,7 +363,7 @@ function CheckoutPage() {
                   return (
                     <li key={o.id}>
                       <label className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-3 text-sm transition ${selected ? "border-primary bg-primary/5" : "border-border bg-background hover:border-primary/40"}`}>
-                        <input type="radio" name="ship" checked={selected} onChange={() => setSelectedShip(o)} className="sr-only" />
+                        <input type="radio" name="ship" checked={selected} onChange={() => { setSelectedShip(o); setCartShipping({ id: o.id, name: o.name, priceCents: o.priceCents, deliveryDays: o.deliveryDays, companyPicture: o.companyPicture, cep: form.cep.replace(/\D/g, "") }); }} className="sr-only" />
                         <div className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 ${selected ? "border-primary" : "border-muted-foreground/40"}`}>
                           {selected && <div className="h-2.5 w-2.5 rounded-full bg-primary" />}
                         </div>
