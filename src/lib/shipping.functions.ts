@@ -61,6 +61,34 @@ export const quoteShipping = createServerFn({ method: "POST" })
       return { options: [], unavailable: true as const };
     }
 
+    // Carregar dados dos produtos (nome, categoria, overrides) para filtro inteligente
+    const productIds = data.products.map((p) => p.id);
+    const { data: productRows } = await supabaseAdmin
+      .from("products")
+      .select("id, name, allowed_carriers, blocked_carriers, categories(slug, name)")
+      .in("id", productIds);
+    const productMap = new Map<string, {
+      name: string;
+      categoryName?: string;
+      allowed: string[];
+      blocked: string[];
+    }>();
+    for (const r of (productRows ?? []) as Array<{
+      id: string;
+      name: string;
+      allowed_carriers: string[] | null;
+      blocked_carriers: string[] | null;
+      categories: { slug: string; name: string } | { slug: string; name: string }[] | null;
+    }>) {
+      const cat = Array.isArray(r.categories) ? r.categories[0] : r.categories;
+      productMap.set(r.id, {
+        name: r.name,
+        categoryName: cat?.name,
+        allowed: r.allowed_carriers ?? [],
+        blocked: r.blocked_carriers ?? [],
+      });
+    }
+
     let res: Response;
     try {
       res = await fetch(`${base}/api/v2/me/shipment/calculate`, {
@@ -99,19 +127,108 @@ export const quoteShipping = createServerFn({ method: "POST" })
       return { options: [], unavailable: true as const };
     }
 
+    // ===== Filtro inteligente por tamanho/peso/categoria/nome =====
+    const sizeClass = classifyShipmentSize(data.products, productMap);
+
     const options = parsed
       .filter((s) => !s.error && (s.price ?? s.custom_price))
       .map((s) => ({
         id: String(s.id),
         name: `${s.company?.name ?? ""} ${s.name}`.trim(),
+        companyName: s.company?.name ?? "",
+        serviceName: s.name,
         priceCents: Math.round(Number(s.custom_price ?? s.price) * 100),
         deliveryDays: s.delivery_time ?? null,
         companyPicture: s.company?.picture ?? null,
       }))
-      .sort((a, b) => a.priceCents - b.priceCents);
+      .filter((opt) => isCarrierCompatible(opt, sizeClass, data.products, productMap))
+      .sort((a, b) => a.priceCents - b.priceCents)
+      .map(({ companyName: _c, serviceName: _s, ...rest }) => rest);
 
     return { options, unavailable: false as const };
   });
+
+// ===== Smart shipping classification =====
+type SizeClass = "small" | "medium" | "large";
+
+const LARGE_KEYWORDS = [
+  "capota", "parachoque", "para-choque", "santo antonio", "santo antônio",
+  "estribo", "rack", "grade", "porta-mala", "porta mala", "longarina",
+  "tampa traseira", "carroceria",
+];
+const MEDIUM_KEYWORDS = [
+  "farol", "spoiler", "aerofolio", "aerofólio", "vidro",
+  "para-lama", "paralama", "capo", "capô", "porta",
+];
+const SMALL_KEYWORDS = [
+  "retrovisor", "sensor", "macaneta", "maçaneta", "lampada", "lâmpada",
+  "chave", "emblema", "parafuso", "fusivel", "fusível", "lanterna",
+];
+
+function normalize(s: string) {
+  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function classifyByKeywords(name: string, category?: string): SizeClass | null {
+  const txt = normalize(`${name} ${category ?? ""}`);
+  if (LARGE_KEYWORDS.some((k) => txt.includes(normalize(k)))) return "large";
+  if (MEDIUM_KEYWORDS.some((k) => txt.includes(normalize(k)))) return "medium";
+  if (SMALL_KEYWORDS.some((k) => txt.includes(normalize(k)))) return "small";
+  return null;
+}
+
+function classifyByDimensions(p: { width: number; height: number; length: number; weight: number }): SizeClass {
+  const maxDim = Math.max(p.width, p.height, p.length);
+  const sumDim = p.width + p.height + p.length;
+  // Limites Correios: maior dimensão ~105cm, soma ~200cm, peso 30kg.
+  if (maxDim > 100 || sumDim > 190 || p.weight > 28) return "large";
+  if (maxDim > 60 || sumDim > 120 || p.weight > 10) return "medium";
+  return "small";
+}
+
+const SIZE_RANK: Record<SizeClass, number> = { small: 0, medium: 1, large: 2 };
+
+function classifyShipmentSize(
+  products: Array<{ id: string; width: number; height: number; length: number; weight: number }>,
+  map: Map<string, { name: string; categoryName?: string }>,
+): SizeClass {
+  let worst: SizeClass = "small";
+  for (const p of products) {
+    const info = map.get(p.id);
+    const byKw = info ? classifyByKeywords(info.name, info.categoryName) : null;
+    const byDim = classifyByDimensions(p);
+    const cls = byKw && SIZE_RANK[byKw] > SIZE_RANK[byDim] ? byKw : byDim;
+    if (SIZE_RANK[cls] > SIZE_RANK[worst]) worst = cls;
+  }
+  return worst;
+}
+
+function isCarrierCompatible(
+  opt: { name: string; companyName: string; serviceName: string },
+  size: SizeClass,
+  products: Array<{ id: string }>,
+  map: Map<string, { allowed: string[]; blocked: string[] }>,
+): boolean {
+  const nameLower = opt.name.toLowerCase();
+  const isCorreios = /correios/i.test(opt.companyName);
+  const isSedex = /sedex/i.test(opt.serviceName);
+  const isPac = /\bpac\b/i.test(opt.serviceName);
+
+  // Overrides manuais por produto
+  for (const p of products) {
+    const info = map.get(p.id);
+    if (!info) continue;
+    if (info.blocked.some((b) => b && nameLower.includes(b.toLowerCase()))) return false;
+    if (info.allowed.length > 0 && !info.allowed.some((a) => a && nameLower.includes(a.toLowerCase()))) {
+      return false;
+    }
+  }
+
+  // Produtos grandes: ocultar Correios (PAC/SEDEX) automaticamente
+  if (size === "large" && (isCorreios || isPac || isSedex)) return false;
+  return true;
+}
+
 
 // ============ Admin: integração Melhor Envio ============
 

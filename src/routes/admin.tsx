@@ -129,6 +129,8 @@ type Product = {
   featured: boolean;
   requires_vehicle_config: boolean;
   category_id: string | null;
+  allowed_carriers: string[];
+  blocked_carriers: string[];
 };
 
 const emptyProduct: Product = {
@@ -145,7 +147,10 @@ const emptyProduct: Product = {
   featured: false,
   requires_vehicle_config: false,
   category_id: null,
+  allowed_carriers: [],
+  blocked_carriers: [],
 };
+
 
 function ProductsTab() {
   const [items, setItems] = useState<Product[]>([]);
@@ -258,10 +263,13 @@ function ProductForm({ initial, onClose }: { initial: Product; onClose: () => vo
         active: p.active,
         featured: p.featured,
         requires_vehicle_config: p.requires_vehicle_config,
+        allowed_carriers: p.allowed_carriers,
+        blocked_carriers: p.blocked_carriers,
       };
       const res = p.id
         ? await supabase.from("products").update(payload).eq("id", p.id)
         : await supabase.from("products").insert(payload);
+
       if (res.error) throw res.error;
       toast.success("Produto salvo");
       onClose();
@@ -325,6 +333,41 @@ function ProductForm({ initial, onClose }: { initial: Product; onClose: () => vo
             <Switch checked={p.requires_vehicle_config} onCheckedChange={(v) => setP({ ...p, requires_vehicle_config: v })} /> Exige configurador de veículo
           </label>
         </div>
+
+        <div className="rounded-lg border border-border bg-muted/30 p-4">
+          <h4 className="text-sm font-semibold">Transportadoras (override manual)</h4>
+          <p className="mt-1 text-xs text-muted-foreground">
+            O sistema escolhe automaticamente as transportadoras compatíveis com base no
+            tamanho, peso e tipo do produto. Use os campos abaixo apenas para forçar ou
+            bloquear opções específicas. Use partes do nome (ex.: PAC, SEDEX, Jadlog,
+            Correios), separadas por vírgula.
+          </p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <div>
+              <Label>Permitir somente (opcional)</Label>
+              <Input
+                placeholder="Ex.: Jadlog, SEDEX"
+                value={p.allowed_carriers.join(", ")}
+                onChange={(e) => setP({
+                  ...p,
+                  allowed_carriers: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+                })}
+              />
+            </div>
+            <div>
+              <Label>Bloquear</Label>
+              <Input
+                placeholder="Ex.: PAC, SEDEX"
+                value={p.blocked_carriers.join(", ")}
+                onChange={(e) => setP({
+                  ...p,
+                  blocked_carriers: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+                })}
+              />
+            </div>
+          </div>
+        </div>
+
         <div>
           <Label>Imagens</Label>
           <p className="mt-1 text-xs text-muted-foreground">
