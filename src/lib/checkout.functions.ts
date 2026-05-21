@@ -63,23 +63,27 @@ const InputSchema = z.object({
   shippingService: z.string().max(60).optional().default("A combinar"),
   notes: z.string().max(500).optional().default(""),
   items: z.array(ItemSchema).min(1).max(50),
-  userId: z.string().uuid().nullable().optional(),
+  paymentMethod: z.enum(["mercadopago", "pix"]).optional().default("mercadopago"),
+  discountCents: z.number().int().min(0).optional().default(0),
 });
 
+const OrderLookupSchema = z.object({ orderId: z.string().uuid() });
+
 export const createCheckoutPreference = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => InputSchema.parse(input))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const token = process.env.MERCADO_PAGO_ACCESS_TOKEN;
     if (!token) throw new Error("MERCADO_PAGO_ACCESS_TOKEN is not configured");
 
     const subtotal = data.items.reduce((s, i) => s + i.priceCents * i.quantity, 0);
-    const total = subtotal + data.shippingCostCents;
+    const total = Math.max(0, subtotal + data.shippingCostCents - data.discountCents);
 
     // Create order (pending)
     const { data: order, error: orderErr } = await supabaseAdmin
       .from("orders")
       .insert({
-        user_id: data.userId ?? null,
+        user_id: context.userId,
         customer_name: data.customer.name,
         customer_email: data.customer.email,
         customer_phone: data.customer.phone,
@@ -87,9 +91,11 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
         shipping_cost_cents: data.shippingCostCents,
         shipping_service: data.shippingService,
         subtotal_cents: subtotal,
+        discount_cents: data.discountCents,
         total_cents: total,
         notes: data.notes,
         status: "pending",
+        payment_method: data.paymentMethod,
       })
       .select("id")
       .single();
