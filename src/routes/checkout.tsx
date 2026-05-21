@@ -135,7 +135,6 @@ function CheckoutPage() {
   async function runQuote(cep: string) {
     setQuoting(true);
     setShipOptions([]);
-    setSelectedShip(null);
     try {
       const res = await quote({
         data: {
@@ -152,7 +151,19 @@ function CheckoutPage() {
         },
       });
       setShipOptions(res.options);
-      if (res.options[0]) setSelectedShip(res.options[0]);
+      // Preserve previous selection if same CEP and option still present, else fall back to first.
+      const preferredId = (cartShipping && cartShipping.cep === cep) ? cartShipping.id : selectedShip?.id;
+      const keep = preferredId ? res.options.find((o) => o.id === preferredId) : null;
+      const next = keep ?? res.options[0] ?? null;
+      setSelectedShip(next);
+      if (next) {
+        setCartShipping({
+          id: next.id, name: next.name, priceCents: next.priceCents,
+          deliveryDays: next.deliveryDays, companyPicture: next.companyPicture, cep,
+        });
+      } else {
+        setCartShipping(null);
+      }
       if (res.options.length === 0) {
         toast.error("Frete indisponível para este CEP no momento. Fale conosco no WhatsApp para combinar a entrega.");
       }
