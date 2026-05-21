@@ -285,6 +285,10 @@ export type Database = {
           name: string
           price_cents: number
           requires_vehicle_config: boolean
+          shipping_height_cm: number | null
+          shipping_length_cm: number | null
+          shipping_weight_kg: number | null
+          shipping_width_cm: number | null
           short_description: string | null
           slug: string
           stock: number
@@ -308,6 +312,10 @@ export type Database = {
           name: string
           price_cents: number
           requires_vehicle_config?: boolean
+          shipping_height_cm?: number | null
+          shipping_length_cm?: number | null
+          shipping_weight_kg?: number | null
+          shipping_width_cm?: number | null
           short_description?: string | null
           slug: string
           stock?: number
@@ -331,6 +339,10 @@ export type Database = {
           name?: string
           price_cents?: number
           requires_vehicle_config?: boolean
+          shipping_height_cm?: number | null
+          shipping_length_cm?: number | null
+          shipping_weight_kg?: number | null
+          shipping_width_cm?: number | null
           short_description?: string | null
           slug?: string
           stock?: number
