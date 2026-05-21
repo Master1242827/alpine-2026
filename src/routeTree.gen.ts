@@ -18,6 +18,7 @@ import { Route as CarrinhoRouteImport } from './routes/carrinho'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProdutoSlugRouteImport } from './routes/produto.$slug'
+import { Route as PedidoIdRouteImport } from './routes/pedido.$id'
 import { Route as CheckoutSucessoRouteImport } from './routes/checkout.sucesso'
 import { Route as CheckoutRecusadoRouteImport } from './routes/checkout.recusado'
 import { Route as CheckoutPixRouteImport } from './routes/checkout.pix'
@@ -69,6 +70,11 @@ const IndexRoute = IndexRouteImport.update({
 const ProdutoSlugRoute = ProdutoSlugRouteImport.update({
   id: '/produto/$slug',
   path: '/produto/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PedidoIdRoute = PedidoIdRouteImport.update({
+  id: '/pedido/$id',
+  path: '/pedido/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CheckoutSucessoRoute = CheckoutSucessoRouteImport.update({
@@ -123,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/checkout/pix': typeof CheckoutPixRoute
   '/checkout/recusado': typeof CheckoutRecusadoRoute
   '/checkout/sucesso': typeof CheckoutSucessoRoute
+  '/pedido/$id': typeof PedidoIdRoute
   '/produto/$slug': typeof ProdutoSlugRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
 }
@@ -141,6 +148,7 @@ export interface FileRoutesByTo {
   '/checkout/pix': typeof CheckoutPixRoute
   '/checkout/recusado': typeof CheckoutRecusadoRoute
   '/checkout/sucesso': typeof CheckoutSucessoRoute
+  '/pedido/$id': typeof PedidoIdRoute
   '/produto/$slug': typeof ProdutoSlugRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
 }
@@ -160,6 +168,7 @@ export interface FileRoutesById {
   '/checkout/pix': typeof CheckoutPixRoute
   '/checkout/recusado': typeof CheckoutRecusadoRoute
   '/checkout/sucesso': typeof CheckoutSucessoRoute
+  '/pedido/$id': typeof PedidoIdRoute
   '/produto/$slug': typeof ProdutoSlugRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
 }
@@ -180,6 +189,7 @@ export interface FileRouteTypes {
     | '/checkout/pix'
     | '/checkout/recusado'
     | '/checkout/sucesso'
+    | '/pedido/$id'
     | '/produto/$slug'
     | '/api/public/webhooks/mercadopago'
   fileRoutesByTo: FileRoutesByTo
@@ -198,6 +208,7 @@ export interface FileRouteTypes {
     | '/checkout/pix'
     | '/checkout/recusado'
     | '/checkout/sucesso'
+    | '/pedido/$id'
     | '/produto/$slug'
     | '/api/public/webhooks/mercadopago'
   id:
@@ -216,6 +227,7 @@ export interface FileRouteTypes {
     | '/checkout/pix'
     | '/checkout/recusado'
     | '/checkout/sucesso'
+    | '/pedido/$id'
     | '/produto/$slug'
     | '/api/public/webhooks/mercadopago'
   fileRoutesById: FileRoutesById
@@ -229,6 +241,7 @@ export interface RootRouteChildren {
   ContaRoute: typeof ContaRoute
   LoginRoute: typeof LoginRoute
   ProdutosRoute: typeof ProdutosRoute
+  PedidoIdRoute: typeof PedidoIdRoute
   ProdutoSlugRoute: typeof ProdutoSlugRoute
   ApiPublicWebhooksMercadopagoRoute: typeof ApiPublicWebhooksMercadopagoRoute
 }
@@ -296,6 +309,13 @@ declare module '@tanstack/react-router' {
       path: '/produto/$slug'
       fullPath: '/produto/$slug'
       preLoaderRoute: typeof ProdutoSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pedido/$id': {
+      id: '/pedido/$id'
+      path: '/pedido/$id'
+      fullPath: '/pedido/$id'
+      preLoaderRoute: typeof PedidoIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/checkout/sucesso': {
@@ -381,6 +401,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContaRoute: ContaRoute,
   LoginRoute: LoginRoute,
   ProdutosRoute: ProdutosRoute,
+  PedidoIdRoute: PedidoIdRoute,
   ProdutoSlugRoute: ProdutoSlugRoute,
   ApiPublicWebhooksMercadopagoRoute: ApiPublicWebhooksMercadopagoRoute,
 }
