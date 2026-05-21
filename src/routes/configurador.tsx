@@ -110,6 +110,13 @@ function Configurator() {
     [orderedFlow]
   );
   const dynamicSteps = visibleFlow.map((f) => questions?.find((q) => q.id === f.question_id)).filter(Boolean) as Question[];
+  const flowQuestionKeys = useMemo(() => {
+    return new Set(
+      orderedFlow
+        .map((f) => questions?.find((q) => q.id === f.question_id)?.key)
+        .filter(Boolean) as string[],
+    );
+  }, [orderedFlow, questions]);
 
   // Auto-prefill answers for hidden / auto-answer questions so matching uses them
   useEffect(() => {
@@ -170,6 +177,11 @@ function Configurator() {
 
     const yr = sel.year!;
     const userAns = Object.fromEntries(Object.entries(sel.answers).map(([k, v]) => [k, v.value]));
+    for (const f of orderedFlow) {
+      if (!f.auto_answer) continue;
+      const q = questions?.find((x) => x.id === f.question_id);
+      if (q && !userAns[q.key]) userAns[q.key] = f.auto_answer;
+    }
     console.groupCollapsed("[Configurador] Compatibilidade");
     console.info("Seleção do cliente", { modelo: sel.model?.name, ano: yr, respostas: userAns });
     const matches = ((data ?? []) as any[]).filter((r) => {
@@ -187,6 +199,10 @@ function Configurator() {
       const required = (r.answers ?? {}) as Record<string, string>;
       for (const k of Object.keys(required)) {
         const req = required[k];
+        if (!flowQuestionKeys.has(k)) {
+          console.debug("[Configurador] Filtro ignorado", { produto: productName, campo: k, valorAdmin: req, motivo: "campo não existe no fluxo ativo do modelo" });
+          continue;
+        }
         if (isWildcardCompatValue(req)) {
           console.debug("[Configurador] Filtro ignorado", { produto: productName, campo: k, valorAdmin: req, respostaCliente: userAns[k] });
           continue;
