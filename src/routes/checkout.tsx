@@ -21,7 +21,7 @@ export const Route = createFileRoute("/checkout")({ component: CheckoutPage });
 type ShipOption = { id: string; name: string; priceCents: number; deliveryDays: number | null; companyPicture: string | null };
 
 function CheckoutPage() {
-  const { items, subtotalCents, clear } = useCart();
+  const { items, subtotalCents, clear, shipping: cartShipping, cep: cartCep, setShipping: setCartShipping } = useCart();
   const { user, loading: authLoading } = useAuth();
   const createPref = useServerFn(createCheckoutPreference);
   const quote = useServerFn(quoteShipping);
@@ -29,7 +29,17 @@ function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [quoting, setQuoting] = useState(false);
   const [shipOptions, setShipOptions] = useState<ShipOption[]>([]);
-  const [selectedShip, setSelectedShip] = useState<ShipOption | null>(null);
+  const [selectedShip, setSelectedShip] = useState<ShipOption | null>(
+    cartShipping
+      ? {
+          id: cartShipping.id,
+          name: cartShipping.name,
+          priceCents: cartShipping.priceCents,
+          deliveryDays: cartShipping.deliveryDays,
+          companyPicture: cartShipping.companyPicture,
+        }
+      : null,
+  );
   const [showSummary, setShowSummary] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"mercadopago" | "pix">("mercadopago");
   const [pixSettings, setPixSettings] = useState<{
@@ -38,7 +48,7 @@ function CheckoutPage() {
   } | null>(null);
   const [form, setForm] = useState({
     name: "", email: "", phone: "",
-    cep: "", street: "", number: "", complement: "",
+    cep: cartCep ? formatCep(cartCep) : "", street: "", number: "", complement: "",
     district: "", city: "", state: "", notes: "",
   });
   const numberRef = useRef<HTMLInputElement>(null);
@@ -125,7 +135,6 @@ function CheckoutPage() {
   async function runQuote(cep: string) {
     setQuoting(true);
     setShipOptions([]);
-    setSelectedShip(null);
     try {
       const res = await quote({
         data: {
@@ -142,7 +151,19 @@ function CheckoutPage() {
         },
       });
       setShipOptions(res.options);
-      if (res.options[0]) setSelectedShip(res.options[0]);
+      // Preserve previous selection if same CEP and option still present, else fall back to first.
+      const preferredId = (cartShipping && cartShipping.cep === cep) ? cartShipping.id : selectedShip?.id;
+      const keep = preferredId ? res.options.find((o) => o.id === preferredId) : null;
+      const next = keep ?? res.options[0] ?? null;
+      setSelectedShip(next);
+      if (next) {
+        setCartShipping({
+          id: next.id, name: next.name, priceCents: next.priceCents,
+          deliveryDays: next.deliveryDays, companyPicture: next.companyPicture, cep,
+        });
+      } else {
+        setCartShipping(null);
+      }
       if (res.options.length === 0) {
         toast.error("Frete indisponível para este CEP no momento. Fale conosco no WhatsApp para combinar a entrega.");
       }
@@ -342,7 +363,7 @@ function CheckoutPage() {
                   return (
                     <li key={o.id}>
                       <label className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-3 text-sm transition ${selected ? "border-primary bg-primary/5" : "border-border bg-background hover:border-primary/40"}`}>
-                        <input type="radio" name="ship" checked={selected} onChange={() => setSelectedShip(o)} className="sr-only" />
+                        <input type="radio" name="ship" checked={selected} onChange={() => { setSelectedShip(o); setCartShipping({ id: o.id, name: o.name, priceCents: o.priceCents, deliveryDays: o.deliveryDays, companyPicture: o.companyPicture, cep: form.cep.replace(/\D/g, "") }); }} className="sr-only" />
                         <div className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 ${selected ? "border-primary" : "border-muted-foreground/40"}`}>
                           {selected && <div className="h-2.5 w-2.5 rounded-full bg-primary" />}
                         </div>
