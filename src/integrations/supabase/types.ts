@@ -671,7 +671,33 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      store_settings_public: {
+        Row: {
+          id: number | null
+          pix_discount_percent: number | null
+          pix_enabled: boolean | null
+          pix_message: string | null
+          store_name: string | null
+          whatsapp_number: string | null
+        }
+        Insert: {
+          id?: number | null
+          pix_discount_percent?: number | null
+          pix_enabled?: boolean | null
+          pix_message?: string | null
+          store_name?: string | null
+          whatsapp_number?: string | null
+        }
+        Update: {
+          id?: number | null
+          pix_discount_percent?: number | null
+          pix_enabled?: boolean | null
+          pix_message?: string | null
+          store_name?: string | null
+          whatsapp_number?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
