@@ -71,6 +71,61 @@ const InputSchema = z.object({
 
 const OrderLookupSchema = z.object({ orderId: z.string().uuid() });
 
+type ResolvedItem = {
+  productId: string;
+  name: string;
+  priceCents: number;
+  quantity: number;
+  vehicleConfig?: Record<string, string>;
+};
+
+/**
+ * SECURITY: Replace client-supplied prices with the authoritative price from the products table,
+ * and recompute the PIX discount from store_settings server-side. Never trust client price/discount.
+ */
+async function resolveCheckoutAmounts(input: z.infer<typeof InputSchema>) {
+  const ids = Array.from(new Set(input.items.map((i) => i.productId)));
+  const { data: rows, error } = await supabaseAdmin
+    .from("products")
+    .select("id,name,price_cents,active")
+    .in("id", ids);
+  if (error) throw new Error(`Falha ao validar produtos: ${error.message}`);
+  const byId = new Map((rows ?? []).map((r) => [r.id, r]));
+  const resolvedItems: ResolvedItem[] = input.items.map((i) => {
+    const p = byId.get(i.productId);
+    if (!p) throw new Error(`Produto indisponível (${i.productId})`);
+    if (!p.active) throw new Error(`Produto inativo: ${p.name}`);
+    return {
+      productId: i.productId,
+      name: p.name,
+      priceCents: p.price_cents,
+      quantity: i.quantity,
+      vehicleConfig: i.vehicleConfig,
+    };
+  });
+  const subtotal = resolvedItems.reduce((s, i) => s + i.priceCents * i.quantity, 0);
+
+  // Sanity-check shipping (still client-supplied — re-quoting is expensive).
+  const shippingCostCents = Math.max(0, Math.min(input.shippingCostCents | 0, 1_000_00));
+
+  // Recompute discount from server-side store_settings (PIX only).
+  let discountCents = 0;
+  if (input.paymentMethod === "pix") {
+    const { data: settings } = await supabaseAdmin
+      .from("store_settings")
+      .select("pix_enabled,pix_discount_percent")
+      .eq("id", 1)
+      .maybeSingle();
+    if (settings?.pix_enabled && settings.pix_discount_percent) {
+      discountCents = Math.floor((subtotal * Number(settings.pix_discount_percent)) / 100);
+    }
+  }
+
+  const total = Math.max(0, subtotal + shippingCostCents - discountCents);
+  return { resolvedItems, subtotal, shippingCostCents, discountCents, total };
+}
+
+
 export const createCheckoutPreference = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => InputSchema.parse(input))
