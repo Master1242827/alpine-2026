@@ -63,12 +63,12 @@ function CheckoutPage() {
 
   useEffect(() => {
     supabase
-      .from("store_settings")
+      .from("store_settings_public" as any)
       .select("pix_enabled, pix_discount_percent")
       .eq("id", 1)
       .maybeSingle()
-      .then(({ data }) => {
-        if (data) setPixSettings(data as any);
+      .then(({ data }: { data: any }) => {
+        if (data) setPixSettings(data);
       });
   }, []);
 
