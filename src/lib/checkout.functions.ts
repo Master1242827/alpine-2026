@@ -133,8 +133,8 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
     const token = process.env.MERCADO_PAGO_ACCESS_TOKEN;
     if (!token) throw new Error("MERCADO_PAGO_ACCESS_TOKEN is not configured");
 
-    const subtotal = data.items.reduce((s, i) => s + i.priceCents * i.quantity, 0);
-    const total = Math.max(0, subtotal + data.shippingCostCents - data.discountCents);
+    const { resolvedItems, subtotal, shippingCostCents, discountCents, total } =
+      await resolveCheckoutAmounts(data);
 
     // Create order (pending)
     const { data: order, error: orderErr } = await supabaseAdmin
@@ -145,10 +145,10 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
         customer_email: data.customer.email,
         customer_phone: data.customer.phone,
         shipping_address: data.shipping,
-        shipping_cost_cents: data.shippingCostCents,
+        shipping_cost_cents: shippingCostCents,
         shipping_service: data.shippingService,
         subtotal_cents: subtotal,
-        discount_cents: data.discountCents,
+        discount_cents: discountCents,
         total_cents: total,
         notes: data.notes,
         status: "pending",
@@ -158,7 +158,7 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
       .single();
     if (orderErr || !order) throw new Error(orderErr?.message ?? "Falha ao criar pedido");
 
-    const itemsRows = data.items.map((i) => ({
+    const itemsRows = resolvedItems.map((i) => ({
       order_id: order.id,
       product_id: i.productId,
       product_name: i.name,
@@ -170,7 +170,7 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
     if (itemsErr) throw new Error(itemsErr.message);
 
     const origin = getRuntimeOrigin();
-    const mpItems = data.paymentMethod === "pix" && data.discountCents > 0
+    const mpItems = data.paymentMethod === "pix" && discountCents > 0
       ? [{
           id: order.id,
           title: `Pedido Alpine #${String(order.id).slice(0, 8)} com frete e desconto PIX`,
@@ -178,22 +178,23 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
           currency_id: "BRL",
           unit_price: Number((total / 100).toFixed(2)),
         }]
-      : data.items.map((i) => ({
+      : resolvedItems.map((i) => ({
           id: i.productId,
           title: i.name.slice(0, 250),
           quantity: i.quantity,
           currency_id: "BRL",
           unit_price: Number((i.priceCents / 100).toFixed(2)),
         }));
-    if (!(data.paymentMethod === "pix" && data.discountCents > 0) && data.shippingCostCents > 0) {
+    if (!(data.paymentMethod === "pix" && discountCents > 0) && shippingCostCents > 0) {
       mpItems.push({
         id: "shipping",
         title: `Frete (${data.shippingService})`,
         quantity: 1,
         currency_id: "BRL",
-        unit_price: Number((data.shippingCostCents / 100).toFixed(2)),
+        unit_price: Number((shippingCostCents / 100).toFixed(2)),
       });
     }
+
 
     const [firstName, ...rest] = data.customer.name.split(" ");
     const paymentMethods = data.paymentMethod === "pix"
