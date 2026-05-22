@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatCents } from "@/lib/format";
 import { formatCep, lookupCep } from "@/lib/cep";
-import { createCheckoutPreference, createPixPayment } from "@/lib/checkout.functions";
+import { createCheckoutPreference, createPixPayment, getPublicStoreSettings } from "@/lib/checkout.functions";
 import { quoteShipping } from "@/lib/shipping.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -61,16 +61,15 @@ function CheckoutPage() {
   const total = baseTotal - discountCents;
   const lastQuotedCep = useRef<string>("");
 
+  const fetchPublicSettings = useServerFn(getPublicStoreSettings);
   useEffect(() => {
-    supabase
-      .from("store_settings_public" as any)
-      .select("pix_enabled, pix_discount_percent")
-      .eq("id", 1)
-      .maybeSingle()
-      .then(({ data }: { data: any }) => {
-        if (data) setPixSettings(data);
-      });
-  }, []);
+    fetchPublicSettings()
+      .then((data) => setPixSettings({
+        pix_enabled: !!data?.pix_enabled,
+        pix_discount_percent: Number(data?.pix_discount_percent ?? 0),
+      }))
+      .catch((err) => console.error("[Checkout] erro ao carregar configurações PIX", err));
+  }, [fetchPublicSettings]);
 
   // Pré-preenche e-mail/nome a partir da conta autenticada
   useEffect(() => {
