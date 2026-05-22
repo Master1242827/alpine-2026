@@ -686,17 +686,39 @@ function SettingsTab() {
 }
 
 // ============ Payments (PIX) ============
+const DEFAULT_PIX_SETTINGS = {
+  id: 1,
+  pix_enabled: true,
+  pix_key: "",
+  pix_key_type: "cpf",
+  pix_holder_name: "",
+  pix_bank: "",
+  pix_discount_percent: 5,
+  pix_message: "Após o pagamento, envie o comprovante para confirmarmos o pedido.",
+  pix_qr_image_url: null,
+  pix_copy_paste: null,
+};
+
 function PaymentsTab() {
   const [s, setS] = useState<any>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     supabase.from("store_settings").select("*").eq("id", 1).maybeSingle()
-      .then(({ data }) => setS(data));
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("[PaymentsTab] store_settings:", error);
+          setLoadError(error.message);
+          setS({ ...DEFAULT_PIX_SETTINGS });
+          return;
+        }
+        setS(data ?? { ...DEFAULT_PIX_SETTINGS });
+      });
   }, []);
 
-  if (!s) return <p className="mt-4">Carregando…</p>;
+  if (!s) return <p className="mt-4">Carregando configurações de pagamento…</p>;
 
   const upload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -737,6 +759,12 @@ function PaymentsTab() {
 
   return (
     <div className="mt-4 space-y-6">
+      {loadError && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          Não foi possível carregar as configurações salvas ({loadError}). Os campos abaixo
+          estão com valores padrão — preencha e clique em salvar.
+        </div>
+      )}
       <Card className="space-y-4 p-6">
         <div className="flex items-center justify-between">
           <div>
