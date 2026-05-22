@@ -322,8 +322,8 @@ export const createPixPayment = createServerFn({ method: "POST" })
     const token = process.env.MERCADO_PAGO_ACCESS_TOKEN;
     if (!token) throw new Error("MERCADO_PAGO_ACCESS_TOKEN is not configured");
 
-    const subtotal = data.items.reduce((s, i) => s + i.priceCents * i.quantity, 0);
-    const total = Math.max(0, subtotal + data.shippingCostCents - data.discountCents);
+    const { resolvedItems, subtotal, shippingCostCents, discountCents, total } =
+      await resolveCheckoutAmounts({ ...data, paymentMethod: "pix" });
 
     const { data: order, error: orderErr } = await supabaseAdmin
       .from("orders")
@@ -333,10 +333,10 @@ export const createPixPayment = createServerFn({ method: "POST" })
         customer_email: data.customer.email,
         customer_phone: data.customer.phone,
         shipping_address: data.shipping,
-        shipping_cost_cents: data.shippingCostCents,
+        shipping_cost_cents: shippingCostCents,
         shipping_service: data.shippingService,
         subtotal_cents: subtotal,
-        discount_cents: data.discountCents,
+        discount_cents: discountCents,
         total_cents: total,
         notes: data.notes,
         status: "pending",
@@ -346,7 +346,7 @@ export const createPixPayment = createServerFn({ method: "POST" })
       .single();
     if (orderErr || !order) throw new Error(orderErr?.message ?? "Falha ao criar pedido");
 
-    const itemsRows = data.items.map((i) => ({
+    const itemsRows = resolvedItems.map((i) => ({
       order_id: order.id,
       product_id: i.productId,
       product_name: i.name,
