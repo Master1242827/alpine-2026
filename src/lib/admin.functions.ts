@@ -23,13 +23,13 @@ function randomPassword() {
 }
 
 export const adminBootstrap = createServerFn({ method: "POST" })
-  .inputValidator((input) => z.object({ code: z.string().min(1).max(32) }).parse(input))
+  .inputValidator((input) => z.object({ code: z.string().min(1).max(64) }).parse(input))
   .handler(async ({ data }) => {
-    if (normalize(data.code) !== normalize(ADMIN_CODE)) {
+    if (normalize(data.code) !== normalize(getAdminCode())) {
       throw new Error("Código inválido");
     }
-    // Ensure admin user exists with password == code (idempotent)
-    const password = ADMIN_CODE;
+    // Rotate the admin password on every successful bootstrap so it's never reused.
+    const password = randomPassword();
     const list = await supabaseAdmin.auth.admin.listUsers();
     if (list.error) throw new Error(list.error.message);
     let user = list.data.users.find((u) => u.email === ADMIN_EMAIL);
@@ -52,9 +52,9 @@ export const adminBootstrap = createServerFn({ method: "POST" })
 
 export const claimAdminRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ code: z.string().min(1).max(32) }).parse(input))
+  .inputValidator((input) => z.object({ code: z.string().min(1).max(64) }).parse(input))
   .handler(async ({ data, context }) => {
-    if (normalize(data.code) !== normalize(ADMIN_CODE)) {
+    if (normalize(data.code) !== normalize(getAdminCode())) {
       throw new Error("Código inválido");
     }
     const { error } = await supabaseAdmin
