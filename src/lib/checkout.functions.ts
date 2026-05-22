@@ -39,7 +39,9 @@ function mercadoPagoMessage(json: any, fallback: string) {
 const ItemSchema = z.object({
   productId: z.string().uuid(),
   name: z.string().min(1).max(255),
-  priceCents: z.number().int().positive(),
+  // Client-supplied price is IGNORED — server fetches authoritative price from DB.
+  // Kept optional for backwards compat with the client payload shape.
+  priceCents: z.number().int().positive().optional(),
   quantity: z.number().int().min(1).max(99),
   vehicleConfig: z.record(z.string(), z.string()).optional(),
 });
