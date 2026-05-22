@@ -3,11 +3,23 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-const ADMIN_CODE = "2258-2151";
 const ADMIN_EMAIL = "admin@autopremium.local";
 
 function normalize(code: string) {
   return code.replace(/[\s-]/g, "");
+}
+
+function getAdminCode() {
+  const code = process.env.ADMIN_BOOTSTRAP_CODE;
+  if (!code) throw new Error("ADMIN_BOOTSTRAP_CODE não configurado");
+  return code;
+}
+
+function randomPassword() {
+  // 32-char URL-safe random — never exposed to client
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return Buffer.from(bytes).toString("base64url");
 }
 
 export const adminBootstrap = createServerFn({ method: "POST" })
