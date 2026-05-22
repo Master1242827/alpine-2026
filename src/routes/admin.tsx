@@ -765,6 +765,7 @@ function PaymentsTab() {
           estão com valores padrão — preencha e clique em salvar.
         </div>
       )}
+      <Card className="space-y-4 p-6">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold">PIX</h2>
