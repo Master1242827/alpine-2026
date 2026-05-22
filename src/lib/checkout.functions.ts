@@ -39,7 +39,9 @@ function mercadoPagoMessage(json: any, fallback: string) {
 const ItemSchema = z.object({
   productId: z.string().uuid(),
   name: z.string().min(1).max(255),
-  priceCents: z.number().int().positive(),
+  // Client-supplied price is IGNORED — server fetches authoritative price from DB.
+  // Kept optional for backwards compat with the client payload shape.
+  priceCents: z.number().int().positive().optional(),
   quantity: z.number().int().min(1).max(99),
   vehicleConfig: z.record(z.string(), z.string()).optional(),
 });
@@ -69,6 +71,61 @@ const InputSchema = z.object({
 
 const OrderLookupSchema = z.object({ orderId: z.string().uuid() });
 
+type ResolvedItem = {
+  productId: string;
+  name: string;
+  priceCents: number;
+  quantity: number;
+  vehicleConfig?: Record<string, string>;
+};
+
+/**
+ * SECURITY: Replace client-supplied prices with the authoritative price from the products table,
+ * and recompute the PIX discount from store_settings server-side. Never trust client price/discount.
+ */
+async function resolveCheckoutAmounts(input: z.infer<typeof InputSchema>) {
+  const ids = Array.from(new Set(input.items.map((i) => i.productId)));
+  const { data: rows, error } = await supabaseAdmin
+    .from("products")
+    .select("id,name,price_cents,active")
+    .in("id", ids);
+  if (error) throw new Error(`Falha ao validar produtos: ${error.message}`);
+  const byId = new Map((rows ?? []).map((r) => [r.id, r]));
+  const resolvedItems: ResolvedItem[] = input.items.map((i) => {
+    const p = byId.get(i.productId);
+    if (!p) throw new Error(`Produto indisponível (${i.productId})`);
+    if (!p.active) throw new Error(`Produto inativo: ${p.name}`);
+    return {
+      productId: i.productId,
+      name: p.name,
+      priceCents: p.price_cents,
+      quantity: i.quantity,
+      vehicleConfig: i.vehicleConfig,
+    };
+  });
+  const subtotal = resolvedItems.reduce((s, i) => s + i.priceCents * i.quantity, 0);
+
+  // Sanity-check shipping (still client-supplied — re-quoting is expensive).
+  const shippingCostCents = Math.max(0, Math.min(input.shippingCostCents | 0, 1_000_00));
+
+  // Recompute discount from server-side store_settings (PIX only).
+  let discountCents = 0;
+  if (input.paymentMethod === "pix") {
+    const { data: settings } = await supabaseAdmin
+      .from("store_settings")
+      .select("pix_enabled,pix_discount_percent")
+      .eq("id", 1)
+      .maybeSingle();
+    if (settings?.pix_enabled && settings.pix_discount_percent) {
+      discountCents = Math.floor((subtotal * Number(settings.pix_discount_percent)) / 100);
+    }
+  }
+
+  const total = Math.max(0, subtotal + shippingCostCents - discountCents);
+  return { resolvedItems, subtotal, shippingCostCents, discountCents, total };
+}
+
+
 export const createCheckoutPreference = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => InputSchema.parse(input))
@@ -76,8 +133,8 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
     const token = process.env.MERCADO_PAGO_ACCESS_TOKEN;
     if (!token) throw new Error("MERCADO_PAGO_ACCESS_TOKEN is not configured");
 
-    const subtotal = data.items.reduce((s, i) => s + i.priceCents * i.quantity, 0);
-    const total = Math.max(0, subtotal + data.shippingCostCents - data.discountCents);
+    const { resolvedItems, subtotal, shippingCostCents, discountCents, total } =
+      await resolveCheckoutAmounts(data);
 
     // Create order (pending)
     const { data: order, error: orderErr } = await supabaseAdmin
@@ -88,10 +145,10 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
         customer_email: data.customer.email,
         customer_phone: data.customer.phone,
         shipping_address: data.shipping,
-        shipping_cost_cents: data.shippingCostCents,
+        shipping_cost_cents: shippingCostCents,
         shipping_service: data.shippingService,
         subtotal_cents: subtotal,
-        discount_cents: data.discountCents,
+        discount_cents: discountCents,
         total_cents: total,
         notes: data.notes,
         status: "pending",
@@ -101,7 +158,7 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
       .single();
     if (orderErr || !order) throw new Error(orderErr?.message ?? "Falha ao criar pedido");
 
-    const itemsRows = data.items.map((i) => ({
+    const itemsRows = resolvedItems.map((i) => ({
       order_id: order.id,
       product_id: i.productId,
       product_name: i.name,
@@ -113,7 +170,7 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
     if (itemsErr) throw new Error(itemsErr.message);
 
     const origin = getRuntimeOrigin();
-    const mpItems = data.paymentMethod === "pix" && data.discountCents > 0
+    const mpItems = data.paymentMethod === "pix" && discountCents > 0
       ? [{
           id: order.id,
           title: `Pedido Alpine #${String(order.id).slice(0, 8)} com frete e desconto PIX`,
@@ -121,22 +178,23 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
           currency_id: "BRL",
           unit_price: Number((total / 100).toFixed(2)),
         }]
-      : data.items.map((i) => ({
+      : resolvedItems.map((i) => ({
           id: i.productId,
           title: i.name.slice(0, 250),
           quantity: i.quantity,
           currency_id: "BRL",
           unit_price: Number((i.priceCents / 100).toFixed(2)),
         }));
-    if (!(data.paymentMethod === "pix" && data.discountCents > 0) && data.shippingCostCents > 0) {
+    if (!(data.paymentMethod === "pix" && discountCents > 0) && shippingCostCents > 0) {
       mpItems.push({
         id: "shipping",
         title: `Frete (${data.shippingService})`,
         quantity: 1,
         currency_id: "BRL",
-        unit_price: Number((data.shippingCostCents / 100).toFixed(2)),
+        unit_price: Number((shippingCostCents / 100).toFixed(2)),
       });
     }
+
 
     const [firstName, ...rest] = data.customer.name.split(" ");
     const paymentMethods = data.paymentMethod === "pix"
@@ -264,8 +322,8 @@ export const createPixPayment = createServerFn({ method: "POST" })
     const token = process.env.MERCADO_PAGO_ACCESS_TOKEN;
     if (!token) throw new Error("MERCADO_PAGO_ACCESS_TOKEN is not configured");
 
-    const subtotal = data.items.reduce((s, i) => s + i.priceCents * i.quantity, 0);
-    const total = Math.max(0, subtotal + data.shippingCostCents - data.discountCents);
+    const { resolvedItems, subtotal, shippingCostCents, discountCents, total } =
+      await resolveCheckoutAmounts({ ...data, paymentMethod: "pix" });
 
     const { data: order, error: orderErr } = await supabaseAdmin
       .from("orders")
@@ -275,10 +333,10 @@ export const createPixPayment = createServerFn({ method: "POST" })
         customer_email: data.customer.email,
         customer_phone: data.customer.phone,
         shipping_address: data.shipping,
-        shipping_cost_cents: data.shippingCostCents,
+        shipping_cost_cents: shippingCostCents,
         shipping_service: data.shippingService,
         subtotal_cents: subtotal,
-        discount_cents: data.discountCents,
+        discount_cents: discountCents,
         total_cents: total,
         notes: data.notes,
         status: "pending",
@@ -288,7 +346,7 @@ export const createPixPayment = createServerFn({ method: "POST" })
       .single();
     if (orderErr || !order) throw new Error(orderErr?.message ?? "Falha ao criar pedido");
 
-    const itemsRows = data.items.map((i) => ({
+    const itemsRows = resolvedItems.map((i) => ({
       order_id: order.id,
       product_id: i.productId,
       product_name: i.name,

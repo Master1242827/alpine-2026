@@ -40,7 +40,8 @@ function LoginPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Login realizado");
-        window.location.href = redirect || "/";
+        const safe = typeof redirect === "string" && redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : "/";
+        window.location.href = safe;
       }
     } catch (err: any) {
       toast.error(err.message || "Erro");

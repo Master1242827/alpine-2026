@@ -66,7 +66,7 @@ async function fetchWithRetry(url: string, init: RequestInit, attempts = 3): Pro
 
 function verifySignature(request: Request, rawBody: string, paymentId: string | null): { valid: boolean; reason: string } {
   const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
-  if (!secret) return { valid: true, reason: "no_secret_configured" };
+  if (!secret) return { valid: false, reason: "no_secret_configured" };
 
   const signatureHeader = request.headers.get("x-signature");
   const requestId = request.headers.get("x-request-id");
