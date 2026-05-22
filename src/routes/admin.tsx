@@ -759,7 +759,12 @@ function PaymentsTab() {
 
   return (
     <div className="mt-4 space-y-6">
-      <Card className="space-y-4 p-6">
+      {loadError && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          Não foi possível carregar as configurações salvas ({loadError}). Os campos abaixo
+          estão com valores padrão — preencha e clique em salvar.
+        </div>
+      )}
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold">PIX</h2>
