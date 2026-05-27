@@ -28,6 +28,15 @@ function isWildcardCompatValue(value: unknown) {
   return WILDCARD_COMPAT_VALUES.has(normalized) || normalized.replace(/[()]/g, "").trim() === "qualquer";
 }
 
+function showAdminError(error: unknown, fallback = "Não foi possível concluir a ação") {
+  if (!error) return false;
+  const message = typeof error === "object" && error !== null && "message" in error
+    ? String((error as { message?: unknown }).message)
+    : fallback;
+  toast.error(message || fallback);
+  return true;
+}
+
 export function VehiclesAdmin() {
   return (
     <Tabs defaultValue="makes" className="mt-4">
@@ -99,7 +108,11 @@ function MakesPanel() {
     if (res.error) return toast.error(res.error.message);
     toast.success("Marca salva"); setEditing(null); load();
   };
-  const toggle = async (m: Make) => { await supabase.from("vehicle_makes").update({ active: !m.active }).eq("id", m.id); load(); };
+  const toggle = async (m: Make) => {
+    const { error } = await supabase.from("vehicle_makes").update({ active: !m.active }).eq("id", m.id);
+    if (showAdminError(error)) return;
+    load();
+  };
   const remove = async (m: Make) => {
     if (!confirm(`Excluir "${m.name}"? Modelos vinculados serão removidos.`)) return;
     const { error } = await supabase.from("vehicle_makes").delete().eq("id", m.id);
@@ -178,7 +191,11 @@ function ModelsPanel() {
     if (res.error) return toast.error(res.error.message);
     toast.success("Modelo salvo"); setEditing(null); load();
   };
-  const toggle = async (m: Model) => { await supabase.from("vehicle_models").update({ active: !m.active }).eq("id", m.id); load(); };
+  const toggle = async (m: Model) => {
+    const { error } = await supabase.from("vehicle_models").update({ active: !m.active }).eq("id", m.id);
+    if (showAdminError(error)) return;
+    load();
+  };
   const remove = async (m: Model) => {
     if (!confirm(`Excluir modelo "${m.name}"?`)) return;
     const { error } = await supabase.from("vehicle_models").delete().eq("id", m.id);
@@ -265,7 +282,11 @@ function CabinsPanel() {
     if (res.error) return toast.error(res.error.message);
     toast.success("Cabine salva"); setEditing(null); load();
   };
-  const toggle = async (m: Cabin) => { await supabase.from("cabin_types").update({ active: !m.active }).eq("id", m.id); load(); };
+  const toggle = async (m: Cabin) => {
+    const { error } = await supabase.from("cabin_types").update({ active: !m.active }).eq("id", m.id);
+    if (showAdminError(error)) return;
+    load();
+  };
   const remove = async (m: Cabin) => {
     if (!confirm(`Excluir "${m.name}"?`)) return;
     const { error } = await supabase.from("cabin_types").delete().eq("id", m.id);
@@ -346,7 +367,11 @@ function QuestionsPanel() {
     if (res.error) return toast.error(res.error.message);
     toast.success("Pergunta salva"); setEditing(null); load();
   };
-  const toggle = async (q: Question) => { await sb.from("configurator_questions").update({ active: !q.active }).eq("id", q.id); load(); };
+  const toggle = async (q: Question) => {
+    const { error } = await sb.from("configurator_questions").update({ active: !q.active }).eq("id", q.id);
+    if (showAdminError(error)) return;
+    load();
+  };
   const remove = async (q: Question) => {
     if (!confirm(`Excluir pergunta "${q.label}"? Opções e fluxos vinculados serão removidos.`)) return;
     const { error } = await sb.from("configurator_questions").delete().eq("id", q.id);
@@ -442,7 +467,10 @@ function OptionsEditor({ question, onClose }: { question: Question; onClose: () 
   };
   const remove = async (o: Option) => {
     if (!confirm(`Excluir opção "${o.label}"?`)) return;
-    await sb.from("configurator_options").delete().eq("id", o.id); load();
+    const { error } = await sb.from("configurator_options").delete().eq("id", o.id);
+    if (showAdminError(error)) return;
+    toast.success("Opção excluída");
+    load();
   };
 
   return (
@@ -529,24 +557,37 @@ function FlowsPanel() {
     if (error) return toast.error(error.message);
     load();
   };
-  const removeFlow = async (id: string) => { await sb.from("vehicle_question_flow").delete().eq("id", id); load(); };
-  const toggleFlow = async (f: Flow) => { await sb.from("vehicle_question_flow").update({ active: !f.active }).eq("id", f.id); load(); };
+  const removeFlow = async (id: string) => {
+    if (!confirm("Excluir esta função do fluxo?")) return;
+    const { error } = await sb.from("vehicle_question_flow").delete().eq("id", id);
+    if (showAdminError(error)) return;
+    toast.success("Função removida do fluxo");
+    load();
+  };
+  const toggleFlow = async (f: Flow) => {
+    const { error } = await sb.from("vehicle_question_flow").update({ active: !f.active }).eq("id", f.id);
+    if (showAdminError(error)) return;
+    load();
+  };
   const move = async (f: Flow, dir: -1 | 1) => {
     const idx = modelFlows.findIndex((x) => x.id === f.id);
     const swap = modelFlows[idx + dir];
     if (!swap) return;
-    await Promise.all([
+    const results = await Promise.all([
       sb.from("vehicle_question_flow").update({ display_order: swap.display_order }).eq("id", f.id),
       sb.from("vehicle_question_flow").update({ display_order: f.display_order }).eq("id", swap.id),
     ]);
+    if (results.some((r) => showAdminError(r.error))) return;
     load();
   };
   const updateYears = async (f: Flow, yf: number | null, yt: number | null) => {
-    await sb.from("vehicle_question_flow").update({ year_from: yf, year_to: yt }).eq("id", f.id);
+    const { error } = await sb.from("vehicle_question_flow").update({ year_from: yf, year_to: yt }).eq("id", f.id);
+    if (showAdminError(error)) return;
     load();
   };
   const updateFlow = async (f: Flow, patch: Partial<Flow>) => {
-    await sb.from("vehicle_question_flow").update(patch as any).eq("id", f.id);
+    const { error } = await sb.from("vehicle_question_flow").update(patch as any).eq("id", f.id);
+    if (showAdminError(error)) return;
     load();
   };
 
@@ -719,10 +760,17 @@ function MappingsPanel() {
     if (res.error) return toast.error(res.error.message);
     toast.success("Compatibilidade salva"); setEditing(null); load();
   };
-  const toggle = async (m: Mapping) => { await sb.from("vehicle_product_map").update({ active: !m.active }).eq("id", m.id); load(); };
+  const toggle = async (m: Mapping) => {
+    const { error } = await sb.from("vehicle_product_map").update({ active: !m.active }).eq("id", m.id);
+    if (showAdminError(error)) return;
+    load();
+  };
   const remove = async (m: Mapping) => {
     if (!confirm("Excluir esta compatibilidade?")) return;
-    await sb.from("vehicle_product_map").delete().eq("id", m.id); load();
+    const { error } = await sb.from("vehicle_product_map").delete().eq("id", m.id);
+    if (showAdminError(error)) return;
+    toast.success("Compatibilidade excluída");
+    load();
   };
 
   const editMakeId = editing?._make_id || (editing?.model_id ? modelMakeMap.get(editing.model_id) : "") || "";
