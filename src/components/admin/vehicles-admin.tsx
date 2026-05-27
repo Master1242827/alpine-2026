@@ -28,6 +28,15 @@ function isWildcardCompatValue(value: unknown) {
   return WILDCARD_COMPAT_VALUES.has(normalized) || normalized.replace(/[()]/g, "").trim() === "qualquer";
 }
 
+function showAdminError(error: unknown, fallback = "Não foi possível concluir a ação") {
+  if (!error) return false;
+  const message = typeof error === "object" && error !== null && "message" in error
+    ? String((error as { message?: unknown }).message)
+    : fallback;
+  toast.error(message || fallback);
+  return true;
+}
+
 export function VehiclesAdmin() {
   return (
     <Tabs defaultValue="makes" className="mt-4">
@@ -99,7 +108,11 @@ function MakesPanel() {
     if (res.error) return toast.error(res.error.message);
     toast.success("Marca salva"); setEditing(null); load();
   };
-  const toggle = async (m: Make) => { await supabase.from("vehicle_makes").update({ active: !m.active }).eq("id", m.id); load(); };
+  const toggle = async (m: Make) => {
+    const { error } = await supabase.from("vehicle_makes").update({ active: !m.active }).eq("id", m.id);
+    if (showAdminError(error)) return;
+    load();
+  };
   const remove = async (m: Make) => {
     if (!confirm(`Excluir "${m.name}"? Modelos vinculados serão removidos.`)) return;
     const { error } = await supabase.from("vehicle_makes").delete().eq("id", m.id);
@@ -178,7 +191,11 @@ function ModelsPanel() {
     if (res.error) return toast.error(res.error.message);
     toast.success("Modelo salvo"); setEditing(null); load();
   };
-  const toggle = async (m: Model) => { await supabase.from("vehicle_models").update({ active: !m.active }).eq("id", m.id); load(); };
+  const toggle = async (m: Model) => {
+    const { error } = await supabase.from("vehicle_models").update({ active: !m.active }).eq("id", m.id);
+    if (showAdminError(error)) return;
+    load();
+  };
   const remove = async (m: Model) => {
     if (!confirm(`Excluir modelo "${m.name}"?`)) return;
     const { error } = await supabase.from("vehicle_models").delete().eq("id", m.id);
@@ -265,7 +282,11 @@ function CabinsPanel() {
     if (res.error) return toast.error(res.error.message);
     toast.success("Cabine salva"); setEditing(null); load();
   };
-  const toggle = async (m: Cabin) => { await supabase.from("cabin_types").update({ active: !m.active }).eq("id", m.id); load(); };
+  const toggle = async (m: Cabin) => {
+    const { error } = await supabase.from("cabin_types").update({ active: !m.active }).eq("id", m.id);
+    if (showAdminError(error)) return;
+    load();
+  };
   const remove = async (m: Cabin) => {
     if (!confirm(`Excluir "${m.name}"?`)) return;
     const { error } = await supabase.from("cabin_types").delete().eq("id", m.id);
