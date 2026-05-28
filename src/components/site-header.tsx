@@ -69,6 +69,14 @@ export function SiteHeader() {
           />
         </form>
         <div className="flex items-center gap-1">
+          {isAdmin && (
+            <Link to="/admin" className="hidden sm:inline-flex">
+              <Button variant="outline" size="sm" aria-label="Painel administrativo">
+                <Shield className="h-4 w-4 sm:mr-1" />
+                <span className="hidden md:inline text-sm">Painel</span>
+              </Button>
+            </Link>
+          )}
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSearchOpen((s) => !s)} aria-label="Buscar">
             <Search className="h-5 w-5" />
           </Button>
