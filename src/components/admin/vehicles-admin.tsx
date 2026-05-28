@@ -775,12 +775,29 @@ function MappingsPanel() {
   const editMakeId = editing?._make_id || (editing?.model_id ? modelMakeMap.get(editing.model_id) : "") || "";
   const modelOptions = editMakeId ? models.filter((m) => m.make_id === editMakeId) : models;
 
-  // Dynamic questions of the selected model
+  // Dynamic questions of the selected model, filtered by year overlap with the compatibility range
   const modelFlowQuestions = useMemo(() => {
-    if (!editing?.model_id) return [];
-    const fs = flows.filter((f) => f.model_id === editing.model_id && f.active).sort((a, b) => a.display_order - b.display_order);
-    return fs.map((f) => questions.find((q) => q.id === f.question_id)).filter(Boolean) as Question[];
-  }, [editing?.model_id, flows, questions]);
+    if (!editing?.model_id) return [] as { q: Question; flow: any }[];
+    const cYf = editing.year_from ?? null;
+    const cYt = editing.year_to ?? null;
+    const fs = flows
+      .filter((f) => f.model_id === editing.model_id && f.active)
+      .filter((f) => {
+        const fYf = f.year_from ?? null;
+        const fYt = f.year_to ?? null;
+        // overlap test; null means open-ended on that side
+        if (fYt != null && cYf != null && fYt < cYf) return false;
+        if (fYf != null && cYt != null && fYf > cYt) return false;
+        return true;
+      })
+      .sort((a, b) => a.display_order - b.display_order);
+    return fs
+      .map((f) => {
+        const q = questions.find((x) => x.id === f.question_id);
+        return q ? { q, flow: f } : null;
+      })
+      .filter(Boolean) as { q: Question; flow: any }[];
+  }, [editing?.model_id, editing?.year_from, editing?.year_to, flows, questions]);
 
   return (
     <div className="mt-4 space-y-4">
@@ -849,12 +866,13 @@ function MappingsPanel() {
               </p>
               {modelFlowQuestions.length === 0 && <p className="mt-2 text-xs text-muted-foreground">Esse modelo ainda não tem perguntas no fluxo. Vá na aba <strong>Fluxos</strong> para configurar.</p>}
               <div className="mt-3 grid gap-2 md:grid-cols-2">
-                {modelFlowQuestions.map((q) => {
+                {modelFlowQuestions.map(({ q, flow }) => {
                   const opts = options.filter((o) => o.question_id === q.id && o.active);
                   const current = editing.answers?.[q.key] ?? "";
+                  const yrSuffix = flow.year_from || flow.year_to ? ` (${flow.year_from ?? "…"}–${flow.year_to ?? "…"})` : "";
                   return (
-                    <div key={q.id}>
-                      <Label className="text-xs">{q.label}</Label>
+                    <div key={flow.id}>
+                      <Label className="text-xs">{q.label}{yrSuffix}</Label>
                       <select
                         value={current}
                         onChange={(e) => {
