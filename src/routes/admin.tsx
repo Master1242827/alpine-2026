@@ -176,6 +176,7 @@ function ProductsTab() {
   const [items, setItems] = useState<Product[]>([]);
   const [editing, setEditing] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -201,11 +202,28 @@ function ProductsTab() {
     return <ProductForm initial={editing} onClose={() => { setEditing(null); load(); }} />;
   }
 
+  const term = query.trim().toLowerCase();
+  const filtered = term
+    ? items.filter((p) =>
+        p.name.toLowerCase().includes(term) ||
+        p.slug.toLowerCase().includes(term) ||
+        (p.short_description ?? "").toLowerCase().includes(term),
+      )
+    : items;
+
   return (
     <div className="mt-4">
-      <div className="mb-4 flex justify-between">
-        <h2 className="text-lg font-semibold">{items.length} produto(s)</h2>
-        <Button onClick={() => setEditing({ ...emptyProduct })}>+ Novo produto</Button>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold">{filtered.length} de {items.length} produto(s)</h2>
+        <div className="flex gap-2">
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar produto pelo nome…"
+            className="w-64"
+          />
+          <Button onClick={() => setEditing({ ...emptyProduct })}>+ Novo produto</Button>
+        </div>
       </div>
       {loading && <p>Carregando…</p>}
       <div className="grid gap-3">
