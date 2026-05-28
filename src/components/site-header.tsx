@@ -1,10 +1,12 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ShoppingCart, Menu, User, X, Search } from "lucide-react";
+import { ShoppingCart, Menu, User, X, Search, Shield } from "lucide-react";
 import { useCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { checkIsAdmin } from "@/lib/admin.functions";
 import alpineLogo from "@/assets/alpine-logo.png";
 
 export function SiteHeader() {
@@ -13,7 +15,18 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [q, setQ] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
+  const check = useServerFn(checkIsAdmin);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!user) { setIsAdmin(false); return; }
+    check()
+      .then((r) => { if (!cancelled) setIsAdmin(!!r.isAdmin); })
+      .catch(() => { if (!cancelled) setIsAdmin(false); });
+    return () => { cancelled = true; };
+  }, [user, check]);
 
   const accountHref = user ? "/conta" : "/login";
 
@@ -24,6 +37,7 @@ export function SiteHeader() {
     setSearchOpen(false);
     setOpen(false);
   };
+
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
