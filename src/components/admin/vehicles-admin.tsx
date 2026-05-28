@@ -678,8 +678,9 @@ function FlowsPanel() {
               <h4 className="text-sm font-semibold">Adicionar pergunta ao fluxo</h4>
               <div className="mt-2 flex flex-wrap gap-2">
                 {available.map((q) => (
-                  <Button key={q.id} size="sm" variant="outline" onClick={() => addQuestion(q.id)}>
+                  <Button key={q.id} size="sm" variant="outline" onClick={() => addQuestion(q.id)} title={`chave: ${q.key}`}>
                     <Plus className="mr-1 h-3 w-3" /> {q.label}
+                    <span className="ml-1 text-[10px] text-muted-foreground">({q.key})</span>
                   </Button>
                 ))}
               </div>
