@@ -227,7 +227,7 @@ function ProductsTab() {
       </div>
       {loading && <p>Carregando…</p>}
       <div className="grid gap-3">
-        {items.map((p) => (
+        {filtered.map((p) => (
           <Card key={p.id} className="flex items-center gap-4 p-3">
             <div className="h-16 w-16 shrink-0 overflow-hidden rounded bg-muted">
               {p.images[0] && <img src={p.images[0]} alt={p.name} className="h-full w-full object-cover" />}
