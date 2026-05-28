@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus, ImageIcon, ChevronUp, ChevronDown } from "lucide-react";
+import { Pencil, Trash2, Plus, ImageIcon, ChevronUp, ChevronDown, GripVertical } from "lucide-react";
 
 type Make = { id: string; name: string; image_url: string | null; display_order: number; active: boolean };
 type Model = { id: string; make_id: string; name: string; image_url: string | null; year_from: number | null; year_to: number | null; year_range: string | null; display_order: number; active: boolean };
@@ -339,10 +339,11 @@ function QuestionsPanel() {
   const [options, setOptions] = useState<Option[]>([]);
   const [editing, setEditing] = useState<Partial<Question> | null>(null);
   const [optionsFor, setOptionsFor] = useState<Question | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
 
   const load = async () => {
     const [q, o] = await Promise.all([
-      sb.from("configurator_questions").select("*").order("label"),
+      sb.from("configurator_questions").select("*").order("display_order").order("label"),
       sb.from("configurator_options").select("*").order("display_order"),
     ]);
     setItems((q.data as Question[]) ?? []);
@@ -352,13 +353,14 @@ function QuestionsPanel() {
 
   const save = async () => {
     if (!editing?.key || !editing?.label) return toast.error("Chave e rótulo são obrigatórios");
-    const payload = {
+    const payload: any = {
       key: editing.key.toLowerCase().replace(/[^a-z0-9_]/g, "_"),
       label: editing.label,
       help_text: editing.help_text ?? null,
       type: "single_choice",
       active: editing.active ?? true,
     };
+    if (!editing.id) payload.display_order = items.length;
     const res = editing.id
       ? await sb.from("configurator_questions").update(payload).eq("id", editing.id)
       : await sb.from("configurator_questions").insert(payload);
@@ -377,12 +379,31 @@ function QuestionsPanel() {
     load();
   };
 
+  const reorder = async (sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return;
+    const srcIdx = items.findIndex((i) => i.id === sourceId);
+    const tgtIdx = items.findIndex((i) => i.id === targetId);
+    if (srcIdx < 0 || tgtIdx < 0) return;
+    const next = [...items];
+    const [moved] = next.splice(srcIdx, 1);
+    next.splice(tgtIdx, 0, moved);
+    setItems(next);
+    const results = await Promise.all(
+      next.map((q, idx) =>
+        sb.from("configurator_questions").update({ display_order: idx }).eq("id", q.id),
+      ),
+    );
+    const err = results.find((r) => r.error)?.error;
+    if (err) { toast.error(err.message); load(); }
+  };
+
   return (
     <div className="mt-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-lg font-semibold">{items.length} pergunta(s)</h3>
         <Button onClick={() => setEditing({ active: true })}><Plus className="mr-1 h-4 w-4" /> Nova pergunta</Button>
       </div>
+      <p className="text-xs text-muted-foreground">Arraste pelo ícone à esquerda para reordenar as perguntas.</p>
 
       {editing && (
         <Card className="space-y-3 p-4">
@@ -406,8 +427,34 @@ function QuestionsPanel() {
       <div className="grid gap-2">
         {items.map((q) => {
           const count = options.filter((o) => o.question_id === q.id).length;
+          const isDragging = dragId === q.id;
           return (
-            <Card key={q.id} className="flex flex-wrap items-center gap-3 p-3">
+            <Card
+              key={q.id}
+              className={`flex flex-wrap items-center gap-3 p-3 ${isDragging ? "opacity-50" : ""}`}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const src = e.dataTransfer.getData("text/plain");
+                if (src) reorder(src, q.id);
+                setDragId(null);
+              }}
+            >
+              <button
+                type="button"
+                draggable
+                onDragStart={(e) => {
+                  setDragId(q.id);
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", q.id);
+                }}
+                onDragEnd={() => setDragId(null)}
+                className="cursor-grab select-none text-muted-foreground hover:text-foreground active:cursor-grabbing"
+                title="Arraste para reordenar"
+                aria-label="Arrastar"
+              >
+                <GripVertical className="h-5 w-5" />
+              </button>
               <div className="min-w-0 flex-1">
                 <p className="font-medium truncate">{q.label}</p>
                 <p className="text-xs text-muted-foreground">chave: <code>{q.key}</code> · {count} opção(ões)</p>

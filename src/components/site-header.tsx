@@ -1,10 +1,12 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ShoppingCart, Menu, User, X, Search } from "lucide-react";
+import { ShoppingCart, Menu, User, X, Search, Shield } from "lucide-react";
 import { useCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { checkIsAdmin } from "@/lib/admin.functions";
 import alpineLogo from "@/assets/alpine-logo.png";
 
 export function SiteHeader() {
@@ -13,7 +15,18 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [q, setQ] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
+  const check = useServerFn(checkIsAdmin);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!user) { setIsAdmin(false); return; }
+    check()
+      .then((r) => { if (!cancelled) setIsAdmin(!!r.isAdmin); })
+      .catch(() => { if (!cancelled) setIsAdmin(false); });
+    return () => { cancelled = true; };
+  }, [user, check]);
 
   const accountHref = user ? "/conta" : "/login";
 
@@ -24,6 +37,7 @@ export function SiteHeader() {
     setSearchOpen(false);
     setOpen(false);
   };
+
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
@@ -55,6 +69,14 @@ export function SiteHeader() {
           />
         </form>
         <div className="flex items-center gap-1">
+          {isAdmin && (
+            <Link to="/admin" className="hidden sm:inline-flex">
+              <Button variant="outline" size="sm" aria-label="Painel administrativo">
+                <Shield className="h-4 w-4 sm:mr-1" />
+                <span className="hidden md:inline text-sm">Painel</span>
+              </Button>
+            </Link>
+          )}
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSearchOpen((s) => !s)} aria-label="Buscar">
             <Search className="h-5 w-5" />
           </Button>
@@ -99,9 +121,14 @@ export function SiteHeader() {
             <Link to="/" className="py-3 border-b border-border/50" onClick={() => setOpen(false)}>Início</Link>
             <Link to="/produtos" className="py-3 border-b border-border/50" onClick={() => setOpen(false)}>Produtos</Link>
             <Link to="/configurador" className="py-3 border-b border-border/50" onClick={() => setOpen(false)}>Configurador</Link>
-            <Link to={accountHref} className="py-3" onClick={() => setOpen(false)}>
+            <Link to={accountHref} className="py-3 border-b border-border/50" onClick={() => setOpen(false)}>
               {user ? "Minha conta" : "Entrar / Criar conta"}
             </Link>
+            {isAdmin && (
+              <Link to="/admin" className="py-3 font-semibold text-primary" onClick={() => setOpen(false)}>
+                Painel administrativo
+              </Link>
+            )}
           </nav>
         </div>
       )}

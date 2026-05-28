@@ -71,18 +71,27 @@ function ProductDetail() {
         </div>
 
 
-        <Button size="lg" className="mt-6 w-full md:w-auto" onClick={() => {
-          add({
-            productId: product.id, slug: product.slug, name: product.name,
-            image: product.images?.[0], priceCents: product.price_cents, quantity: 1,
-            weightKg: Number(product.weight_kg), lengthCm: product.length_cm,
-            widthCm: product.width_cm, heightCm: product.height_cm,
-          });
-          toast.success("Adicionado ao carrinho");
-          navigate({ to: "/carrinho" });
-        }}>
-          Adicionar ao carrinho
-        </Button>
+        {product.stock <= 0 ? (
+          <div className="mt-6 rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+            <p className="text-sm font-semibold text-destructive">Produto esgotado</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Este item está temporariamente sem estoque. Entre em contato pelo WhatsApp para previsão de reposição.
+            </p>
+          </div>
+        ) : (
+          <Button size="lg" className="mt-6 w-full md:w-auto" onClick={() => {
+            add({
+              productId: product.id, slug: product.slug, name: product.name,
+              image: product.images?.[0], priceCents: product.price_cents, quantity: 1,
+              weightKg: Number(product.weight_kg), lengthCm: product.length_cm,
+              widthCm: product.width_cm, heightCm: product.height_cm,
+            });
+            toast.success("Adicionado ao carrinho");
+            navigate({ to: "/carrinho" });
+          }}>
+            Adicionar ao carrinho
+          </Button>
+        )}
         {product.description && (
           <div className="mt-8 whitespace-pre-line text-sm leading-relaxed">{product.description}</div>
         )}

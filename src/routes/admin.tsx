@@ -155,7 +155,7 @@ const emptyProduct: Product = {
   images: [],
   active: true,
   featured: false,
-  requires_vehicle_config: false,
+  requires_vehicle_config: true,
   category_id: null,
   allowed_carriers: [],
   blocked_carriers: [],
@@ -176,6 +176,7 @@ function ProductsTab() {
   const [items, setItems] = useState<Product[]>([]);
   const [editing, setEditing] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -201,15 +202,32 @@ function ProductsTab() {
     return <ProductForm initial={editing} onClose={() => { setEditing(null); load(); }} />;
   }
 
+  const term = query.trim().toLowerCase();
+  const filtered = term
+    ? items.filter((p) =>
+        p.name.toLowerCase().includes(term) ||
+        p.slug.toLowerCase().includes(term) ||
+        (p.short_description ?? "").toLowerCase().includes(term),
+      )
+    : items;
+
   return (
     <div className="mt-4">
-      <div className="mb-4 flex justify-between">
-        <h2 className="text-lg font-semibold">{items.length} produto(s)</h2>
-        <Button onClick={() => setEditing({ ...emptyProduct })}>+ Novo produto</Button>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold">{filtered.length} de {items.length} produto(s)</h2>
+        <div className="flex gap-2">
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar produto pelo nome…"
+            className="w-64"
+          />
+          <Button onClick={() => setEditing({ ...emptyProduct })}>+ Novo produto</Button>
+        </div>
       </div>
       {loading && <p>Carregando…</p>}
       <div className="grid gap-3">
-        {items.map((p) => (
+        {filtered.map((p) => (
           <Card key={p.id} className="flex items-center gap-4 p-3">
             <div className="h-16 w-16 shrink-0 overflow-hidden rounded bg-muted">
               {p.images[0] && <img src={p.images[0]} alt={p.name} className="h-full w-full object-cover" />}

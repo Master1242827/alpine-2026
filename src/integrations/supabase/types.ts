@@ -131,6 +131,7 @@ export type Database = {
         Row: {
           active: boolean
           created_at: string
+          display_order: number
           help_text: string | null
           id: string
           key: string
@@ -141,6 +142,7 @@ export type Database = {
         Insert: {
           active?: boolean
           created_at?: string
+          display_order?: number
           help_text?: string | null
           id?: string
           key: string
@@ -151,6 +153,7 @@ export type Database = {
         Update: {
           active?: boolean
           created_at?: string
+          display_order?: number
           help_text?: string | null
           id?: string
           key?: string
