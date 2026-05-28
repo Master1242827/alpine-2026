@@ -121,9 +121,14 @@ export function SiteHeader() {
             <Link to="/" className="py-3 border-b border-border/50" onClick={() => setOpen(false)}>Início</Link>
             <Link to="/produtos" className="py-3 border-b border-border/50" onClick={() => setOpen(false)}>Produtos</Link>
             <Link to="/configurador" className="py-3 border-b border-border/50" onClick={() => setOpen(false)}>Configurador</Link>
-            <Link to={accountHref} className="py-3" onClick={() => setOpen(false)}>
+            <Link to={accountHref} className="py-3 border-b border-border/50" onClick={() => setOpen(false)}>
               {user ? "Minha conta" : "Entrar / Criar conta"}
             </Link>
+            {isAdmin && (
+              <Link to="/admin" className="py-3 font-semibold text-primary" onClick={() => setOpen(false)}>
+                Painel administrativo
+              </Link>
+            )}
           </nav>
         </div>
       )}
