@@ -43,14 +43,12 @@ export function VehiclesAdmin() {
       <TabsList className="flex w-full flex-wrap">
         <TabsTrigger value="makes">Marcas</TabsTrigger>
         <TabsTrigger value="models">Modelos</TabsTrigger>
-        <TabsTrigger value="cabins">Cabines</TabsTrigger>
         <TabsTrigger value="questions">Perguntas</TabsTrigger>
         <TabsTrigger value="flows">Fluxos</TabsTrigger>
         <TabsTrigger value="mappings">Compatibilidades</TabsTrigger>
       </TabsList>
       <TabsContent value="makes"><MakesPanel /></TabsContent>
       <TabsContent value="models"><ModelsPanel /></TabsContent>
-      <TabsContent value="cabins"><CabinsPanel /></TabsContent>
       <TabsContent value="questions"><QuestionsPanel /></TabsContent>
       <TabsContent value="flows"><FlowsPanel /></TabsContent>
       <TabsContent value="mappings"><MappingsPanel /></TabsContent>
