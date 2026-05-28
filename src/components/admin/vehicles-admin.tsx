@@ -866,12 +866,13 @@ function MappingsPanel() {
               </p>
               {modelFlowQuestions.length === 0 && <p className="mt-2 text-xs text-muted-foreground">Esse modelo ainda não tem perguntas no fluxo. Vá na aba <strong>Fluxos</strong> para configurar.</p>}
               <div className="mt-3 grid gap-2 md:grid-cols-2">
-                {modelFlowQuestions.map((q) => {
+                {modelFlowQuestions.map(({ q, flow }) => {
                   const opts = options.filter((o) => o.question_id === q.id && o.active);
                   const current = editing.answers?.[q.key] ?? "";
+                  const yrSuffix = flow.year_from || flow.year_to ? ` (${flow.year_from ?? "…"}–${flow.year_to ?? "…"})` : "";
                   return (
-                    <div key={q.id}>
-                      <Label className="text-xs">{q.label}</Label>
+                    <div key={flow.id}>
+                      <Label className="text-xs">{q.label}{yrSuffix}</Label>
                       <select
                         value={current}
                         onChange={(e) => {
