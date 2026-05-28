@@ -820,10 +820,22 @@ function MappingsPanel() {
             </div>
             <div>
               <Label>Produto vinculado</Label>
-              <select value={editing.product_id ?? ""} onChange={(e) => setEditing({ ...editing, product_id: e.target.value })} className="w-full rounded border bg-background px-3 py-2 text-sm">
-                <option value="">Selecione…</option>
-                {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              <Input
+                list="vpm-products-list"
+                placeholder="Digite para buscar…"
+                value={(() => {
+                  const p = products.find((x) => x.id === editing.product_id);
+                  return p ? p.name : (editing as any)._product_search ?? "";
+                })()}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const match = products.find((p) => p.name === val);
+                  setEditing({ ...editing, product_id: match ? match.id : null, _product_search: val } as any);
+                }}
+              />
+              <datalist id="vpm-products-list">
+                {products.map((p) => <option key={p.id} value={p.name} />)}
+              </datalist>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div><Label>Ano inicial</Label><Input type="number" value={editing.year_from ?? ""} onChange={(e) => setEditing({ ...editing, year_from: e.target.value ? parseInt(e.target.value) : null })} /></div>
