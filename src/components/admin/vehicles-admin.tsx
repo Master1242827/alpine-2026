@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus, ImageIcon, ChevronUp, ChevronDown } from "lucide-react";
+import { Pencil, Trash2, Plus, ImageIcon, ChevronUp, ChevronDown, GripVertical } from "lucide-react";
 
 type Make = { id: string; name: string; image_url: string | null; display_order: number; active: boolean };
 type Model = { id: string; make_id: string; name: string; image_url: string | null; year_from: number | null; year_to: number | null; year_range: string | null; display_order: number; active: boolean };
