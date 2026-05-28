@@ -155,7 +155,7 @@ const emptyProduct: Product = {
   images: [],
   active: true,
   featured: false,
-  requires_vehicle_config: false,
+  requires_vehicle_config: true,
   category_id: null,
   allowed_carriers: [],
   blocked_carriers: [],
