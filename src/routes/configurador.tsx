@@ -182,7 +182,7 @@ function Configurator() {
     setResults(null);
     const { data } = await supabase
       .from("vehicle_product_map")
-      .select("product_id, year_from, year_to, answers, products(slug, name, active)")
+      .select("product_id, year_from, year_to, answers, products(slug, name, active, images, price_cents, compare_at_cents, featured)")
       .eq("model_id", sel.model!.id)
       .eq("active", true);
 
@@ -230,15 +230,31 @@ function Configurator() {
     console.info("Resultado da compatibilidade", { encontrados: matches.length, produtos: matches.map((m: any) => m.products?.name ?? m.product_id) });
     console.groupEnd();
 
+    // Dedup by product id (same product can have multiple compat rows)
+    const seen = new Set<string>();
+    const products: ResultProduct[] = [];
+    for (const m of matches) {
+      const p = m.products;
+      if (!p || seen.has(m.product_id)) continue;
+      seen.add(m.product_id);
+      products.push({
+        slug: p.slug,
+        name: p.name,
+        image: p.images?.[0],
+        priceCents: p.price_cents,
+        compareAtCents: p.compare_at_cents ?? null,
+        featured: !!p.featured,
+      });
+    }
+
     setSearching(false);
-    if (matches.length === 1) {
-      navigate({ to: "/produto/$slug", params: { slug: matches[0].products.slug } });
-    } else if (matches.length > 1) {
-      setResults(matches.map((m: any) => ({ slug: m.products.slug, name: m.products.name })));
-    } else {
+    if (products.length === 0) {
       setNotFound(true);
+    } else {
+      setResults(products);
     }
   };
+
 
   // auto-trigger search when reaching final state
   useEffect(() => {
