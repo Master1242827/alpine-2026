@@ -499,7 +499,7 @@ function FinalStep({ sel, searching, notFound, results, onChangeAnswers, onBrows
   return null;
 }
 
-}
+
 
 function Section({ title, children, onBack }: { title: string; children: React.ReactNode; onBack?: () => void }) {
   return (
