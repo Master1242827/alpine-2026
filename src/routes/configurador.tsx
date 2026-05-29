@@ -346,11 +346,10 @@ function Configurator() {
             notFound={notFound}
             results={results}
             onChangeAnswers={() => resetTo(0)}
-            onRetry={findProducts}
             onBrowseAll={() => navigate({ to: "/produtos" })}
-            onPickResult={(slug) => navigate({ to: "/produto/$slug", params: { slug } })}
           />
         )}
+
       </div>
     </div>
   );
