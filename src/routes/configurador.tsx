@@ -47,7 +47,7 @@ function Configurator() {
   const [sel, setSel] = useState<Selection>({ answers: {} });
   const [searching, setSearching] = useState(false);
   const [notFound, setNotFound] = useState(false);
-  const [results, setResults] = useState<{ slug: string; name: string }[] | null>(null);
+  const [results, setResults] = useState<ResultProduct[] | null>(null);
 
   // Step indexes:
   // 0: make, 1: model, 2: year, 3..N: dynamic questions, last: result
