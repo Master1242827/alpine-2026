@@ -4,8 +4,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Check } from "lucide-react";
+import { ProductCard } from "@/components/product-card";
 
 export const Route = createFileRoute("/configurador")({ component: Configurator });
+
+type ResultProduct = {
+  slug: string;
+  name: string;
+  image?: string;
+  priceCents: number;
+  compareAtCents: number | null;
+  featured: boolean;
+};
+
 
 type Make = { id: string; name: string; image_url: string | null };
 type Model = { id: string; name: string; image_url: string | null; year_from: number | null; year_to: number | null };
