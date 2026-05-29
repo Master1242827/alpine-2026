@@ -4,8 +4,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Check } from "lucide-react";
+import { ProductCard } from "@/components/product-card";
 
 export const Route = createFileRoute("/configurador")({ component: Configurator });
+
+type ResultProduct = {
+  slug: string;
+  name: string;
+  image?: string;
+  priceCents: number;
+  compareAtCents: number | null;
+  featured: boolean;
+};
+
 
 type Make = { id: string; name: string; image_url: string | null };
 type Model = { id: string; name: string; image_url: string | null; year_from: number | null; year_to: number | null };
@@ -36,7 +47,7 @@ function Configurator() {
   const [sel, setSel] = useState<Selection>({ answers: {} });
   const [searching, setSearching] = useState(false);
   const [notFound, setNotFound] = useState(false);
-  const [results, setResults] = useState<{ slug: string; name: string }[] | null>(null);
+  const [results, setResults] = useState<ResultProduct[] | null>(null);
 
   // Step indexes:
   // 0: make, 1: model, 2: year, 3..N: dynamic questions, last: result
@@ -171,7 +182,7 @@ function Configurator() {
     setResults(null);
     const { data } = await supabase
       .from("vehicle_product_map")
-      .select("product_id, year_from, year_to, answers, products(slug, name, active)")
+      .select("product_id, year_from, year_to, answers, products(slug, name, active, images, price_cents, compare_at_cents, featured)")
       .eq("model_id", sel.model!.id)
       .eq("active", true);
 
@@ -219,15 +230,31 @@ function Configurator() {
     console.info("Resultado da compatibilidade", { encontrados: matches.length, produtos: matches.map((m: any) => m.products?.name ?? m.product_id) });
     console.groupEnd();
 
+    // Dedup by product id (same product can have multiple compat rows)
+    const seen = new Set<string>();
+    const products: ResultProduct[] = [];
+    for (const m of matches) {
+      const p = m.products;
+      if (!p || seen.has(m.product_id)) continue;
+      seen.add(m.product_id);
+      products.push({
+        slug: p.slug,
+        name: p.name,
+        image: p.images?.[0],
+        priceCents: p.price_cents,
+        compareAtCents: p.compare_at_cents ?? null,
+        featured: !!p.featured,
+      });
+    }
+
     setSearching(false);
-    if (matches.length === 1) {
-      navigate({ to: "/produto/$slug", params: { slug: matches[0].products.slug } });
-    } else if (matches.length > 1) {
-      setResults(matches.map((m: any) => ({ slug: m.products.slug, name: m.products.name })));
-    } else {
+    if (products.length === 0) {
       setNotFound(true);
+    } else {
+      setResults(products);
     }
   };
+
 
   // auto-trigger search when reaching final state
   useEffect(() => {
@@ -319,11 +346,10 @@ function Configurator() {
             notFound={notFound}
             results={results}
             onChangeAnswers={() => resetTo(0)}
-            onRetry={findProducts}
             onBrowseAll={() => navigate({ to: "/produtos" })}
-            onPickResult={(slug) => navigate({ to: "/produto/$slug", params: { slug } })}
           />
         )}
+
       </div>
     </div>
   );
@@ -393,43 +419,37 @@ function DynamicQuestionStep({ question, options, onPick, onBack }: {
   );
 }
 
-function FinalStep({ sel, searching, notFound, results, onChangeAnswers, onRetry, onBrowseAll, onPickResult }: {
+function FinalStep({ sel, searching, notFound, results, onChangeAnswers, onBrowseAll }: {
   sel: Selection;
   searching: boolean;
   notFound: boolean;
-  results: { slug: string; name: string }[] | null;
+  results: ResultProduct[] | null;
   onChangeAnswers: () => void;
-  onRetry: () => void;
   onBrowseAll: () => void;
-  onPickResult: (slug: string) => void;
 }) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-6 text-center md:p-10">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-        <Check className="h-7 w-7" />
+  const summary = (
+    <p className="text-sm text-muted-foreground">
+      {sel.make?.name} {sel.model?.name} {sel.year}
+      {Object.values(sel.answers).map((a) => ` · ${a.label}`).join("")}
+    </p>
+  );
+
+  if (searching) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6 text-center md:p-10">
+        <p className="text-sm text-muted-foreground">Buscando produtos compatíveis…</p>
       </div>
-      <h2 className="mt-4 text-xl font-bold md:text-2xl">Tudo certo!</h2>
-      <p className="mt-2 text-sm text-muted-foreground">
-        {sel.make?.name} {sel.model?.name} {sel.year}
-        {Object.values(sel.answers).map((a) => ` · ${a.label}`).join("")}
-      </p>
+    );
+  }
 
-      {searching && <p className="mt-6 text-sm text-muted-foreground">Buscando produto compatível…</p>}
-
-      {!searching && results && results.length > 1 && (
-        <div className="mt-6 space-y-2 text-left">
-          <p className="text-center text-sm font-semibold">Encontramos {results.length} produtos compatíveis:</p>
-          {results.map((r) => (
-            <button key={r.slug} onClick={() => onPickResult(r.slug)}
-              className="flex w-full items-center justify-between rounded-lg border border-border bg-background p-3 transition-colors hover:border-primary">
-              <span className="font-medium">{r.name}</span>
-              <span className="text-sm text-primary">Ver →</span>
-            </button>
-          ))}
+  if (notFound) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6 text-center md:p-10">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Check className="h-7 w-7" />
         </div>
-      )}
-
-      {!searching && notFound && (
+        <h2 className="mt-4 text-xl font-bold md:text-2xl">Combinação selecionada</h2>
+        <div className="mt-2">{summary}</div>
         <div className="mt-6 space-y-3">
           <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
             Não encontramos um produto cadastrado para essa combinação.
@@ -439,10 +459,47 @@ function FinalStep({ sel, searching, notFound, results, onChangeAnswers, onRetry
             <Button onClick={onBrowseAll}>Ver todos os produtos</Button>
           </div>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    );
+  }
+
+  if (results && results.length > 0) {
+    return (
+      <div>
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-xl font-bold md:text-2xl">
+              {results.length === 1
+                ? "1 produto compatível"
+                : `${results.length} produtos compatíveis`}
+            </h2>
+            {summary}
+          </div>
+          <Button variant="outline" size="sm" onClick={onChangeAnswers}>
+            Refazer busca
+          </Button>
+        </div>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+          {results.map((p) => (
+            <ProductCard
+              key={p.slug}
+              slug={p.slug}
+              name={p.name}
+              image={p.image}
+              priceCents={p.priceCents}
+              compareAtCents={p.compareAtCents}
+              featured={p.featured}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
+
+
 
 function Section({ title, children, onBack }: { title: string; children: React.ReactNode; onBack?: () => void }) {
   return (
