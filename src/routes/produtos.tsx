@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Search, X } from "lucide-react";
 import { useMemo } from "react";
 import { z } from "zod";
+import { searchProducts, type SearchableProduct } from "@/lib/product-search";
 
 const searchSchema = z.object({ q: z.string().optional() });
 
@@ -20,27 +21,65 @@ function ProductsPage() {
   const term = (q ?? "").trim();
 
   const { data } = useQuery({
-    queryKey: ["all-products"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select("id, slug, name, short_description, price_cents, compare_at_cents, images, featured")
-        .eq("active", true);
+    queryKey: ["all-products-search"],
+    queryFn: async (): Promise<SearchableProduct[]> => {
+      const [{ data: products, error }, { data: maps }, { data: models }, { data: makes }, { data: categories }] =
+        await Promise.all([
+          supabase
+            .from("products")
+            .select(
+              "id, slug, name, short_description, price_cents, compare_at_cents, images, featured, category_id",
+            )
+            .eq("active", true),
+          supabase
+            .from("vehicle_product_map")
+            .select("product_id, model_id, year_from, year_to")
+            .eq("active", true),
+          supabase.from("vehicle_models").select("id, name, make_id, year_from, year_to"),
+          supabase.from("vehicle_makes").select("id, name"),
+          supabase.from("categories").select("id, name"),
+        ]);
       if (error) throw error;
-      return data;
+
+      const makeById = new Map((makes ?? []).map((m) => [m.id, m.name]));
+      const modelById = new Map(
+        (models ?? []).map((m) => [m.id, { name: m.name, make_id: m.make_id, year_from: m.year_from, year_to: m.year_to }]),
+      );
+      const catById = new Map((categories ?? []).map((c) => [c.id, c.name]));
+      const mapsByProduct = new Map<string, SearchableProduct["vehicles"]>();
+      for (const m of maps ?? []) {
+        if (!m.product_id) continue;
+        const mdl = m.model_id ? modelById.get(m.model_id) : null;
+        const make = mdl?.make_id ? makeById.get(mdl.make_id) ?? null : null;
+        const list = mapsByProduct.get(m.product_id) ?? [];
+        list!.push({
+          make,
+          model: mdl?.name ?? null,
+          year_from: m.year_from ?? mdl?.year_from ?? null,
+          year_to: m.year_to ?? mdl?.year_to ?? null,
+        });
+        mapsByProduct.set(m.product_id, list);
+      }
+
+      return (products ?? []).map((p) => ({
+        id: p.id,
+        slug: p.slug,
+        name: p.name,
+        short_description: p.short_description,
+        price_cents: p.price_cents,
+        compare_at_cents: p.compare_at_cents,
+        images: p.images ?? [],
+        featured: p.featured,
+        category_name: p.category_id ? catById.get(p.category_id) ?? null : null,
+        vehicles: mapsByProduct.get(p.id) ?? [],
+      }));
     },
   });
 
   const filtered = useMemo(() => {
     if (!data) return [];
     if (!term) return data;
-    const t = term.toLowerCase();
-    return data.filter(
-      (p) =>
-        p.name.toLowerCase().includes(t) ||
-        (p.short_description ?? "").toLowerCase().includes(t) ||
-        p.slug.toLowerCase().includes(t),
-    );
+    return searchProducts(data, term);
   }, [data, term]);
 
   return (
@@ -54,7 +93,7 @@ function ProductsPage() {
             onChange={(e) =>
               navigate({ search: { q: e.target.value || undefined }, replace: true })
             }
-            placeholder="Buscar produtos…"
+            placeholder="Ex: saveiro 2004, capota g1 quadrada…"
             className="pl-9 pr-9"
           />
           {q && (
@@ -84,6 +123,7 @@ function ProductsPage() {
               slug={p.slug}
               name={p.name}
               image={p.images?.[0]}
+              categoryName={p.category_name ?? undefined}
               priceCents={p.price_cents}
               compareAtCents={p.compare_at_cents}
               featured={p.featured}
