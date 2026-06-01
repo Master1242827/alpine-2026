@@ -904,6 +904,12 @@ function MappingsPanel() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-lg font-semibold">{filtered.length} compatibilidade(s)</h3>
         <div className="flex flex-wrap gap-2">
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar (ex: saveiro 2007, saveiro crossover)…"
+            className="w-64"
+          />
           <select value={filterMake} onChange={(e) => { setFilterMake(e.target.value); setFilterModel(""); }} className="rounded border bg-background px-3 py-2 text-sm">
             <option value="">Todas as marcas</option>
             {makes.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
