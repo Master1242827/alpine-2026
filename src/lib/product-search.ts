@@ -42,13 +42,26 @@ const norm = (s: string) =>
 // the cluster to the expanded query.
 const SYNONYM_CLUSTERS: string[][] = [
   ["saveiro g1", "saveiro quadrada", "saveiro antiga", "g1 quadrada"],
-  ["saveiro g2", "saveiro bola", "saveiro g3", "saveiro g4"],
-  ["gol g1", "gol quadrado", "gol bola"],
+  ["saveiro g2", "saveiro bola"],
+  ["saveiro g3"],
+  ["saveiro g4"],
+  ["saveiro g5"],
+  ["saveiro g6"],
+  ["gol g1", "gol quadrado"],
+  ["gol g2", "gol bola"],
   ["parati g1", "parati quadrada"],
+  ["parati g2", "parati bola"],
   ["s10", "s 10"],
   ["l200", "l 200", "triton"],
+  ["hilux"],
+  ["ranger"],
+  ["amarok"],
+  ["frontier"],
   ["vw", "volkswagen"],
   ["chevrolet", "gm"],
+  ["cabine simples", "cs"],
+  ["cabine dupla", "cd"],
+  ["cabine estendida", "ce"],
   ["capota", "capota maritima", "cobertura cacamba", "tampa cacamba"],
 ];
 
