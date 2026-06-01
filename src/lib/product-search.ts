@@ -121,8 +121,7 @@ export function searchProducts(
 
   const scored: ScoredProduct[] = [];
   for (const p of products) {
-    const haystackName = norm(p.name);
-    const haystackDesc = norm(p.short_description ?? "");
+    const haystackDesc = norm(`${p.short_description ?? ""} ${p.description ?? ""}`);
     const haystackCategory = norm(p.category_name ?? "");
     const haystackSlug = norm(p.slug);
     const haystackVehicles = (p.vehicles ?? [])
