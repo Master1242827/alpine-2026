@@ -202,13 +202,16 @@ function ProductsTab() {
     return <ProductForm initial={editing} onClose={() => { setEditing(null); load(); }} />;
   }
 
-  const term = query.trim().toLowerCase();
-  const filtered = term
-    ? items.filter((p) =>
-        p.name.toLowerCase().includes(term) ||
-        p.slug.toLowerCase().includes(term) ||
-        (p.short_description ?? "").toLowerCase().includes(term),
-      )
+  const norm = (s: string) =>
+    s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const tokens = query.trim().split(/\s+/).filter(Boolean).map(norm);
+  const filtered = tokens.length
+    ? items.filter((p) => {
+        const hay = norm(
+          `${p.name} ${p.slug} ${p.short_description ?? ""} ${p.description ?? ""}`,
+        );
+        return tokens.every((t) => hay.includes(t));
+      })
     : items;
 
   return (
