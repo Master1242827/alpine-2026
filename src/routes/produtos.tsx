@@ -66,6 +66,7 @@ function ProductsPage() {
         slug: p.slug,
         name: p.name,
         short_description: p.short_description,
+        description: (p as any).description ?? null,
         price_cents: p.price_cents,
         compare_at_cents: p.compare_at_cents,
         images: p.images ?? [],
