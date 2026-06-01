@@ -488,6 +488,11 @@ function QuestionsPanel() {
             </Card>
           );
         })}
+        {visibleItems.length === 0 && items.length > 0 && (
+          <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            Nenhuma pergunta encontrada para "{search}".
+          </div>
+        )}
         {items.length === 0 && (
           <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
             Nenhuma pergunta cadastrada. Crie perguntas como "Cabine", "Versão", "Grade", "Ganchos", "Estepe" — depois associe a modelos na aba Fluxos.
