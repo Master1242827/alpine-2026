@@ -400,13 +400,31 @@ function QuestionsPanel() {
     if (err) { toast.error(err.message); load(); }
   };
 
+  const normSearch = search.trim().toLowerCase();
+  const visibleItems = normSearch
+    ? items.filter(
+        (q) =>
+          q.label.toLowerCase().includes(normSearch) ||
+          q.key.toLowerCase().includes(normSearch),
+      )
+    : items;
+
   return (
     <div className="mt-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-lg font-semibold">{items.length} pergunta(s)</h3>
-        <Button onClick={() => setEditing({ active: true })}><Plus className="mr-1 h-4 w-4" /> Nova pergunta</Button>
+        <h3 className="text-lg font-semibold">{visibleItems.length} de {items.length} pergunta(s)</h3>
+        <div className="flex gap-2">
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nome ou chave…"
+            className="w-64"
+          />
+          <Button onClick={() => setEditing({ active: true })}><Plus className="mr-1 h-4 w-4" /> Nova pergunta</Button>
+        </div>
       </div>
       <p className="text-xs text-muted-foreground">Arraste pelo ícone à esquerda para reordenar as perguntas.</p>
+
 
       {editing && (
         <Card className="space-y-3 p-4">
