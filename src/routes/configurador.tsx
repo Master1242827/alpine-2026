@@ -38,6 +38,7 @@ function normalizeCompatValue(value: unknown) {
 }
 
 function isWildcardCompatValue(value: unknown) {
+  if (Array.isArray(value)) return value.length === 0 || value.every(isWildcardCompatValue);
   const normalized = normalizeCompatValue(value);
   return WILDCARD_VALUES.has(normalized) || normalized.replace(/[()]/g, "").trim() === "qualquer";
 }
@@ -207,7 +208,7 @@ function Configurator() {
         console.debug("[Configurador] Produto rejeitado", { produto: productName, motivo: "produto inativo" });
         return false;
       }
-      const required = (r.answers ?? {}) as Record<string, string>;
+      const required = (r.answers ?? {}) as Record<string, string | string[]>;
       for (const k of Object.keys(required)) {
         const req = required[k];
         if (!flowQuestionKeys.has(k)) {
@@ -218,9 +219,14 @@ function Configurator() {
           console.debug("[Configurador] Filtro ignorado", { produto: productName, campo: k, valorAdmin: req, respostaCliente: userAns[k] });
           continue;
         }
+        const accepted = (Array.isArray(req) ? req : [req])
+          .filter((v) => !isWildcardCompatValue(v))
+          .map(normalizeCompatValue);
+        if (accepted.length === 0) continue;
+        const got = normalizeCompatValue(userAns[k]);
         console.debug("[Configurador] Filtro aplicado", { produto: productName, campo: k, valorAdmin: req, respostaCliente: userAns[k] });
-        if (normalizeCompatValue(userAns[k]) !== normalizeCompatValue(req)) {
-          console.debug("[Configurador] Produto rejeitado", { produto: productName, motivo: "resposta diferente", campo: k, esperado: req, recebido: userAns[k] });
+        if (!accepted.includes(got)) {
+          console.debug("[Configurador] Produto rejeitado", { produto: productName, motivo: "resposta não está entre as aceitas", campo: k, esperado: req, recebido: userAns[k] });
           return false;
         }
       }

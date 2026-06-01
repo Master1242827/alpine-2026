@@ -14,7 +14,8 @@ import { Pencil, Trash2, Plus, ImageIcon, ChevronUp, ChevronDown, GripVertical }
 type Make = { id: string; name: string; image_url: string | null; display_order: number; active: boolean };
 type Model = { id: string; make_id: string; name: string; image_url: string | null; year_from: number | null; year_to: number | null; year_range: string | null; display_order: number; active: boolean };
 type Cabin = { id: string; name: string; description: string | null; image_url: string | null; display_order: number; active: boolean };
-type Mapping = { id: string; model_id: string | null; cabin_type_id: string | null; product_id: string | null; year_from: number | null; year_to: number | null; active: boolean; answers: Record<string, string> | null };
+type CompatAnswer = string | string[];
+type Mapping = { id: string; model_id: string | null; cabin_type_id: string | null; product_id: string | null; year_from: number | null; year_to: number | null; active: boolean; answers: Record<string, CompatAnswer> | null };
 type Question = { id: string; key: string; label: string; help_text: string | null; type: string; active: boolean };
 type Option = { id: string; question_id: string; value: string; label: string; image_url: string | null; display_order: number; active: boolean };
 type Flow = { id: string; model_id: string; question_id: string; year_from: number | null; year_to: number | null; display_order: number; required: boolean; active: boolean; hidden?: boolean; auto_answer?: string | null };
@@ -24,6 +25,7 @@ const sb = supabase as any;
 const WILDCARD_COMPAT_VALUES = new Set(["", "*", "any", "all", "qualquer", "(qualquer)", "todos", "todas"]);
 
 function isWildcardCompatValue(value: unknown) {
+  if (Array.isArray(value)) return value.length === 0 || value.every(isWildcardCompatValue);
   const normalized = String(value ?? "").trim().toLowerCase();
   return WILDCARD_COMPAT_VALUES.has(normalized) || normalized.replace(/[()]/g, "").trim() === "qualquer";
 }
@@ -340,6 +342,7 @@ function QuestionsPanel() {
   const [editing, setEditing] = useState<Partial<Question> | null>(null);
   const [optionsFor, setOptionsFor] = useState<Question | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const load = async () => {
     const [q, o] = await Promise.all([
@@ -397,13 +400,31 @@ function QuestionsPanel() {
     if (err) { toast.error(err.message); load(); }
   };
 
+  const normSearch = search.trim().toLowerCase();
+  const visibleItems = normSearch
+    ? items.filter(
+        (q) =>
+          q.label.toLowerCase().includes(normSearch) ||
+          q.key.toLowerCase().includes(normSearch),
+      )
+    : items;
+
   return (
     <div className="mt-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-lg font-semibold">{items.length} pergunta(s)</h3>
-        <Button onClick={() => setEditing({ active: true })}><Plus className="mr-1 h-4 w-4" /> Nova pergunta</Button>
+        <h3 className="text-lg font-semibold">{visibleItems.length} de {items.length} pergunta(s)</h3>
+        <div className="flex gap-2">
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nome ou chave…"
+            className="w-64"
+          />
+          <Button onClick={() => setEditing({ active: true })}><Plus className="mr-1 h-4 w-4" /> Nova pergunta</Button>
+        </div>
       </div>
       <p className="text-xs text-muted-foreground">Arraste pelo ícone à esquerda para reordenar as perguntas.</p>
+
 
       {editing && (
         <Card className="space-y-3 p-4">
@@ -425,7 +446,7 @@ function QuestionsPanel() {
       )}
 
       <div className="grid gap-2">
-        {items.map((q) => {
+        {visibleItems.map((q) => {
           const count = options.filter((o) => o.question_id === q.id).length;
           const isDragging = dragId === q.id;
           return (
@@ -467,6 +488,11 @@ function QuestionsPanel() {
             </Card>
           );
         })}
+        {visibleItems.length === 0 && items.length > 0 && (
+          <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            Nenhuma pergunta encontrada para "{search}".
+          </div>
+        )}
         {items.length === 0 && (
           <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
             Nenhuma pergunta cadastrada. Crie perguntas como "Cabine", "Versão", "Grade", "Ganchos", "Estepe" — depois associe a modelos na aba Fluxos.
@@ -749,6 +775,7 @@ function MappingsPanel() {
   const [editing, setEditing] = useState<(Partial<Mapping> & { _make_id?: string }) | null>(null);
   const [filterMake, setFilterMake] = useState("");
   const [filterModel, setFilterModel] = useState("");
+  const [search, setSearch] = useState("");
 
   const load = async () => {
     const [vpm, ma, mo, p, q, o, f] = await Promise.all([
@@ -771,14 +798,40 @@ function MappingsPanel() {
   useEffect(() => { load(); }, []);
 
   const modelMakeMap = useMemo(() => new Map(models.map((m) => [m.id, m.make_id])), [models]);
+  const normHay = (s: string) =>
+    s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const searchTokens = search.trim().split(/\s+/).filter(Boolean).map(normHay);
+  const searchYears = searchTokens
+    .filter((t) => /^(19|20)\d{2}$/.test(t))
+    .map((t) => parseInt(t, 10));
+  const searchWords = searchTokens.filter((t) => !/^(19|20)\d{2}$/.test(t));
+
   const filtered = items.filter((it) => {
     if (filterMake) {
       const mk = it.model_id ? modelMakeMap.get(it.model_id) : null;
       if (mk !== filterMake) return false;
     }
     if (filterModel && it.model_id !== filterModel) return false;
+    if (searchTokens.length === 0) return true;
+    const model = it.model_id ? models.find((m) => m.id === it.model_id) : null;
+    const make = model ? makes.find((m) => m.id === model.make_id) : null;
+    const product = it.product_id ? products.find((p) => p.id === it.product_id) : null;
+    const answerValues = Object.values(it.answers ?? {})
+      .flatMap((v) => (Array.isArray(v) ? v : [v]))
+      .join(" ");
+    const hay = normHay(
+      `${make?.name ?? ""} ${model?.name ?? ""} ${product?.name ?? ""} ${answerValues}`,
+    );
+    const wordOk = searchWords.every((w) => hay.includes(w));
+    if (!wordOk) return false;
+    if (searchYears.length) {
+      const yf = it.year_from ?? model?.year_from ?? 0;
+      const yt = it.year_to ?? model?.year_to ?? 9999;
+      if (!searchYears.some((y) => y >= yf && y <= yt)) return false;
+    }
     return true;
   });
+
 
   const save = async () => {
     if (!editing?.model_id || !editing?.product_id) return toast.error("Modelo e produto são obrigatórios");
@@ -851,6 +904,12 @@ function MappingsPanel() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-lg font-semibold">{filtered.length} compatibilidade(s)</h3>
         <div className="flex flex-wrap gap-2">
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar (ex: saveiro 2007, saveiro crossover)…"
+            className="w-64"
+          />
           <select value={filterMake} onChange={(e) => { setFilterMake(e.target.value); setFilterModel(""); }} className="rounded border bg-background px-3 py-2 text-sm">
             <option value="">Todas as marcas</option>
             {makes.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
@@ -909,30 +968,44 @@ function MappingsPanel() {
             <div className="rounded border border-border bg-muted/30 p-3">
               <h4 className="text-sm font-semibold">Respostas que ativam este produto</h4>
               <p className="mt-1 text-xs text-muted-foreground">
-                Marque "qualquer" para que essa resposta não influencie. Só perguntas configuradas no fluxo do modelo aparecem aqui.
+                Marque uma ou mais respostas para limitar; deixe tudo desmarcado para "qualquer". Só perguntas configuradas no fluxo do modelo aparecem aqui.
               </p>
               {modelFlowQuestions.length === 0 && <p className="mt-2 text-xs text-muted-foreground">Esse modelo ainda não tem perguntas no fluxo. Vá na aba <strong>Fluxos</strong> para configurar.</p>}
               <div className="mt-3 grid gap-2 md:grid-cols-2">
                 {modelFlowQuestions.map(({ q, flow }) => {
                   const opts = options.filter((o) => o.question_id === q.id && o.active);
-                  const current = editing.answers?.[q.key] ?? "";
+                  const raw = editing.answers?.[q.key];
+                  const selected = new Set(
+                    Array.isArray(raw) ? raw : raw ? [raw as string] : [],
+                  );
                   const yrSuffix = flow.year_from || flow.year_to ? ` (${flow.year_from ?? "…"}–${flow.year_to ?? "…"})` : "";
+                  const toggleValue = (value: string) => {
+                    const next = { ...(editing.answers ?? {}) };
+                    const set = new Set(selected);
+                    if (set.has(value)) set.delete(value);
+                    else set.add(value);
+                    if (set.size === 0) delete next[q.key];
+                    else next[q.key] = Array.from(set);
+                    setEditing({ ...editing, answers: next });
+                  };
                   return (
-                    <div key={flow.id}>
+                    <div key={flow.id} className="rounded border border-border bg-background p-2">
                       <Label className="text-xs">{q.label}{yrSuffix}</Label>
-                      <select
-                        value={current}
-                        onChange={(e) => {
-                          const next = { ...(editing.answers ?? {}) };
-                          if (e.target.value) next[q.key] = e.target.value;
-                          else delete next[q.key];
-                          setEditing({ ...editing, answers: next });
-                        }}
-                        className="w-full rounded border bg-background px-3 py-2 text-sm"
-                      >
-                        <option value="">(qualquer)</option>
-                        {opts.map((o) => <option key={o.id} value={o.value}>{o.label}</option>)}
-                      </select>
+                      {selected.size === 0 && (
+                        <p className="text-[10px] text-muted-foreground">(qualquer)</p>
+                      )}
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        {opts.map((o) => (
+                          <label key={o.id} className="flex cursor-pointer items-center gap-1 rounded border border-border bg-muted/40 px-2 py-1 text-xs">
+                            <input
+                              type="checkbox"
+                              checked={selected.has(o.value)}
+                              onChange={() => toggleValue(o.value)}
+                            />
+                            {o.label}
+                          </label>
+                        ))}
+                      </div>
                     </div>
                   );
                 })}
@@ -960,7 +1033,7 @@ function MappingsPanel() {
                 {ansEntries.length > 0 && (
                   <div className="mt-1 flex flex-wrap gap-1">
                     {ansEntries.map(([k, v]) => (
-                      <span key={k} className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{k}: <strong>{v}</strong></span>
+                      <span key={k} className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{k}: <strong>{Array.isArray(v) ? v.join(" | ") : v}</strong></span>
                     ))}
                   </div>
                 )}
