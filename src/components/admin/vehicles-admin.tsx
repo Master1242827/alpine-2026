@@ -25,6 +25,7 @@ const sb = supabase as any;
 const WILDCARD_COMPAT_VALUES = new Set(["", "*", "any", "all", "qualquer", "(qualquer)", "todos", "todas"]);
 
 function isWildcardCompatValue(value: unknown) {
+  if (Array.isArray(value)) return value.length === 0 || value.every(isWildcardCompatValue);
   const normalized = String(value ?? "").trim().toLowerCase();
   return WILDCARD_COMPAT_VALUES.has(normalized) || normalized.replace(/[()]/g, "").trim() === "qualquer";
 }
