@@ -968,7 +968,7 @@ function MappingsPanel() {
             <div className="rounded border border-border bg-muted/30 p-3">
               <h4 className="text-sm font-semibold">Respostas que ativam este produto</h4>
               <p className="mt-1 text-xs text-muted-foreground">
-                Marque "qualquer" para que essa resposta não influencie. Só perguntas configuradas no fluxo do modelo aparecem aqui.
+                Marque uma ou mais respostas para limitar; deixe tudo desmarcado para "qualquer". Só perguntas configuradas no fluxo do modelo aparecem aqui.
               </p>
               {modelFlowQuestions.length === 0 && <p className="mt-2 text-xs text-muted-foreground">Esse modelo ainda não tem perguntas no fluxo. Vá na aba <strong>Fluxos</strong> para configurar.</p>}
               <div className="mt-3 grid gap-2 md:grid-cols-2">
