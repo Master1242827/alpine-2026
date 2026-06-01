@@ -798,14 +798,40 @@ function MappingsPanel() {
   useEffect(() => { load(); }, []);
 
   const modelMakeMap = useMemo(() => new Map(models.map((m) => [m.id, m.make_id])), [models]);
+  const normHay = (s: string) =>
+    s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const searchTokens = search.trim().split(/\s+/).filter(Boolean).map(normHay);
+  const searchYears = searchTokens
+    .filter((t) => /^(19|20)\d{2}$/.test(t))
+    .map((t) => parseInt(t, 10));
+  const searchWords = searchTokens.filter((t) => !/^(19|20)\d{2}$/.test(t));
+
   const filtered = items.filter((it) => {
     if (filterMake) {
       const mk = it.model_id ? modelMakeMap.get(it.model_id) : null;
       if (mk !== filterMake) return false;
     }
     if (filterModel && it.model_id !== filterModel) return false;
+    if (searchTokens.length === 0) return true;
+    const model = it.model_id ? models.find((m) => m.id === it.model_id) : null;
+    const make = model ? makes.find((m) => m.id === model.make_id) : null;
+    const product = it.product_id ? products.find((p) => p.id === it.product_id) : null;
+    const answerValues = Object.values(it.answers ?? {})
+      .flatMap((v) => (Array.isArray(v) ? v : [v]))
+      .join(" ");
+    const hay = normHay(
+      `${make?.name ?? ""} ${model?.name ?? ""} ${product?.name ?? ""} ${answerValues}`,
+    );
+    const wordOk = searchWords.every((w) => hay.includes(w));
+    if (!wordOk) return false;
+    if (searchYears.length) {
+      const yf = it.year_from ?? model?.year_from ?? 0;
+      const yt = it.year_to ?? model?.year_to ?? 9999;
+      if (!searchYears.some((y) => y >= yf && y <= yt)) return false;
+    }
     return true;
   });
+
 
   const save = async () => {
     if (!editing?.model_id || !editing?.product_id) return toast.error("Modelo e produto são obrigatórios");
