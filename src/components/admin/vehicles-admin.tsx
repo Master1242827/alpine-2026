@@ -775,6 +775,7 @@ function MappingsPanel() {
   const [editing, setEditing] = useState<(Partial<Mapping> & { _make_id?: string }) | null>(null);
   const [filterMake, setFilterMake] = useState("");
   const [filterModel, setFilterModel] = useState("");
+  const [search, setSearch] = useState("");
 
   const load = async () => {
     const [vpm, ma, mo, p, q, o, f] = await Promise.all([
