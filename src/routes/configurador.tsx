@@ -38,6 +38,7 @@ function normalizeCompatValue(value: unknown) {
 }
 
 function isWildcardCompatValue(value: unknown) {
+  if (Array.isArray(value)) return value.length === 0 || value.every(isWildcardCompatValue);
   const normalized = normalizeCompatValue(value);
   return WILDCARD_VALUES.has(normalized) || normalized.replace(/[()]/g, "").trim() === "qualquer";
 }
