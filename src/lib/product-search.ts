@@ -13,11 +13,20 @@ export interface SearchableProduct {
   slug: string;
   name: string;
   short_description: string | null;
+  description?: string | null;
   price_cents: number;
   compare_at_cents: number | null;
   images: string[];
   featured: boolean;
   category_name?: string | null;
+  // From vehicle_product_map joined with vehicle_models / vehicle_makes:
+  vehicles?: Array<{
+    make: string | null;
+    model: string | null;
+    year_from: number | null;
+    year_to: number | null;
+  }>;
+}
   // From vehicle_product_map joined with vehicle_models / vehicle_makes:
   vehicles?: Array<{
     make: string | null;
