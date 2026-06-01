@@ -446,7 +446,7 @@ function QuestionsPanel() {
       )}
 
       <div className="grid gap-2">
-        {items.map((q) => {
+        {visibleItems.map((q) => {
           const count = options.filter((o) => o.question_id === q.id).length;
           const isDragging = dragId === q.id;
           return (
