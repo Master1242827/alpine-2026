@@ -974,24 +974,38 @@ function MappingsPanel() {
               <div className="mt-3 grid gap-2 md:grid-cols-2">
                 {modelFlowQuestions.map(({ q, flow }) => {
                   const opts = options.filter((o) => o.question_id === q.id && o.active);
-                  const current = editing.answers?.[q.key] ?? "";
+                  const raw = editing.answers?.[q.key];
+                  const selected = new Set(
+                    Array.isArray(raw) ? raw : raw ? [raw as string] : [],
+                  );
                   const yrSuffix = flow.year_from || flow.year_to ? ` (${flow.year_from ?? "…"}–${flow.year_to ?? "…"})` : "";
+                  const toggleValue = (value: string) => {
+                    const next = { ...(editing.answers ?? {}) };
+                    const set = new Set(selected);
+                    if (set.has(value)) set.delete(value);
+                    else set.add(value);
+                    if (set.size === 0) delete next[q.key];
+                    else next[q.key] = Array.from(set);
+                    setEditing({ ...editing, answers: next });
+                  };
                   return (
-                    <div key={flow.id}>
+                    <div key={flow.id} className="rounded border border-border bg-background p-2">
                       <Label className="text-xs">{q.label}{yrSuffix}</Label>
-                      <select
-                        value={current}
-                        onChange={(e) => {
-                          const next = { ...(editing.answers ?? {}) };
-                          if (e.target.value) next[q.key] = e.target.value;
-                          else delete next[q.key];
-                          setEditing({ ...editing, answers: next });
-                        }}
-                        className="w-full rounded border bg-background px-3 py-2 text-sm"
-                      >
-                        <option value="">(qualquer)</option>
-                        {opts.map((o) => <option key={o.id} value={o.value}>{o.label}</option>)}
-                      </select>
+                      {selected.size === 0 && (
+                        <p className="text-[10px] text-muted-foreground">(qualquer)</p>
+                      )}
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        {opts.map((o) => (
+                          <label key={o.id} className="flex cursor-pointer items-center gap-1 rounded border border-border bg-muted/40 px-2 py-1 text-xs">
+                            <input
+                              type="checkbox"
+                              checked={selected.has(o.value)}
+                              onChange={() => toggleValue(o.value)}
+                            />
+                            {o.label}
+                          </label>
+                        ))}
+                      </div>
                     </div>
                   );
                 })}
