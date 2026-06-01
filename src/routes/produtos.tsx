@@ -28,7 +28,7 @@ function ProductsPage() {
           supabase
             .from("products")
             .select(
-              "id, slug, name, short_description, price_cents, compare_at_cents, images, featured, category_id",
+              "id, slug, name, short_description, description, price_cents, compare_at_cents, images, featured, category_id",
             )
             .eq("active", true),
           supabase
