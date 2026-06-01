@@ -342,6 +342,7 @@ function QuestionsPanel() {
   const [editing, setEditing] = useState<Partial<Question> | null>(null);
   const [optionsFor, setOptionsFor] = useState<Question | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const load = async () => {
     const [q, o] = await Promise.all([
