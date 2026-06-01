@@ -1033,7 +1033,7 @@ function MappingsPanel() {
                 {ansEntries.length > 0 && (
                   <div className="mt-1 flex flex-wrap gap-1">
                     {ansEntries.map(([k, v]) => (
-                      <span key={k} className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{k}: <strong>{v}</strong></span>
+                      <span key={k} className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{k}: <strong>{Array.isArray(v) ? v.join(" | ") : v}</strong></span>
                     ))}
                   </div>
                 )}
