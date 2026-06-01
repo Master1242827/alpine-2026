@@ -27,14 +27,6 @@ export interface SearchableProduct {
     year_to: number | null;
   }>;
 }
-  // From vehicle_product_map joined with vehicle_models / vehicle_makes:
-  vehicles?: Array<{
-    make: string | null;
-    model: string | null;
-    year_from: number | null;
-    year_to: number | null;
-  }>;
-}
 
 const norm = (s: string) =>
   s
