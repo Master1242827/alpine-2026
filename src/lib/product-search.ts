@@ -131,14 +131,17 @@ export function searchProducts(
       .join(" ");
 
     let score = 0;
+    let textHits = 0;
 
     // Token text matches with field weights.
     for (const t of textTokens) {
-      if (haystackVehicles.includes(t)) score += 12; // model/make match is strongest
-      if (haystackName.includes(t)) score += 8;
-      if (haystackCategory.includes(t)) score += 4;
-      if (haystackDesc.includes(t)) score += 2;
-      if (haystackSlug.includes(t)) score += 1;
+      let hit = false;
+      if (haystackVehicles.includes(t)) { score += 12; hit = true; }
+      if (haystackName.includes(t)) { score += 8; hit = true; }
+      if (haystackCategory.includes(t)) { score += 4; hit = true; }
+      if (haystackDesc.includes(t)) { score += 2; hit = true; }
+      if (haystackSlug.includes(t)) { score += 1; hit = true; }
+      if (hit) textHits++;
     }
 
     // Phrase bonus: full normalized query appears in name.
@@ -146,7 +149,6 @@ export function searchProducts(
 
     // Year compatibility.
     if (queryYears.length) {
-      // Build all known ranges for this product.
       const ranges: Array<{ from: number; to: number }> = [];
       for (const v of p.vehicles ?? []) {
         if (v.year_from != null && v.year_to != null) {
@@ -160,15 +162,21 @@ export function searchProducts(
       const anyMatch = queryYears.some((y) =>
         ranges.some((r) => y >= r.from && y <= r.to),
       );
-      if (anyMatch) score += 20;
+      // Only award the year bonus when the product also matched on text —
+      // otherwise unrelated brands whose range happens to contain the year
+      // would surface (e.g. "saveiro 2004" leaking a Strada "até 2013").
+      if (anyMatch && textHits > 0) score += 20;
       else if (ranges.length > 0 && textTokens.length === 0) {
         // Pure year query that misses every range → drop the product.
         continue;
-      } else if (ranges.length > 0) {
+      } else if (ranges.length > 0 && !anyMatch && textHits > 0) {
         // Year given but does not fit this product → strong penalty.
         score -= 25;
       }
     }
+
+    // Require at least one real text hit when the user typed text tokens.
+    if (textTokens.length > 0 && textHits === 0) continue;
 
     if (score > 0) scored.push({ ...p, __score: score });
   }
