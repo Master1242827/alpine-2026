@@ -42,136 +42,150 @@ async function getMelhorEnvioConfig() {
   return { token, base, env };
 }
 
+export type QuotedOption = {
+  id: string;
+  name: string;
+  priceCents: number;
+  deliveryDays: number | null;
+  companyPicture: string | null;
+};
+
+export type QuoteResult =
+  | { options: QuotedOption[]; unavailable: false }
+  | { options: []; unavailable: true };
+
+export async function quoteShippingInternal(
+  toCep: string,
+  products: z.infer<typeof ProductSchema>[],
+): Promise<QuoteResult> {
+  const { token, base } = await getMelhorEnvioConfig();
+  if (!token) {
+    console.error("Melhor Envio: token não configurado");
+    return { options: [], unavailable: true };
+  }
+
+  const { data: settings } = await supabaseAdmin
+    .from("store_settings")
+    .select("origin_cep")
+    .eq("id", 1)
+    .maybeSingle();
+  const fromCep = (settings?.origin_cep || "").replace(/\D/g, "");
+  if (fromCep.length !== 8) {
+    return { options: [], unavailable: true };
+  }
+
+  const productIds = products.map((p) => p.id);
+  const { data: productRows } = await supabaseAdmin
+    .from("products")
+    .select("id, name, allowed_carriers, blocked_carriers, shipping_weight_kg, shipping_length_cm, shipping_width_cm, shipping_height_cm, categories(slug, name)")
+    .in("id", productIds);
+  const productMap = new Map<string, {
+    name: string;
+    categoryName?: string;
+    allowed: string[];
+    blocked: string[];
+    shipWeight?: number | null;
+    shipLength?: number | null;
+    shipWidth?: number | null;
+    shipHeight?: number | null;
+  }>();
+  for (const r of (productRows ?? []) as Array<{
+    id: string;
+    name: string;
+    allowed_carriers: string[] | null;
+    blocked_carriers: string[] | null;
+    shipping_weight_kg: number | null;
+    shipping_length_cm: number | null;
+    shipping_width_cm: number | null;
+    shipping_height_cm: number | null;
+    categories: { slug: string; name: string } | { slug: string; name: string }[] | null;
+  }>) {
+    const cat = Array.isArray(r.categories) ? r.categories[0] : r.categories;
+    productMap.set(r.id, {
+      name: r.name,
+      categoryName: cat?.name,
+      allowed: r.allowed_carriers ?? [],
+      blocked: r.blocked_carriers ?? [],
+      shipWeight: r.shipping_weight_kg,
+      shipLength: r.shipping_length_cm,
+      shipWidth: r.shipping_width_cm,
+      shipHeight: r.shipping_height_cm,
+    });
+  }
+
+  const shippedProducts = products.map((p) => {
+    const info = productMap.get(p.id);
+    return {
+      ...p,
+      weight: info?.shipWeight ?? p.weight,
+      length: info?.shipLength ?? p.length,
+      width: info?.shipWidth ?? p.width,
+      height: info?.shipHeight ?? p.height,
+    };
+  });
+
+  let res: Response;
+  try {
+    res = await fetch(`${base}/api/v2/me/shipment/calculate`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": "Alpine (contato@alpine.local)",
+      },
+      body: JSON.stringify({
+        from: { postal_code: fromCep },
+        to: { postal_code: toCep.replace(/\D/g, "") },
+        products: shippedProducts,
+      }),
+    });
+  } catch (err) {
+    console.error("Melhor Envio: falha de rede", err);
+    return { options: [], unavailable: true };
+  }
+
+  const body = await res.text();
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      console.error("Melhor Envio: token expirado/inválido");
+    } else {
+      console.error(`Melhor Envio [${res.status}]: ${body.slice(0, 500)}`);
+    }
+    return { options: [], unavailable: true };
+  }
+  let parsed: MEService[];
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    console.error("Melhor Envio: resposta inválida", body.slice(0, 300));
+    return { options: [], unavailable: true };
+  }
+
+  const sizeClass = classifyShipmentSize(shippedProducts, productMap);
+
+  const options = parsed
+    .filter((s) => !s.error && (s.price ?? s.custom_price))
+    .map((s) => ({
+      id: String(s.id),
+      name: `${s.company?.name ?? ""} ${s.name}`.trim(),
+      companyName: s.company?.name ?? "",
+      serviceName: s.name,
+      priceCents: Math.round(Number(s.custom_price ?? s.price) * 100),
+      deliveryDays: s.delivery_time ?? null,
+      companyPicture: s.company?.picture ?? null,
+    }))
+    .filter((opt) => isCarrierCompatible(opt, sizeClass, products, productMap))
+    .sort((a, b) => a.priceCents - b.priceCents)
+    .map(({ companyName: _c, serviceName: _s, ...rest }) => rest);
+
+  return { options, unavailable: false };
+}
+
 export const quoteShipping = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data }) => {
-    const { token, base } = await getMelhorEnvioConfig();
-    if (!token) {
-      console.error("Melhor Envio: token não configurado");
-      return { options: [], unavailable: true as const };
-    }
-
-    const { data: settings } = await supabaseAdmin
-      .from("store_settings")
-      .select("origin_cep")
-      .eq("id", 1)
-      .maybeSingle();
-    const fromCep = (settings?.origin_cep || "").replace(/\D/g, "");
-    if (fromCep.length !== 8) {
-      return { options: [], unavailable: true as const };
-    }
-
-    // Carregar dados dos produtos (nome, categoria, overrides, dimensões de envio)
-    const productIds = data.products.map((p) => p.id);
-    const { data: productRows } = await supabaseAdmin
-      .from("products")
-      .select("id, name, allowed_carriers, blocked_carriers, shipping_weight_kg, shipping_length_cm, shipping_width_cm, shipping_height_cm, categories(slug, name)")
-      .in("id", productIds);
-    const productMap = new Map<string, {
-      name: string;
-      categoryName?: string;
-      allowed: string[];
-      blocked: string[];
-      shipWeight?: number | null;
-      shipLength?: number | null;
-      shipWidth?: number | null;
-      shipHeight?: number | null;
-    }>();
-    for (const r of (productRows ?? []) as Array<{
-      id: string;
-      name: string;
-      allowed_carriers: string[] | null;
-      blocked_carriers: string[] | null;
-      shipping_weight_kg: number | null;
-      shipping_length_cm: number | null;
-      shipping_width_cm: number | null;
-      shipping_height_cm: number | null;
-      categories: { slug: string; name: string } | { slug: string; name: string }[] | null;
-    }>) {
-      const cat = Array.isArray(r.categories) ? r.categories[0] : r.categories;
-      productMap.set(r.id, {
-        name: r.name,
-        categoryName: cat?.name,
-        allowed: r.allowed_carriers ?? [],
-        blocked: r.blocked_carriers ?? [],
-        shipWeight: r.shipping_weight_kg,
-        shipLength: r.shipping_length_cm,
-        shipWidth: r.shipping_width_cm,
-        shipHeight: r.shipping_height_cm,
-      });
-    }
-
-    // Aplicar dimensões de envio (quando preenchidas pelo admin) — ex.: capota enrolada
-    const shippedProducts = data.products.map((p) => {
-      const info = productMap.get(p.id);
-      return {
-        ...p,
-        weight: info?.shipWeight ?? p.weight,
-        length: info?.shipLength ?? p.length,
-        width: info?.shipWidth ?? p.width,
-        height: info?.shipHeight ?? p.height,
-      };
-    });
-
-    let res: Response;
-    try {
-      res = await fetch(`${base}/api/v2/me/shipment/calculate`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          "User-Agent": "Alpine (contato@alpine.local)",
-        },
-        body: JSON.stringify({
-          from: { postal_code: fromCep },
-          to: { postal_code: data.toCep.replace(/\D/g, "") },
-          products: shippedProducts,
-        }),
-      });
-
-    } catch (err) {
-      console.error("Melhor Envio: falha de rede", err);
-      return { options: [], unavailable: true as const };
-    }
-
-    const body = await res.text();
-    if (!res.ok) {
-      if (res.status === 401 || res.status === 403) {
-        console.error("Melhor Envio: token expirado/inválido");
-      } else {
-        console.error(`Melhor Envio [${res.status}]: ${body.slice(0, 500)}`);
-      }
-      return { options: [], unavailable: true as const };
-    }
-    let parsed: MEService[];
-    try {
-      parsed = JSON.parse(body);
-    } catch {
-      console.error("Melhor Envio: resposta inválida", body.slice(0, 300));
-      return { options: [], unavailable: true as const };
-    }
-
-    // ===== Filtro inteligente: classifica com dimensões de envio efetivas =====
-    const sizeClass = classifyShipmentSize(shippedProducts, productMap);
-
-
-    const options = parsed
-      .filter((s) => !s.error && (s.price ?? s.custom_price))
-      .map((s) => ({
-        id: String(s.id),
-        name: `${s.company?.name ?? ""} ${s.name}`.trim(),
-        companyName: s.company?.name ?? "",
-        serviceName: s.name,
-        priceCents: Math.round(Number(s.custom_price ?? s.price) * 100),
-        deliveryDays: s.delivery_time ?? null,
-        companyPicture: s.company?.picture ?? null,
-      }))
-      .filter((opt) => isCarrierCompatible(opt, sizeClass, data.products, productMap))
-      .sort((a, b) => a.priceCents - b.priceCents)
-      .map(({ companyName: _c, serviceName: _s, ...rest }) => rest);
-
-    return { options, unavailable: false as const };
+    return quoteShippingInternal(data.toCep, data.products);
   });
 
 // ===== Smart shipping classification =====
