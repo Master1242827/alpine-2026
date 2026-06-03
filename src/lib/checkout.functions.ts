@@ -122,8 +122,39 @@ async function resolveCheckoutAmounts(input: z.infer<typeof InputSchema>) {
   });
   const subtotal = resolvedItems.reduce((s, i) => s + i.priceCents * i.quantity, 0);
 
-  // Sanity-check shipping (still client-supplied — re-quoting is expensive).
-  const shippingCostCents = Math.max(0, Math.min(input.shippingCostCents | 0, 1_000_00));
+  // SECURITY: Re-quote shipping server-side and validate against the
+  // client-supplied price. Never trust client shippingCostCents — an attacker
+  // could send 0 and ship goods for free.
+  const requestedShipping = Math.max(0, Math.min(input.shippingCostCents | 0, 1_000_00));
+  const quoteProducts = resolvedItems.map((i) => ({
+    id: i.productId,
+    width: 30,
+    height: 10,
+    length: 30,
+    weight: 1,
+    insurance_value: i.priceCents / 100,
+    quantity: i.quantity,
+  }));
+  const quote = await quoteShippingInternal(input.shipping.cep, quoteProducts);
+  let shippingCostCents = requestedShipping;
+  if (!quote.unavailable && quote.options.length > 0) {
+    // Accept if within ±5% or ±R$2 tolerance of any returned option price.
+    const ok = quote.options.some((o) => {
+      const tolerance = Math.max(200, Math.round(o.priceCents * 0.05));
+      return Math.abs(o.priceCents - requestedShipping) <= tolerance;
+    });
+    if (!ok) {
+      const cheapest = Math.min(...quote.options.map((o) => o.priceCents));
+      throw new Error(
+        `Frete informado (R$ ${(requestedShipping / 100).toFixed(2)}) não corresponde a nenhuma cotação atual. ` +
+          `Recalcule o frete (a partir de R$ ${(cheapest / 100).toFixed(2)}).`,
+      );
+    }
+  } else if (requestedShipping === 0 && !quote.unavailable) {
+    throw new Error("Selecione uma opção de frete antes de finalizar.");
+  }
+  // When quote is unavailable (no token / origin CEP missing) we fall back to
+  // the client-supplied value, matching the existing "A combinar" behaviour.
 
   // Recompute discount from server-side store_settings (PIX only).
   let discountCents = 0;
