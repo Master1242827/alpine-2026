@@ -372,6 +372,7 @@ function QuestionsPanel() {
       help_text: editing.help_text ?? null,
       type: "single_choice",
       active: editing.active ?? true,
+      model_id: editing.model_id || null,
     };
     if (!editing.id) payload.display_order = items.length;
     const res = editing.id
