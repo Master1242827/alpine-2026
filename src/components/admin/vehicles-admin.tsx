@@ -353,12 +353,14 @@ function QuestionsPanel() {
   const [filterModel, setFilterModel] = useState<string>("all");
 
   const load = async () => {
-    const [q, o] = await Promise.all([
+    const [q, o, m] = await Promise.all([
       sb.from("configurator_questions").select("*").order("display_order").order("label"),
       sb.from("configurator_options").select("*").order("display_order"),
+      supabase.from("vehicle_models").select("id, name, make_id").order("name"),
     ]);
     setItems((q.data as Question[]) ?? []);
     setOptions((o.data as Option[]) ?? []);
+    setModels((m.data as Model[]) ?? []);
   };
   useEffect(() => { load(); }, []);
 
