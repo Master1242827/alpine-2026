@@ -82,6 +82,9 @@ export const checkIsAdmin = createServerFn({ method: "GET" })
       .eq("user_id", context.userId)
       .eq("role", "admin")
       .maybeSingle();
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("[admin] role check error", error);
+      throw new Error("Falha ao verificar permissões.");
+    }
     return { isAdmin: !!data, userId: context.userId };
   });
