@@ -87,12 +87,22 @@ function extractYears(query: string): number[] {
 // Captures patterns like "2000 a 2009", "2010 a 2026", "até 1997", "1997".
 function parseYearRangeFromName(name: string): { from: number; to: number } | null {
   const n = name.toLowerCase();
-  const range = n.match(/(19\d{2}|20\d{2})\s*(?:a|até|ate|-|\/)\s*(19\d{2}|20\d{2})/);
-  if (range) return { from: +range[1], to: +range[2] };
-  const ate = n.match(/at[eé]\s*(19\d{2}|20\d{2})/);
-  if (ate) return { from: 1900, to: +ate[1] };
-  const single = n.match(/\b(19\d{2}|20\d{2})\b/);
-  if (single) return { from: +single[1], to: +single[1] };
+  // Regex for ranges like "2000-2009", "2000 a 2009", "2000/2009"
+  const rangeMatch = n.match(/(19\d{2}|20\d{2})\s*(?:a|até|ate|-|\/)\s*(19\d{2}|20\d{2})/);
+  if (rangeMatch) return { from: +rangeMatch[1], to: +rangeMatch[2] };
+  
+  // Regex for "até 1997"
+  const ateMatch = n.match(/at[eé]\s*(19\d{2}|20\d{2})/);
+  if (ateMatch) return { from: 1900, to: +ateMatch[1] };
+  
+  // Regex for "de 1997" or "desde 1997"
+  const desdeMatch = n.match(/(?:de|desde)\s*(19\d{2}|20\d{2})/);
+  if (desdeMatch) return { from: +desdeMatch[1], to: 2099 };
+
+  // Single year match
+  const singleMatch = n.match(/\b(19\d{2}|20\d{2})\b/);
+  if (singleMatch) return { from: +singleMatch[1], to: +singleMatch[1] };
+  
   return null;
 }
 
@@ -150,28 +160,48 @@ export function searchProducts(
     // Year compatibility.
     if (queryYears.length) {
       const ranges: Array<{ from: number; to: number }> = [];
+      
+      // Collect ranges from vehicle mappings.
       for (const v of p.vehicles ?? []) {
         if (v.year_from != null && v.year_to != null) {
           ranges.push({ from: v.year_from, to: v.year_to });
+        } else if (v.year_from != null) {
+          ranges.push({ from: v.year_from, to: 2099 });
+        } else if (v.year_to != null) {
+          ranges.push({ from: 1900, to: v.year_to });
         }
       }
+
+      // If no vehicle mapping ranges, try parsing from name or description.
       if (ranges.length === 0) {
-        const parsed = parseYearRangeFromName(p.name);
-        if (parsed) ranges.push(parsed);
+        const fromName = parseYearRangeFromName(p.name);
+        if (fromName) ranges.push(fromName);
+        
+        // Also check description if name didn't have a range
+        if (!fromName && p.short_description) {
+          const fromDesc = parseYearRangeFromName(p.short_description);
+          if (fromDesc) ranges.push(fromDesc);
+        }
       }
+
       const anyMatch = queryYears.some((y) =>
         ranges.some((r) => y >= r.from && y <= r.to),
       );
+
       // Only award the year bonus when the product also matched on text —
       // otherwise unrelated brands whose range happens to contain the year
       // would surface (e.g. "saveiro 2004" leaking a Strada "até 2013").
-      if (anyMatch && textHits > 0) score += 20;
-      else if (ranges.length > 0 && textTokens.length === 0) {
-        // Pure year query that misses every range → drop the product.
-        continue;
+      if (anyMatch && textHits > 0) {
+        score += 20;
+      } else if (anyMatch && textTokens.length === 0) {
+        // Year-only query that matches
+        score += 20;
       } else if (ranges.length > 0 && !anyMatch && textHits > 0) {
         // Year given but does not fit this product → strong penalty.
         score -= 25;
+      } else if (ranges.length > 0 && !anyMatch && textTokens.length === 0) {
+        // Pure year query that misses every range → drop the product.
+        continue;
       }
     }
 
