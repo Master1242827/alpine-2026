@@ -31,7 +31,10 @@ export const adminBootstrap = createServerFn({ method: "POST" })
     // Rotate the admin password on every successful bootstrap so it's never reused.
     const password = randomPassword();
     const list = await supabaseAdmin.auth.admin.listUsers();
-    if (list.error) throw new Error(list.error.message);
+    if (list.error) {
+      console.error("[admin] listUsers error", list.error);
+      throw new Error("Falha ao acessar usuários administradores.");
+    }
     let user = list.data.users.find((u) => u.email === ADMIN_EMAIL);
     if (!user) {
       const created = await supabaseAdmin.auth.admin.createUser({
@@ -39,7 +42,10 @@ export const adminBootstrap = createServerFn({ method: "POST" })
         password,
         email_confirm: true,
       });
-      if (created.error) throw new Error(created.error.message);
+      if (created.error) {
+        console.error("[admin] createUser error", created.error);
+        throw new Error("Falha ao criar usuário administrador.");
+      }
       user = created.data.user!;
     } else {
       await supabaseAdmin.auth.admin.updateUserById(user.id, { password });
