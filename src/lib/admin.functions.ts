@@ -46,7 +46,14 @@ export const adminBootstrap = createServerFn({ method: "POST" })
       }
       user = created.data.user!;
     } else {
-      await supabaseAdmin.auth.admin.updateUserById(user.id, { password });
+      const upd = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+        password,
+        email_confirm: true,
+      });
+      if (upd.error) {
+        console.error("[admin] updateUser error", upd.error);
+        throw new Error("Falha ao atualizar senha do administrador.");
+      }
     }
     await supabaseAdmin
       .from("user_roles")
