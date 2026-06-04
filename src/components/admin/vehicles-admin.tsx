@@ -345,10 +345,12 @@ function CabinsPanel() {
 function QuestionsPanel() {
   const [items, setItems] = useState<Question[]>([]);
   const [options, setOptions] = useState<Option[]>([]);
-  const [editing, setEditing] = useState<Partial<Question> | null>(null);
+  const [models, setModels] = useState<Model[]>([]);
+  const [editing, setEditing] = useState<Partial<Question & { model_id: string | null }> | null>(null);
   const [optionsFor, setOptionsFor] = useState<Question | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [filterModel, setFilterModel] = useState<string>("all");
 
   const load = async () => {
     const [q, o] = await Promise.all([
