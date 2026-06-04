@@ -106,7 +106,10 @@ async function resolveCheckoutAmounts(input: z.infer<typeof InputSchema>) {
     .from("products")
     .select("id,name,price_cents,active")
     .in("id", ids);
-  if (error) throw new Error(`Falha ao validar produtos: ${error.message}`);
+  if (error) {
+    console.error("[checkout] product validation error", error);
+    throw new Error("Falha ao validar produtos. Tente novamente.");
+  }
   const byId = new Map((rows ?? []).map((r) => [r.id, r]));
   const resolvedItems: ResolvedItem[] = input.items.map((i) => {
     const p = byId.get(i.productId);
@@ -204,7 +207,10 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
       })
       .select("id")
       .single();
-    if (orderErr || !order) throw new Error(orderErr?.message ?? "Falha ao criar pedido");
+    if (orderErr || !order) {
+      console.error("[checkout] create order error", orderErr);
+      throw new Error("Falha ao criar pedido. Tente novamente.");
+    }
 
     const itemsRows = resolvedItems.map((i) => ({
       order_id: order.id,
@@ -215,7 +221,10 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
       vehicle_config: i.vehicleConfig ?? null,
     }));
     const { error: itemsErr } = await supabaseAdmin.from("order_items").insert(itemsRows);
-    if (itemsErr) throw new Error(itemsErr.message);
+    if (itemsErr) {
+      console.error("[checkout] insert items error", itemsErr);
+      throw new Error("Falha ao registrar itens do pedido.");
+    }
 
     const origin = getRuntimeOrigin();
     const mpItems = data.paymentMethod === "pix" && discountCents > 0
@@ -309,7 +318,10 @@ export const getOrderPaymentStatus = createServerFn({ method: "POST" })
       .eq("id", data.orderId)
       .maybeSingle();
 
-    if (error) throw new Error(`Erro ao buscar pedido: ${error.message}`);
+    if (error) {
+      console.error("[checkout] order lookup error", error);
+      throw new Error("Erro ao buscar pedido. Tente novamente.");
+    }
     if (!order || order.user_id !== context.userId) throw new Error("Pedido não encontrado");
 
     const token = process.env.MERCADO_PAGO_ACCESS_TOKEN;
@@ -392,7 +404,10 @@ export const createPixPayment = createServerFn({ method: "POST" })
       })
       .select("id")
       .single();
-    if (orderErr || !order) throw new Error(orderErr?.message ?? "Falha ao criar pedido");
+    if (orderErr || !order) {
+      console.error("[pix] create order error", orderErr);
+      throw new Error("Falha ao criar pedido. Tente novamente.");
+    }
 
     const itemsRows = resolvedItems.map((i) => ({
       order_id: order.id,
@@ -403,7 +418,10 @@ export const createPixPayment = createServerFn({ method: "POST" })
       vehicle_config: i.vehicleConfig ?? null,
     }));
     const { error: itemsErr } = await supabaseAdmin.from("order_items").insert(itemsRows);
-    if (itemsErr) throw new Error(itemsErr.message);
+    if (itemsErr) {
+      console.error("[pix] insert items error", itemsErr);
+      throw new Error("Falha ao registrar itens do pedido.");
+    }
 
     const origin = getRuntimeOrigin();
     const [firstName, ...rest] = data.customer.name.split(" ");

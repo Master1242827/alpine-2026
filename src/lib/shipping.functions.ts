@@ -321,7 +321,10 @@ export const updateShippingIntegration = createServerFn({ method: "POST" })
         melhor_envio_env: data.env,
         updated_at: new Date().toISOString(),
       }, { onConflict: "id" });
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("[shipping] update integration error", error);
+      throw new Error("Falha ao salvar integração. Tente novamente.");
+    }
     return { ok: true };
   });
 
