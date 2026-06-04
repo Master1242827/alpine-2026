@@ -21,7 +21,8 @@ import { classifyProductSize, SIZE_LABEL } from "@/lib/shipping-classify";
 export const Route = createFileRoute("/admin")({ component: AdminPage });
 
 function AdminPage() {
-  const [state, setState] = useState<"loading" | "guest" | "denied" | "ok">("loading");
+  const [state, setState] = useState<"loading" | "guest" | "denied" | "unlocked" | "ok">("loading");
+  const [password, setPassword] = useState("");
   const [email, setEmail] = useState<string>("");
   const check = useServerFn(checkIsAdmin);
 
