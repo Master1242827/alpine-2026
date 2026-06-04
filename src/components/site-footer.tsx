@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import alpineLogo from "@/assets/alpine-logo-footer.jpg";
+const alpineLogo = "/alpine-logo-footer.jpg";
 
 export function SiteFooter() {
   return (
