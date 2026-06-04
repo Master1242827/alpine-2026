@@ -972,7 +972,15 @@ function MappingsPanel() {
                 }}
               />
               <datalist id="vpm-products-list">
-                {products.map((p) => <option key={p.id} value={p.name} />)}
+                {products.map((p) => (
+                  <option 
+                    key={p.id} 
+                    value={p.name} 
+                    className={!mappedProductIds.has(p.id) ? "bg-red-50" : ""}
+                  >
+                    {!mappedProductIds.has(p.id) ? "🆕 " : ""}{p.name}
+                  </option>
+                ))}
               </datalist>
             </div>
             <div className="grid grid-cols-2 gap-2">
