@@ -427,14 +427,27 @@ function QuestionsPanel() {
     <div className="mt-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-lg font-semibold">{visibleItems.length} de {items.length} pergunta(s)</h3>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <select 
+            value={filterModel} 
+            onChange={(e) => setFilterModel(e.target.value)} 
+            className="rounded border bg-background px-3 py-2 text-sm"
+          >
+            <option value="all">Todos os modelos</option>
+            <option value="none">Sem modelo (Geral)</option>
+            {models.map((m) => (
+              <option key={m.id} value={m.id}>{m.name}</option>
+            ))}
+          </select>
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por nome ou chave…"
-            className="w-64"
+            className="w-48"
           />
-          <Button onClick={() => setEditing({ active: true })}><Plus className="mr-1 h-4 w-4" /> Nova pergunta</Button>
+          <Button onClick={() => setEditing({ active: true, model_id: filterModel !== "all" && filterModel !== "none" ? filterModel : null })}>
+            <Plus className="mr-1 h-4 w-4" /> Nova pergunta
+          </Button>
         </div>
       </div>
       <p className="text-xs text-muted-foreground">Arraste pelo ícone à esquerda para reordenar as perguntas.</p>
