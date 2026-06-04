@@ -418,7 +418,10 @@ export const createPixPayment = createServerFn({ method: "POST" })
       vehicle_config: i.vehicleConfig ?? null,
     }));
     const { error: itemsErr } = await supabaseAdmin.from("order_items").insert(itemsRows);
-    if (itemsErr) throw new Error(itemsErr.message);
+    if (itemsErr) {
+      console.error("[pix] insert items error", itemsErr);
+      throw new Error("Falha ao registrar itens do pedido.");
+    }
 
     const origin = getRuntimeOrigin();
     const [firstName, ...rest] = data.customer.name.split(" ");
