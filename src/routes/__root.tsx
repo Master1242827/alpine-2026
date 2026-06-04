@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -102,6 +103,12 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.protocol === "http:" && !window.location.host.includes("localhost")) {
+      window.location.href = window.location.href.replace("http:", "https:");
+    }
+  }, []);
+
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
