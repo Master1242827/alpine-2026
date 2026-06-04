@@ -841,6 +841,12 @@ function MappingsPanel() {
 
   const save = async () => {
     if (!editing?.model_id || !editing?.product_id) return toast.error("Modelo e produto são obrigatórios");
+    
+    // Validate year range
+    if (editing.year_from && editing.year_to && editing.year_from > editing.year_to) {
+      return toast.error("O ano inicial não pode ser maior que o ano final");
+    }
+
     const allowedKeys = new Set(
       flows
         .filter((f) => f.model_id === editing.model_id && f.active)
