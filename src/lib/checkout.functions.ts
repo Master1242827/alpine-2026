@@ -106,7 +106,10 @@ async function resolveCheckoutAmounts(input: z.infer<typeof InputSchema>) {
     .from("products")
     .select("id,name,price_cents,active")
     .in("id", ids);
-  if (error) throw new Error(`Falha ao validar produtos: ${error.message}`);
+  if (error) {
+    console.error("[checkout] product validation error", error);
+    throw new Error("Falha ao validar produtos. Tente novamente.");
+  }
   const byId = new Map((rows ?? []).map((r) => [r.id, r]));
   const resolvedItems: ResolvedItem[] = input.items.map((i) => {
     const p = byId.get(i.productId);
