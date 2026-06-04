@@ -16,7 +16,7 @@ type Model = { id: string; make_id: string; name: string; image_url: string | nu
 type Cabin = { id: string; name: string; description: string | null; image_url: string | null; display_order: number; active: boolean };
 type CompatAnswer = string | string[];
 type Mapping = { id: string; model_id: string | null; cabin_type_id: string | null; product_id: string | null; year_from: number | null; year_to: number | null; active: boolean; answers: Record<string, CompatAnswer> | null };
-type Question = { id: string; key: string; label: string; help_text: string | null; type: string; active: boolean };
+type Question = { id: string; key: string; label: string; help_text: string | null; type: string; active: boolean; model_id?: string | null };
 type Option = { id: string; question_id: string; value: string; label: string; image_url: string | null; display_order: number; active: boolean };
 type Flow = { id: string; model_id: string; question_id: string; year_from: number | null; year_to: number | null; display_order: number; required: boolean; active: boolean; hidden?: boolean; auto_answer?: string | null };
 
@@ -345,18 +345,22 @@ function CabinsPanel() {
 function QuestionsPanel() {
   const [items, setItems] = useState<Question[]>([]);
   const [options, setOptions] = useState<Option[]>([]);
-  const [editing, setEditing] = useState<Partial<Question> | null>(null);
+  const [models, setModels] = useState<Model[]>([]);
+  const [editing, setEditing] = useState<Partial<Question & { model_id: string | null }> | null>(null);
   const [optionsFor, setOptionsFor] = useState<Question | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [filterModel, setFilterModel] = useState<string>("all");
 
   const load = async () => {
-    const [q, o] = await Promise.all([
+    const [q, o, m] = await Promise.all([
       sb.from("configurator_questions").select("*").order("display_order").order("label"),
       sb.from("configurator_options").select("*").order("display_order"),
+      supabase.from("vehicle_models").select("id, name, make_id").order("name"),
     ]);
     setItems((q.data as Question[]) ?? []);
     setOptions((o.data as Option[]) ?? []);
+    setModels((m.data as Model[]) ?? []);
   };
   useEffect(() => { load(); }, []);
 
@@ -368,6 +372,7 @@ function QuestionsPanel() {
       help_text: editing.help_text ?? null,
       type: "single_choice",
       active: editing.active ?? true,
+      model_id: editing.model_id || null,
     };
     if (!editing.id) payload.display_order = items.length;
     const res = editing.id
@@ -407,26 +412,42 @@ function QuestionsPanel() {
   };
 
   const normSearch = search.trim().toLowerCase();
-  const visibleItems = normSearch
-    ? items.filter(
-        (q) =>
-          q.label.toLowerCase().includes(normSearch) ||
-          q.key.toLowerCase().includes(normSearch),
-      )
-    : items;
+  const visibleItems = items.filter((q) => {
+    const searchMatch = !normSearch || 
+      q.label.toLowerCase().includes(normSearch) ||
+      q.key.toLowerCase().includes(normSearch);
+    
+    const modelMatch = filterModel === "all" || 
+      (filterModel === "none" ? !q.model_id : q.model_id === filterModel);
+    
+    return searchMatch && modelMatch;
+  });
 
   return (
     <div className="mt-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-lg font-semibold">{visibleItems.length} de {items.length} pergunta(s)</h3>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <select 
+            value={filterModel} 
+            onChange={(e) => setFilterModel(e.target.value)} 
+            className="rounded border bg-background px-3 py-2 text-sm"
+          >
+            <option value="all">Todos os modelos</option>
+            <option value="none">Sem modelo (Geral)</option>
+            {models.map((m) => (
+              <option key={m.id} value={m.id}>{m.name}</option>
+            ))}
+          </select>
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por nome ou chave…"
-            className="w-64"
+            className="w-48"
           />
-          <Button onClick={() => setEditing({ active: true })}><Plus className="mr-1 h-4 w-4" /> Nova pergunta</Button>
+          <Button onClick={() => setEditing({ active: true, model_id: filterModel !== "all" && filterModel !== "none" ? filterModel : null })}>
+            <Plus className="mr-1 h-4 w-4" /> Nova pergunta
+          </Button>
         </div>
       </div>
       <p className="text-xs text-muted-foreground">Arraste pelo ícone à esquerda para reordenar as perguntas.</p>
@@ -436,9 +457,21 @@ function QuestionsPanel() {
         <Card className="space-y-3 p-4">
           <div className="grid gap-3 md:grid-cols-2">
             <div>
+              <Label>Modelo (Pasta)</Label>
+              <select 
+                value={editing.model_id ?? ""} 
+                onChange={(e) => setEditing({ ...editing, model_id: e.target.value || null })} 
+                className="w-full rounded border bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Geral (sem modelo)</option>
+                {models.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
               <Label>Chave técnica</Label>
               <Input value={editing.key ?? ""} onChange={(e) => setEditing({ ...editing, key: e.target.value })} placeholder="ex: cabine, versao, grade" />
-              <p className="mt-1 text-xs text-muted-foreground">Use letras minúsculas, sem espaços. É como o sistema identifica a pergunta.</p>
             </div>
             <div>
               <Label>Rótulo (texto da pergunta)</Label>
@@ -483,7 +516,14 @@ function QuestionsPanel() {
                 <GripVertical className="h-5 w-5" />
               </button>
               <div className="min-w-0 flex-1">
-                <p className="font-medium truncate">{q.label}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium truncate">{q.label}</p>
+                  {q.model_id && (
+                    <Badge variant="outline" className="text-[10px] py-0 h-4">
+                      {models.find(m => m.id === q.model_id)?.name}
+                    </Badge>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">chave: <code>{q.key}</code> · {count} opção(ões)</p>
               </div>
               {!q.active && <Badge variant="secondary">Inativa</Badge>}
@@ -623,7 +663,11 @@ function FlowsPanel() {
   const modelOptions = filterMake ? models.filter((m) => m.make_id === filterMake) : models;
   const modelFlows = flows.filter((f) => f.model_id === selectedModel).sort((a, b) => a.display_order - b.display_order);
   const usedQuestionIds = new Set(modelFlows.map((f) => f.question_id));
-  const available = questions.filter((q) => !usedQuestionIds.has(q.id));
+  const available = questions.filter((q) => {
+    if (usedQuestionIds.has(q.id)) return false;
+    // Only show questions that are general or linked to this specific model
+    return !q.model_id || q.model_id === selectedModel;
+  });
 
   const addQuestion = async (questionId: string) => {
     if (!selectedModel) return;

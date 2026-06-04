@@ -136,6 +136,7 @@ export type Database = {
           id: string
           key: string
           label: string
+          model_id: string | null
           type: string
           updated_at: string
         }
@@ -147,6 +148,7 @@ export type Database = {
           id?: string
           key: string
           label: string
+          model_id?: string | null
           type?: string
           updated_at?: string
         }
@@ -158,10 +160,19 @@ export type Database = {
           id?: string
           key?: string
           label?: string
+          model_id?: string | null
           type?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "configurator_questions_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_models"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       mp_webhook_events: {
         Row: {
