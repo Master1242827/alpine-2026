@@ -220,13 +220,21 @@ function Configurator() {
           .map(normalizeCompatValue);
         if (accepted.length === 0) continue;
         const got = normalizeCompatValue(userAns[k]);
-        // Specific filter is enforced even if the question isn't in the active flow
-        // for this model — otherwise admin-defined restrictions would silently leak.
+        // If the question is NOT in the active flow for this year, skip validation for it
+        // unless it's a hidden auto-answered question that we definitely have in userAns.
         if (!flowQuestionKeys.has(k)) {
-          console.debug("[Configurador] Filtro específico fora do fluxo — exigindo correspondência", { produto: productName, campo: k, valorAdmin: req, respostaCliente: userAns[k] });
-        } else {
-          console.debug("[Configurador] Filtro aplicado", { produto: productName, campo: k, valorAdmin: req, respostaCliente: userAns[k] });
+          const isAutoAnswered = orderedFlow.some(f => {
+            const q = questions?.find(x => x.id === f.question_id);
+            return q?.key === k && f.auto_answer;
+          });
+          
+          if (!isAutoAnswered) {
+            console.debug("[Configurador] Filtro ignorado (fora do fluxo)", { produto: productName, campo: k, valorAdmin: req });
+            continue;
+          }
         }
+        
+        console.debug("[Configurador] Filtro aplicado", { produto: productName, campo: k, valorAdmin: req, respostaCliente: userAns[k] });
         const matchFound = accepted.some(acc => {
           // Check for exact match or bracketed match (e.g., "[value]" matching "value")
           const cleanAcc = acc.replace(/[\[\]]/g, "");
