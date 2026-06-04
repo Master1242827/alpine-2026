@@ -227,7 +227,13 @@ function Configurator() {
         } else {
           console.debug("[Configurador] Filtro aplicado", { produto: productName, campo: k, valorAdmin: req, respostaCliente: userAns[k] });
         }
-        if (!accepted.includes(got)) {
+        const matchFound = accepted.some(acc => {
+          // Check for exact match or bracketed match (e.g., "[value]" matching "value")
+          const cleanAcc = acc.replace(/[\[\]]/g, "");
+          return cleanAcc === got || acc === got;
+        });
+
+        if (!matchFound) {
           console.debug("[Configurador] Produto rejeitado", { produto: productName, motivo: "resposta não está entre as aceitas", campo: k, esperado: req, recebido: userAns[k] });
           return false;
         }
