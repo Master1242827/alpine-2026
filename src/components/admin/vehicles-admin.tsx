@@ -412,13 +412,16 @@ function QuestionsPanel() {
   };
 
   const normSearch = search.trim().toLowerCase();
-  const visibleItems = normSearch
-    ? items.filter(
-        (q) =>
-          q.label.toLowerCase().includes(normSearch) ||
-          q.key.toLowerCase().includes(normSearch),
-      )
-    : items;
+  const visibleItems = items.filter((q) => {
+    const searchMatch = !normSearch || 
+      q.label.toLowerCase().includes(normSearch) ||
+      q.key.toLowerCase().includes(normSearch);
+    
+    const modelMatch = filterModel === "all" || 
+      (filterModel === "none" ? !q.model_id : q.model_id === filterModel);
+    
+    return searchMatch && modelMatch;
+  });
 
   return (
     <div className="mt-4 space-y-4">
