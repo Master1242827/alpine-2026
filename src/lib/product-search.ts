@@ -87,12 +87,22 @@ function extractYears(query: string): number[] {
 // Captures patterns like "2000 a 2009", "2010 a 2026", "até 1997", "1997".
 function parseYearRangeFromName(name: string): { from: number; to: number } | null {
   const n = name.toLowerCase();
-  const range = n.match(/(19\d{2}|20\d{2})\s*(?:a|até|ate|-|\/)\s*(19\d{2}|20\d{2})/);
-  if (range) return { from: +range[1], to: +range[2] };
-  const ate = n.match(/at[eé]\s*(19\d{2}|20\d{2})/);
-  if (ate) return { from: 1900, to: +ate[1] };
-  const single = n.match(/\b(19\d{2}|20\d{2})\b/);
-  if (single) return { from: +single[1], to: +single[1] };
+  // Regex for ranges like "2000-2009", "2000 a 2009", "2000/2009"
+  const rangeMatch = n.match(/(19\d{2}|20\d{2})\s*(?:a|até|ate|-|\/)\s*(19\d{2}|20\d{2})/);
+  if (rangeMatch) return { from: +rangeMatch[1], to: +rangeMatch[2] };
+  
+  // Regex for "até 1997"
+  const ateMatch = n.match(/at[eé]\s*(19\d{2}|20\d{2})/);
+  if (ateMatch) return { from: 1900, to: +ateMatch[1] };
+  
+  // Regex for "de 1997" or "desde 1997"
+  const desdeMatch = n.match(/(?:de|desde)\s*(19\d{2}|20\d{2})/);
+  if (desdeMatch) return { from: +desdeMatch[1], to: 2099 };
+
+  // Single year match
+  const singleMatch = n.match(/\b(19\d{2}|20\d{2})\b/);
+  if (singleMatch) return { from: +singleMatch[1], to: +singleMatch[1] };
+  
   return null;
 }
 
