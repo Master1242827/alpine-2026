@@ -318,7 +318,10 @@ export const getOrderPaymentStatus = createServerFn({ method: "POST" })
       .eq("id", data.orderId)
       .maybeSingle();
 
-    if (error) throw new Error(`Erro ao buscar pedido: ${error.message}`);
+    if (error) {
+      console.error("[checkout] order lookup error", error);
+      throw new Error("Erro ao buscar pedido. Tente novamente.");
+    }
     if (!order || order.user_id !== context.userId) throw new Error("Pedido não encontrado");
 
     const token = process.env.MERCADO_PAGO_ACCESS_TOKEN;
