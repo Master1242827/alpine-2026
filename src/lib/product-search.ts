@@ -160,28 +160,48 @@ export function searchProducts(
     // Year compatibility.
     if (queryYears.length) {
       const ranges: Array<{ from: number; to: number }> = [];
+      
+      // Collect ranges from vehicle mappings.
       for (const v of p.vehicles ?? []) {
         if (v.year_from != null && v.year_to != null) {
           ranges.push({ from: v.year_from, to: v.year_to });
+        } else if (v.year_from != null) {
+          ranges.push({ from: v.year_from, to: 2099 });
+        } else if (v.year_to != null) {
+          ranges.push({ from: 1900, to: v.year_to });
         }
       }
+
+      // If no vehicle mapping ranges, try parsing from name or description.
       if (ranges.length === 0) {
-        const parsed = parseYearRangeFromName(p.name);
-        if (parsed) ranges.push(parsed);
+        const fromName = parseYearRangeFromName(p.name);
+        if (fromName) ranges.push(fromName);
+        
+        // Also check description if name didn't have a range
+        if (!fromName && p.short_description) {
+          const fromDesc = parseYearRangeFromName(p.short_description);
+          if (fromDesc) ranges.push(fromDesc);
+        }
       }
+
       const anyMatch = queryYears.some((y) =>
         ranges.some((r) => y >= r.from && y <= r.to),
       );
+
       // Only award the year bonus when the product also matched on text —
       // otherwise unrelated brands whose range happens to contain the year
       // would surface (e.g. "saveiro 2004" leaking a Strada "até 2013").
-      if (anyMatch && textHits > 0) score += 20;
-      else if (ranges.length > 0 && textTokens.length === 0) {
-        // Pure year query that misses every range → drop the product.
-        continue;
+      if (anyMatch && textHits > 0) {
+        score += 20;
+      } else if (anyMatch && textTokens.length === 0) {
+        // Year-only query that matches
+        score += 20;
       } else if (ranges.length > 0 && !anyMatch && textHits > 0) {
         // Year given but does not fit this product → strong penalty.
         score -= 25;
+      } else if (ranges.length > 0 && !anyMatch && textTokens.length === 0) {
+        // Pure year query that misses every range → drop the product.
+        continue;
       }
     }
 
