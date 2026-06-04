@@ -186,7 +186,14 @@ server {
 
     client_max_body_size 25M;
 
-    # Cache longo para assets versionados do build
+    # Cache para assets estáticos (Vite/Nitro)
+    location /assets/ {
+        alias /var/www/alpine/dist/client/assets/;
+        expires 1y;
+        access_log off;
+        add_header Cache-Control "public, immutable";
+    }
+
     location /_build/ {
         alias /var/www/alpine/dist/client/_build/;
         expires 1y;
