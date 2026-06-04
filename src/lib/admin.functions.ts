@@ -66,7 +66,10 @@ export const claimAdminRole = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin
       .from("user_roles")
       .upsert({ user_id: context.userId, role: "admin" }, { onConflict: "user_id,role" });
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("[admin] claim role error", error);
+      throw new Error("Falha ao atribuir função de administrador.");
+    }
     return { ok: true };
   });
 
