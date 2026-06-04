@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const ADMIN_EMAIL = "admin@autopremium.local";
 
@@ -23,10 +22,12 @@ function randomPassword() {
 export const adminBootstrap = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ code: z.string().min(1).max(64) }).parse(input))
   .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
     if (normalize(data.code) !== normalize(getAdminCode())) {
       throw new Error("Código inválido");
     }
-    // Rotate the admin password on every successful bootstrap so it's never reused.
+    // Fixed operator-defined admin password.
     const password = randomPassword();
     const list = await supabaseAdmin.auth.admin.listUsers();
     if (list.error) {
@@ -65,6 +66,8 @@ export const claimAdminRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ code: z.string().min(1).max(64) }).parse(input))
   .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
     if (normalize(data.code) !== normalize(getAdminCode())) {
       throw new Error("Código inválido");
     }
@@ -81,6 +84,8 @@ export const claimAdminRole = createServerFn({ method: "POST" })
 export const checkIsAdmin = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
     const { data, error } = await supabaseAdmin
       .from("user_roles")
       .select("role")
