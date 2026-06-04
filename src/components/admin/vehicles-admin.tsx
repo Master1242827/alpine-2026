@@ -516,7 +516,14 @@ function QuestionsPanel() {
                 <GripVertical className="h-5 w-5" />
               </button>
               <div className="min-w-0 flex-1">
-                <p className="font-medium truncate">{q.label}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium truncate">{q.label}</p>
+                  {q.model_id && (
+                    <Badge variant="outline" className="text-[10px] py-0 h-4">
+                      {models.find(m => m.id === q.model_id)?.name}
+                    </Badge>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">chave: <code>{q.key}</code> · {count} opção(ões)</p>
               </div>
               {!q.active && <Badge variant="secondary">Inativa</Badge>}
