@@ -781,6 +781,7 @@ function MappingsPanel() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [options, setOptions] = useState<Option[]>([]);
   const [flows, setFlows] = useState<Flow[]>([]);
+  const [mappedProductIds, setMappedProductIds] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<(Partial<Mapping> & { _make_id?: string }) | null>(null);
   const [filterMake, setFilterMake] = useState("");
   const [filterModel, setFilterModel] = useState("");
@@ -803,6 +804,7 @@ function MappingsPanel() {
     setQuestions((q.data as Question[]) ?? []);
     setOptions((o.data as Option[]) ?? []);
     setFlows((f.data as Flow[]) ?? []);
+    setMappedProductIds(new Set((vpm.data as any[])?.map(m => m.product_id).filter(Boolean)));
   };
   useEffect(() => { load(); }, []);
 
@@ -970,7 +972,15 @@ function MappingsPanel() {
                 }}
               />
               <datalist id="vpm-products-list">
-                {products.map((p) => <option key={p.id} value={p.name} />)}
+                {products.map((p) => (
+                  <option 
+                    key={p.id} 
+                    value={p.name} 
+                    className={!mappedProductIds.has(p.id) ? "bg-red-50" : ""}
+                  >
+                    {!mappedProductIds.has(p.id) ? "🆕 " : ""}{p.name}
+                  </option>
+                ))}
               </datalist>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -1041,7 +1051,10 @@ function MappingsPanel() {
           const years = it.year_from || it.year_to ? `${it.year_from ?? "—"}–${it.year_to ?? "—"}` : "todos anos";
           const ansEntries = Object.entries(it.answers ?? {});
           return (
-            <Card key={it.id} className="flex flex-wrap items-center gap-3 p-3">
+            <Card 
+              key={it.id} 
+              className={`flex flex-wrap items-center gap-3 p-3 transition-colors ${!it.product_id || !mappedProductIds.has(it.product_id) ? "border-red-200 bg-red-50/50" : ""}`}
+            >
               <div className="min-w-0 flex-1">
                 <p className="font-medium truncate">{make?.name} {model?.name} · {years}</p>
                 <p className="text-xs text-muted-foreground truncate">→ {product?.name ?? <span className="text-destructive">produto removido</span>}</p>
