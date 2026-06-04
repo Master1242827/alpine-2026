@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/product-card";
 import { Shield, Gem, Wrench, ArrowRight, Truck, CreditCard, Lock, BadgePercent } from "lucide-react";
-const heroImg = "/hero-truck.jpg";
+import heroImg from "@/assets/hero-truck.jpg";
 
 export const Route = createFileRoute("/")({ component: Index });
 
