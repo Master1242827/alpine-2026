@@ -79,6 +79,56 @@ function AdminPage() {
     );
   }
 
+  if (state === "unlocked") {
+    return (
+      <div className="container mx-auto flex max-w-md items-center justify-center px-4 py-24">
+        <Card className="w-full p-6">
+          <h1 className="text-xl font-bold">Acesso restrito</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Informe a senha administrativa para continuar.</p>
+          <div className="mt-4 space-y-3">
+            <Input 
+              type="password" 
+              placeholder="Senha do painel" 
+              value={password}
+              autoFocus
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  if (password === "admin123") {
+                    localStorage.setItem("admin_unlocked", "true");
+                    setState("ok");
+                  } else {
+                    toast.error("Senha incorreta");
+                  }
+                }
+              }}
+            />
+            <Button 
+              className="w-full"
+              onClick={() => {
+                if (password === "admin123") {
+                  localStorage.setItem("admin_unlocked", "true");
+                  setState("ok");
+                } else {
+                  toast.error("Senha incorreta");
+                }
+              }}
+            >
+              Desbloquear painel
+            </Button>
+            <Button 
+              variant="ghost" 
+              className="w-full text-xs"
+              onClick={async () => { await supabase.auth.signOut(); window.location.href = "/"; }}
+            >
+              Sair da conta
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto max-w-6xl px-4 py-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
