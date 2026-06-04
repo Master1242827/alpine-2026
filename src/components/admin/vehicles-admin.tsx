@@ -663,7 +663,11 @@ function FlowsPanel() {
   const modelOptions = filterMake ? models.filter((m) => m.make_id === filterMake) : models;
   const modelFlows = flows.filter((f) => f.model_id === selectedModel).sort((a, b) => a.display_order - b.display_order);
   const usedQuestionIds = new Set(modelFlows.map((f) => f.question_id));
-  const available = questions.filter((q) => !usedQuestionIds.has(q.id));
+  const available = questions.filter((q) => {
+    if (usedQuestionIds.has(q.id)) return false;
+    // Only show questions that are general or linked to this specific model
+    return !q.model_id || q.model_id === selectedModel;
+  });
 
   const addQuestion = async (questionId: string) => {
     if (!selectedModel) return;
