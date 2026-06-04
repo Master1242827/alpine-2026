@@ -178,6 +178,12 @@ function ModelsPanel() {
 
   const save = async () => {
     if (!editing?.make_id || !editing?.name) return toast.error("Marca e nome são obrigatórios");
+    
+    // Validate year range
+    if (editing.year_from && editing.year_to && editing.year_from > editing.year_to) {
+      return toast.error("O ano inicial não pode ser maior que o ano final");
+    }
+
     const payload = {
       make_id: editing.make_id, name: editing.name,
       image_url: editing.image_url ?? null,
