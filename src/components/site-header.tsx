@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { checkIsAdmin } from "@/lib/admin.functions";
-const alpineLogo = "/alpine-logo.png";
+import alpineLogo from "@/assets/alpine-logo.png";
 
 export function SiteHeader() {
   const { count } = useCart();

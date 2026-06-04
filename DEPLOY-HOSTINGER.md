@@ -186,7 +186,7 @@ server {
 
     client_max_body_size 25M;
 
-    # Cache para assets estáticos (Vite/Nitro)
+    # Cache para assets estáticos com hash (Vite)
     location /assets/ {
         alias /var/www/alpine/dist/client/assets/;
         expires 1y;
