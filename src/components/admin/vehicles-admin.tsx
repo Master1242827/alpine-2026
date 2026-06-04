@@ -781,6 +781,7 @@ function MappingsPanel() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [options, setOptions] = useState<Option[]>([]);
   const [flows, setFlows] = useState<Flow[]>([]);
+  const [mappedProductIds, setMappedProductIds] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<(Partial<Mapping> & { _make_id?: string }) | null>(null);
   const [filterMake, setFilterMake] = useState("");
   const [filterModel, setFilterModel] = useState("");
@@ -803,6 +804,7 @@ function MappingsPanel() {
     setQuestions((q.data as Question[]) ?? []);
     setOptions((o.data as Option[]) ?? []);
     setFlows((f.data as Flow[]) ?? []);
+    setMappedProductIds(new Set((vpm.data as any[])?.map(m => m.product_id).filter(Boolean)));
   };
   useEffect(() => { load(); }, []);
 
