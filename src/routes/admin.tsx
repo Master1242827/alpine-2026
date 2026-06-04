@@ -36,7 +36,7 @@ function AdminPage() {
       try {
         const res = await check();
         if (cancelled) return;
-        setState(res.isAdmin ? "ok" : "denied");
+        setState(res.isAdmin ? (localStorage.getItem("admin_unlocked") ? "ok" : "unlocked") : "denied");
       } catch {
         if (!cancelled) setState("denied");
       }
