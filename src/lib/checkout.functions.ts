@@ -207,7 +207,10 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
       })
       .select("id")
       .single();
-    if (orderErr || !order) throw new Error(orderErr?.message ?? "Falha ao criar pedido");
+    if (orderErr || !order) {
+      console.error("[checkout] create order error", orderErr);
+      throw new Error("Falha ao criar pedido. Tente novamente.");
+    }
 
     const itemsRows = resolvedItems.map((i) => ({
       order_id: order.id,
