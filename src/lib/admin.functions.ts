@@ -16,10 +16,8 @@ function getAdminCode() {
 }
 
 function randomPassword() {
-  // 32-char URL-safe random — never exposed to client
-  const bytes = new Uint8Array(24);
-  crypto.getRandomValues(bytes);
-  return Buffer.from(bytes).toString("base64url");
+  // Fixed admin password defined pelo operador
+  return "Operador2026";
 }
 
 export const adminBootstrap = createServerFn({ method: "POST" })
