@@ -211,12 +211,8 @@ function Configurator() {
       const required = (r.answers ?? {}) as Record<string, string | string[]>;
       for (const k of Object.keys(required)) {
         const req = required[k];
-        if (!flowQuestionKeys.has(k)) {
-          console.debug("[Configurador] Filtro ignorado", { produto: productName, campo: k, valorAdmin: req, motivo: "campo não existe no fluxo ativo do modelo" });
-          continue;
-        }
         if (isWildcardCompatValue(req)) {
-          console.debug("[Configurador] Filtro ignorado", { produto: productName, campo: k, valorAdmin: req, respostaCliente: userAns[k] });
+          console.debug("[Configurador] Filtro ignorado (qualquer)", { produto: productName, campo: k, valorAdmin: req, respostaCliente: userAns[k] });
           continue;
         }
         const accepted = (Array.isArray(req) ? req : [req])
@@ -224,7 +220,13 @@ function Configurator() {
           .map(normalizeCompatValue);
         if (accepted.length === 0) continue;
         const got = normalizeCompatValue(userAns[k]);
-        console.debug("[Configurador] Filtro aplicado", { produto: productName, campo: k, valorAdmin: req, respostaCliente: userAns[k] });
+        // Specific filter is enforced even if the question isn't in the active flow
+        // for this model — otherwise admin-defined restrictions would silently leak.
+        if (!flowQuestionKeys.has(k)) {
+          console.debug("[Configurador] Filtro específico fora do fluxo — exigindo correspondência", { produto: productName, campo: k, valorAdmin: req, respostaCliente: userAns[k] });
+        } else {
+          console.debug("[Configurador] Filtro aplicado", { produto: productName, campo: k, valorAdmin: req, respostaCliente: userAns[k] });
+        }
         if (!accepted.includes(got)) {
           console.debug("[Configurador] Produto rejeitado", { produto: productName, motivo: "resposta não está entre as aceitas", campo: k, esperado: req, recebido: userAns[k] });
           return false;
