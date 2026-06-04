@@ -457,9 +457,21 @@ function QuestionsPanel() {
         <Card className="space-y-3 p-4">
           <div className="grid gap-3 md:grid-cols-2">
             <div>
+              <Label>Modelo (Pasta)</Label>
+              <select 
+                value={editing.model_id ?? ""} 
+                onChange={(e) => setEditing({ ...editing, model_id: e.target.value || null })} 
+                className="w-full rounded border bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Geral (sem modelo)</option>
+                {models.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
               <Label>Chave técnica</Label>
               <Input value={editing.key ?? ""} onChange={(e) => setEditing({ ...editing, key: e.target.value })} placeholder="ex: cabine, versao, grade" />
-              <p className="mt-1 text-xs text-muted-foreground">Use letras minúsculas, sem espaços. É como o sistema identifica a pergunta.</p>
             </div>
             <div>
               <Label>Rótulo (texto da pergunta)</Label>
