@@ -140,6 +140,7 @@ function AdminPage() {
           variant="outline"
           onClick={async () => {
             await supabase.auth.signOut();
+            localStorage.removeItem("admin_unlocked");
             window.location.href = "/";
           }}
         >
