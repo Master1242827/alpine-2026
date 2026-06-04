@@ -658,6 +658,9 @@ function FlowsPanel() {
     load();
   };
   const updateYears = async (f: Flow, yf: number | null, yt: number | null) => {
+    if (yf && yt && yf > yt) {
+      return toast.error("O ano inicial não pode ser maior que o ano final");
+    }
     const { error } = await sb.from("vehicle_question_flow").update({ year_from: yf, year_to: yt }).eq("id", f.id);
     if (showAdminError(error)) return;
     load();
