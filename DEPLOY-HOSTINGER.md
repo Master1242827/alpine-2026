@@ -331,6 +331,8 @@ Pronto — sem downtime perceptível.
 
 ## Troubleshooting rápido
 
+- **403 Forbidden** → normalmente é permissão/dono de pasta ou Nginx apontando para a pasta errada. Rode:
+  `cd /var/www/alpine && sudo bash scripts/fix-hostinger-403.sh /var/www/alpine seudominio.com.br 3000`
 - **502 Bad Gateway no navegador** → o app não está rodando. `pm2 logs alpine` para ver o erro.
 - **SSL falhou no Certbot** → DNS ainda não propagou. Aguarde e rode o comando do passo 12 novamente.
 - **Pedidos travados em "pendente"** → URL do webhook do Mercado Pago não foi atualizada (passo 13).
