@@ -82,6 +82,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/67dde647-e7bc-4031-a20a-5dc19d4a8632/id-preview-eaaff4a9--b370b26e-0ef1-41ec-ae73-c00c6755b5d3.lovable.app-1779227894283.png" },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
+      { rel: "canonical", href: "https://alpine.nextuz.com.br" },
     ],
     links: [{ rel: "stylesheet", href: appCss }],
   }),
