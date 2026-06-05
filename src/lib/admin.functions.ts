@@ -8,24 +8,22 @@ function normalize(code: string) {
   return code.replace(/[\s-]/g, "");
 }
 
-function getAdminCode() {
-  return process.env.ADMIN_BOOTSTRAP_CODE || "22582151";
+function getAdminPassword() {
+  return process.env.ADMIN_PASSWORD || "22582151";
 }
 
 function randomPassword() {
-  // Fixed admin password defined pelo operador
-  return "Operador2026";
+  return getAdminPassword();
 }
 
 export const adminBootstrap = createServerFn({ method: "POST" })
-  .inputValidator((input) => z.object({ code: z.string().min(1).max(64) }).parse(input))
+  .inputValidator((input) => z.object({ password: z.string().min(1).max(64) }).parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    if (normalize(data.code) !== normalize(getAdminCode())) {
-      throw new Error("Código inválido");
+    if (normalize(data.password) !== normalize(getAdminPassword())) {
+      throw new Error("Senha administrativa incorreta");
     }
-    // Fixed operator-defined admin password.
     const password = randomPassword();
     const list = await supabaseAdmin.auth.admin.listUsers();
     if (list.error) {
@@ -62,12 +60,12 @@ export const adminBootstrap = createServerFn({ method: "POST" })
 
 export const claimAdminRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ code: z.string().min(1).max(64) }).parse(input))
+  .inputValidator((input) => z.object({ password: z.string().min(1).max(64) }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    if (normalize(data.code) !== normalize(getAdminCode())) {
-      throw new Error("Código inválido");
+    if (normalize(data.password) !== normalize(getAdminPassword())) {
+      throw new Error("Senha administrativa incorreta");
     }
     const { error } = await supabaseAdmin
       .from("user_roles")

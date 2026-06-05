@@ -20,7 +20,7 @@ function LoginPage() {
   const [view, setView] = useState<"customer" | "admin">("customer");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [code, setCode] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [loading, setLoading] = useState(false);
   const bootstrap = useServerFn(adminBootstrap);
@@ -52,14 +52,14 @@ function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { email: adminEmail, password: adminPass } = await bootstrap({ data: { code } });
+      const { email: adminEmail, password: adminPass } = await bootstrap({ data: { password: adminPassword } });
       const { error } = await supabase.auth.signInWithPassword({
         email: adminEmail, password: adminPass,
       });
       if (error) throw error;
       window.location.href = "/admin";
     } catch (err: any) {
-      toast.error(err.message || "Código inválido");
+      toast.error(err.message || "Senha administrativa incorreta");
     } finally { setLoading(false); }
   };
 
@@ -69,12 +69,13 @@ function LoginPage() {
         <h1 className="text-2xl font-bold">Acesso administrativo</h1>
         <form onSubmit={adminSubmit} className="mt-6 space-y-4">
           <div>
-            <Label>Código de acesso</Label>
+            <Label>Senha administrativa</Label>
             <Input
               autoFocus
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="0000-0000"
+              type="password"
+              value={adminPassword}
+              onChange={(e) => setAdminPassword(e.target.value)}
+              placeholder="Digite a senha administrativa"
               required
             />
           </div>
