@@ -9,7 +9,7 @@ function normalize(code: string) {
 }
 
 function getAdminPassword() {
-  return process.env.ADMIN_BOOTSTRAP_CODE || "22582151";
+  return process.env.ADMIN_PASSWORD || "22582151";
 }
 
 function randomPassword() {
