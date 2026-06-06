@@ -16,18 +16,21 @@ export type Database = {
     Tables: {
       admin_integrations: {
         Row: {
+          frenet_token: string | null
           id: number
           melhor_envio_env: string
           melhor_envio_token: string | null
           updated_at: string
         }
         Insert: {
+          frenet_token?: string | null
           id?: number
           melhor_envio_env?: string
           melhor_envio_token?: string | null
           updated_at?: string
         }
         Update: {
+          frenet_token?: string | null
           id?: number
           melhor_envio_env?: string
           melhor_envio_token?: string | null
