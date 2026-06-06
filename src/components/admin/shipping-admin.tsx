@@ -24,7 +24,6 @@ export function ShippingAdmin() {
   const [info, setInfo] = useState<Info | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [token, setToken] = useState("");
-  const [env, setEnv] = useState<"production" | "sandbox">("production");
   const [loadingTest, setLoadingTest] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -32,7 +31,6 @@ export function ShippingAdmin() {
     try {
       const i = await getStatus();
       setInfo(i);
-      setEnv(i.env === "sandbox" ? "sandbox" : "production");
       if (i.hasToken) {
         setLoadingTest(true);
         try {
@@ -42,7 +40,12 @@ export function ShippingAdmin() {
           setLoadingTest(false);
         }
       } else {
-        setStatus({ ok: false, status: "missing", message: "Token do Melhor Envio não configurado. Cadastre um token para ativar o cálculo de frete." });
+        setStatus({
+          ok: false,
+          status: "missing",
+          message: "Token da Frenet não configurado. Cadastre um token para ativar o cálculo de frete.",
+          account: null,
+        });
       }
     } catch (e) {
       console.error(e);
@@ -53,12 +56,12 @@ export function ShippingAdmin() {
 
   async function handleSave() {
     if (token.trim().length < 10) {
-      toast.error("Cole um token válido do Melhor Envio.");
+      toast.error("Cole um token válido da Frenet.");
       return;
     }
     setSaving(true);
     try {
-      await updateToken({ data: { token: token.trim(), env } });
+      await updateToken({ data: { token: token.trim() } });
       toast.success("Token atualizado com sucesso.");
       setToken("");
       await refresh();
@@ -85,7 +88,7 @@ export function ShippingAdmin() {
     if (loadingTest && !status) return <Badge variant="secondary"><Loader2 className="mr-1 h-3 w-3 animate-spin" />Verificando</Badge>;
     if (!status) return <Badge variant="secondary">—</Badge>;
     if (status.ok) return <Badge className="bg-green-600 hover:bg-green-600"><CheckCircle2 className="mr-1 h-3 w-3" />Ativa</Badge>;
-    if (status.status === "expired") return <Badge variant="destructive"><AlertTriangle className="mr-1 h-3 w-3" />Token expirado</Badge>;
+    if (status.status === "expired") return <Badge variant="destructive"><AlertTriangle className="mr-1 h-3 w-3" />Token inválido</Badge>;
     if (status.status === "missing") return <Badge variant="secondary"><AlertTriangle className="mr-1 h-3 w-3" />Sem token</Badge>;
     return <Badge variant="destructive"><XCircle className="mr-1 h-3 w-3" />Erro</Badge>;
   })();
@@ -96,7 +99,7 @@ export function ShippingAdmin() {
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Truck className="h-5 w-5 text-primary" />
-            <h3 className="text-lg font-semibold">Melhor Envio</h3>
+            <h3 className="text-lg font-semibold">Frenet</h3>
           </div>
           {badge}
         </div>
@@ -106,8 +109,8 @@ export function ShippingAdmin() {
             {status.message}
             {status.status === "expired" && (
               <p className="mt-1 text-xs opacity-80">
-                Acesse melhorenvio.com.br → Configurações → Tokens, gere um novo token de
-                produção com escopo <code>shipping-calculate</code> e cole abaixo.
+                Acesse painel.frenet.com.br → Minha Conta → Integração, copie o token
+                e cole abaixo.
               </p>
             )}
           </div>
@@ -122,7 +125,6 @@ export function ShippingAdmin() {
         <dl className="space-y-1 text-sm">
           <div className="flex justify-between"><dt className="text-muted-foreground">Token cadastrado</dt><dd>{info?.tokenPreview || "—"}</dd></div>
           <div className="flex justify-between"><dt className="text-muted-foreground">Origem</dt><dd>{info?.source === "database" ? "Painel" : info?.source === "env" ? "Variável de ambiente" : "Nenhuma"}</dd></div>
-          <div className="flex justify-between"><dt className="text-muted-foreground">Ambiente</dt><dd>{info?.env || "—"}</dd></div>
           <div className="flex justify-between"><dt className="text-muted-foreground">Atualizado em</dt><dd>{info?.updatedAt ? new Date(info.updatedAt).toLocaleString("pt-BR") : "—"}</dd></div>
         </dl>
 
@@ -135,44 +137,32 @@ export function ShippingAdmin() {
       <Card className="p-6">
         <h3 className="mb-1 text-lg font-semibold">Atualizar token</h3>
         <p className="mb-4 text-sm text-muted-foreground">
-          Cole o token do Melhor Envio. O cliente final nunca vê erro técnico — se o token
+          Cole o token da Frenet. O cliente final nunca vê erro técnico — se o token
           falhar, o checkout exibe uma mensagem amigável.
         </p>
         <div className="space-y-3">
           <div>
-            <Label htmlFor="me-token">Token de acesso</Label>
+            <Label htmlFor="frenet-token">Token de acesso</Label>
             <Input
-              id="me-token"
+              id="frenet-token"
               type="password"
               autoComplete="off"
-              placeholder="Cole aqui o token do Melhor Envio"
+              placeholder="Cole aqui o token da Frenet"
               value={token}
               onChange={(e) => setToken(e.target.value)}
             />
-          </div>
-          <div>
-            <Label htmlFor="me-env">Ambiente</Label>
-            <select
-              id="me-env"
-              className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={env}
-              onChange={(e) => setEnv(e.target.value as "production" | "sandbox")}
-            >
-              <option value="production">Produção</option>
-              <option value="sandbox">Sandbox (testes)</option>
-            </select>
           </div>
           <Button onClick={handleSave} disabled={saving} className="w-full">
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Salvar token
           </Button>
           <a
-            href="https://melhorenvio.com.br/painel/gerenciar/tokens"
+            href="https://painel.frenet.com.br/Integration"
             target="_blank"
             rel="noreferrer"
             className="block text-center text-xs text-muted-foreground hover:text-primary"
           >
-            Como gerar um token no Melhor Envio →
+            Como gerar um token na Frenet →
           </a>
         </div>
       </Card>
