@@ -643,6 +643,7 @@ function FlowsPanel() {
   const [flows, setFlows] = useState<Flow[]>([]);
   const [filterMake, setFilterMake] = useState("");
   const [selectedModel, setSelectedModel] = useState<string>("");
+  const [dragId, setDragId] = useState<string | null>(null);
 
   const load = async () => {
     const [ma, mo, q, o, f] = await Promise.all([
