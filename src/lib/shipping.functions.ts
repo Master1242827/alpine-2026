@@ -18,28 +18,35 @@ const InputSchema = z.object({
   products: z.array(ProductSchema).min(1).max(50),
 });
 
-type MEService = {
-  id: number;
-  name: string;
-  price?: string | number;
-  custom_price?: string | number;
-  delivery_time?: number;
-  company?: { id: number; name: string; picture?: string };
-  error?: string;
+// ===== Frenet types =====
+type FrenetService = {
+  Carrier?: string;
+  CarrierCode?: string;
+  ServiceCode?: string;
+  ServiceDescription?: string;
+  ShippingPrice?: string | number;
+  DeliveryTime?: string | number;
+  Error?: boolean;
+  Msg?: string;
+  CarrierLogo?: string;
+  OriginalDeliveryTime?: string | number;
+  OriginalShippingPrice?: string | number;
 };
 
-async function getMelhorEnvioConfig() {
+type FrenetQuoteResponse = {
+  ShippingSevicesArray?: FrenetService[];
+  ShippingSeviceArray?: FrenetService[]; // some docs use this alt name
+  Msg?: string;
+};
+
+async function getFrenetConfig() {
   const { data } = await supabaseAdmin
     .from("admin_integrations")
-    .select("melhor_envio_token, melhor_envio_env")
+    .select("frenet_token, updated_at")
     .eq("id", 1)
     .maybeSingle();
-  const token = (data?.melhor_envio_token || process.env.MELHOR_ENVIO_TOKEN || "").trim();
-  const env = data?.melhor_envio_env || process.env.MELHOR_ENVIO_ENV || "production";
-  const base = env === "sandbox"
-    ? "https://sandbox.melhorenvio.com.br"
-    : "https://melhorenvio.com.br";
-  return { token, base, env };
+  const token = (data?.frenet_token || process.env.FRENET_TOKEN || "").trim();
+  return { token, updatedAt: data?.updated_at ?? null };
 }
 
 export type QuotedOption = {
@@ -58,9 +65,9 @@ export async function quoteShippingInternal(
   toCep: string,
   products: z.infer<typeof ProductSchema>[],
 ): Promise<QuoteResult> {
-  const { token, base } = await getMelhorEnvioConfig();
+  const { token } = await getFrenetConfig();
   if (!token) {
-    console.error("Melhor Envio: token não configurado");
+    console.error("Frenet: token não configurado");
     return { options: [], unavailable: true };
   }
 
@@ -124,57 +131,78 @@ export async function quoteShippingInternal(
     };
   });
 
+  const invoiceValue = shippedProducts.reduce(
+    (acc, p) => acc + (p.insurance_value || 0) * p.quantity,
+    0,
+  );
+
+  const body = {
+    SellerCEP: fromCep,
+    RecipientCEP: toCep.replace(/\D/g, ""),
+    ShipmentInvoiceValue: Number(invoiceValue.toFixed(2)) || 1,
+    ShippingItemArray: shippedProducts.map((p) => ({
+      Weight: p.weight,
+      Length: p.length,
+      Height: p.height,
+      Width: p.width,
+      Quantity: p.quantity,
+      SKU: p.id,
+      isFragile: false,
+    })),
+    RecipientCountry: "BR",
+  };
+
   let res: Response;
   try {
-    res = await fetch(`${base}/api/v2/me/shipment/calculate`, {
+    res = await fetch("https://api.frenet.com.br/shipping/quote", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
+        token,
         Accept: "application/json",
         "Content-Type": "application/json",
-        "User-Agent": "Alpine (contato@alpine.local)",
       },
-      body: JSON.stringify({
-        from: { postal_code: fromCep },
-        to: { postal_code: toCep.replace(/\D/g, "") },
-        products: shippedProducts,
-      }),
+      body: JSON.stringify(body),
     });
   } catch (err) {
-    console.error("Melhor Envio: falha de rede", err);
+    console.error("Frenet: falha de rede", err);
     return { options: [], unavailable: true };
   }
 
-  const body = await res.text();
+  const raw = await res.text();
   if (!res.ok) {
-    if (res.status === 401 || res.status === 403) {
-      console.error("Melhor Envio: token expirado/inválido");
-    } else {
-      console.error(`Melhor Envio [${res.status}]: ${body.slice(0, 500)}`);
-    }
-    return { options: [], unavailable: true };
-  }
-  let parsed: MEService[];
-  try {
-    parsed = JSON.parse(body);
-  } catch {
-    console.error("Melhor Envio: resposta inválida", body.slice(0, 300));
+    console.error(`Frenet [${res.status}]: ${raw.slice(0, 500)}`);
     return { options: [], unavailable: true };
   }
 
+  let parsed: FrenetQuoteResponse;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    console.error("Frenet: resposta inválida", raw.slice(0, 300));
+    return { options: [], unavailable: true };
+  }
+
+  const services = parsed.ShippingSevicesArray ?? parsed.ShippingSeviceArray ?? [];
   const sizeClass = classifyShipmentSize(shippedProducts, productMap);
 
-  const options = parsed
-    .filter((s) => !s.error && (s.price ?? s.custom_price))
-    .map((s) => ({
-      id: String(s.id),
-      name: `${s.company?.name ?? ""} ${s.name}`.trim(),
-      companyName: s.company?.name ?? "",
-      serviceName: s.name,
-      priceCents: Math.round(Number(s.custom_price ?? s.price) * 100),
-      deliveryDays: s.delivery_time ?? null,
-      companyPicture: s.company?.picture ?? null,
-    }))
+  const options = services
+    .filter((s) => !s.Error && (s.ShippingPrice ?? null) !== null && s.ShippingPrice !== "")
+    .map((s) => {
+      const priceNum = Number(String(s.ShippingPrice).replace(",", "."));
+      const days = s.DeliveryTime != null ? Number(s.DeliveryTime) : null;
+      const carrier = s.Carrier ?? "";
+      const service = s.ServiceDescription ?? "";
+      return {
+        id: `${s.CarrierCode ?? carrier}-${s.ServiceCode ?? service}`,
+        name: `${carrier} ${service}`.trim() || service || carrier,
+        companyName: carrier,
+        serviceName: service,
+        priceCents: Math.round(priceNum * 100),
+        deliveryDays: Number.isFinite(days as number) ? (days as number) : null,
+        companyPicture: s.CarrierLogo ?? null,
+      };
+    })
+    .filter((opt) => opt.priceCents > 0)
     .filter((opt) => isCarrierCompatible(opt, sizeClass, products, productMap))
     .sort((a, b) => a.priceCents - b.priceCents)
     .map(({ companyName: _c, serviceName: _s, ...rest }) => rest);
@@ -220,7 +248,6 @@ function classifyByKeywords(name: string, category?: string): SizeClass | null {
 function classifyByDimensions(p: { width: number; height: number; length: number; weight: number }): SizeClass {
   const maxDim = Math.max(p.width, p.height, p.length);
   const sumDim = p.width + p.height + p.length;
-  // Limites Correios: maior dimensão ~105cm, soma ~200cm, peso 30kg.
   if (maxDim > 100 || sumDim > 190 || p.weight > 28) return "large";
   if (maxDim > 60 || sumDim > 120 || p.weight > 10) return "medium";
   return "small";
@@ -254,7 +281,6 @@ function isCarrierCompatible(
   const isSedex = /sedex/i.test(opt.serviceName);
   const isPac = /\bpac\b/i.test(opt.serviceName);
 
-  // Overrides manuais por produto
   for (const p of products) {
     const info = map.get(p.id);
     if (!info) continue;
@@ -264,13 +290,11 @@ function isCarrierCompatible(
     }
   }
 
-  // Produtos grandes: ocultar Correios (PAC/SEDEX) automaticamente
   if (size === "large" && (isCorreios || isPac || isSedex)) return false;
   return true;
 }
 
-
-// ============ Admin: integração Melhor Envio ============
+// ============ Admin: integração Frenet ============
 
 async function assertAdmin(userId: string) {
   const { data } = await supabaseAdmin
@@ -288,16 +312,16 @@ export const getShippingIntegrationStatus = createServerFn({ method: "GET" })
     await assertAdmin(context.userId);
     const { data } = await supabaseAdmin
       .from("admin_integrations")
-      .select("melhor_envio_token, melhor_envio_env, updated_at")
+      .select("frenet_token, updated_at")
       .eq("id", 1)
       .maybeSingle();
-    const dbToken = (data?.melhor_envio_token || "").trim();
-    const envToken = (process.env.MELHOR_ENVIO_TOKEN || "").trim();
+    const dbToken = (data?.frenet_token || "").trim();
+    const envToken = (process.env.FRENET_TOKEN || "").trim();
     const token = dbToken || envToken;
     return {
+      provider: "frenet" as const,
       hasToken: !!token,
       source: dbToken ? ("database" as const) : envToken ? ("env" as const) : ("none" as const),
-      env: data?.melhor_envio_env || "production",
       updatedAt: data?.updated_at ?? null,
       tokenPreview: token ? `${token.slice(0, 6)}…${token.slice(-4)}` : null,
     };
@@ -308,7 +332,6 @@ export const updateShippingIntegration = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z.object({
       token: z.string().min(10).max(4000),
-      env: z.enum(["production", "sandbox"]).default("production"),
     }).parse(input),
   )
   .handler(async ({ data, context }) => {
@@ -317,8 +340,7 @@ export const updateShippingIntegration = createServerFn({ method: "POST" })
       .from("admin_integrations")
       .upsert({
         id: 1,
-        melhor_envio_token: data.token.trim(),
-        melhor_envio_env: data.env,
+        frenet_token: data.token.trim(),
         updated_at: new Date().toISOString(),
       }, { onConflict: "id" });
     if (error) {
@@ -332,48 +354,51 @@ export const testShippingIntegration = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
-    const { token, base } = await getMelhorEnvioConfig();
+    const { token } = await getFrenetConfig();
     if (!token) {
       return {
         ok: false,
         status: "missing" as const,
-        message: "Token do Melhor Envio não configurado. Cadastre um token para ativar o cálculo de frete.",
+        message: "Token da Frenet não configurado. Cadastre um token para ativar o cálculo de frete.",
+        account: null as string | null,
       };
     }
     try {
-      const res = await fetch(`${base}/api/v2/me`, {
+      const res = await fetch("https://api.frenet.com.br/shipping/info", {
         headers: {
-          Authorization: `Bearer ${token}`,
+          token,
           Accept: "application/json",
-          "User-Agent": "Alpine (contato@alpine.local)",
         },
       });
       if (res.status === 401 || res.status === 403) {
         return {
           ok: false,
           status: "expired" as const,
-          message: "Token do Melhor Envio expirado. Gere um novo token.",
+          message: "Token da Frenet inválido ou expirado. Gere um novo token no painel da Frenet.",
+          account: null as string | null,
         };
       }
       if (!res.ok) {
         return {
           ok: false,
           status: "error" as const,
-          message: `Melhor Envio respondeu com erro (${res.status}). Tente novamente em instantes.`,
+          message: `Frenet respondeu com erro (${res.status}). Tente novamente em instantes.`,
+          account: null as string | null,
         };
       }
-      const body = await res.json().catch(() => ({} as { name?: string; email?: string }));
+      const body = await res.json().catch(() => ({} as { CompanyName?: string; Email?: string }));
       return {
         ok: true,
         status: "ok" as const,
-        message: "Conexão com o Melhor Envio funcionando.",
-        account: body?.name || body?.email || null,
+        message: "Conexão com a Frenet funcionando.",
+        account: body?.CompanyName || body?.Email || null,
       };
     } catch {
       return {
         ok: false,
         status: "network" as const,
-        message: "Não foi possível conectar ao Melhor Envio. Verifique sua conexão.",
+        message: "Não foi possível conectar à Frenet. Verifique sua conexão.",
+        account: null as string | null,
       };
     }
   });
