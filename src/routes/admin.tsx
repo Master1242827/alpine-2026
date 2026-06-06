@@ -662,13 +662,35 @@ function OrdersTab() {
 // ============ Settings ============
 function SettingsTab() {
   const [s, setS] = useState<any>(null);
+  const [uploadingHero, setUploadingHero] = useState(false);
   useEffect(() => {
     supabase.from("store_settings").select("*").eq("id", 1).maybeSingle()
-      .then(({ data }) => setS(data ?? { id: 1, store_name: "Alpine", whatsapp_number: "", origin_cep: "" }));
+      .then(({ data }) => setS(data ?? { id: 1, store_name: "Alpine", whatsapp_number: "", origin_cep: "", hero_image_url: null }));
   }, []);
   if (!s) return <p className="mt-4">Carregando…</p>;
   const cepDigits = (s.origin_cep || "").replace(/\D/g, "");
   const cepInvalid = cepDigits.length !== 8;
+
+  const uploadHero = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingHero(true);
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `site/hero-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: true, contentType: file.type });
+      if (error) throw error;
+      const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+      setS({ ...s, hero_image_url: data.publicUrl });
+      toast.success("Imagem enviada. Clique em Salvar para publicar.");
+    } catch (err: any) {
+      toast.error(err.message || "Erro no upload");
+    } finally {
+      setUploadingHero(false);
+      e.target.value = "";
+    }
+  };
+
   return (
     <Card className="mt-4 max-w-xl space-y-4 p-6">
       {cepInvalid && (
@@ -695,16 +717,38 @@ function SettingsTab() {
           Usado apenas pelo sistema para calcular frete (origem → destino do cliente).
         </p>
       </div>
+      <div className="space-y-2 border-t pt-4">
+        <Label>Imagem do banner principal (home)</Label>
+        <p className="text-xs text-muted-foreground">
+          Recomendado: 1600×1024px, JPG ou PNG. Ideal para promoções, lançamentos ou artes sazonais.
+        </p>
+        {s.hero_image_url && (
+          <div className="overflow-hidden rounded-md border">
+            <img src={s.hero_image_url} alt="Banner atual" className="h-40 w-full object-cover" />
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <Input type="file" accept="image/*" onChange={uploadHero} disabled={uploadingHero} />
+          {s.hero_image_url && (
+            <Button variant="outline" size="sm" type="button" onClick={() => setS({ ...s, hero_image_url: null })}>
+              Voltar ao padrão
+            </Button>
+          )}
+        </div>
+        {uploadingHero && <p className="text-xs text-muted-foreground">Enviando imagem…</p>}
+      </div>
       <Button onClick={async () => {
         const { error } = await supabase.from("store_settings").update({
           store_name: s.store_name, whatsapp_number: s.whatsapp_number, origin_cep: s.origin_cep,
-        }).eq("id", 1);
+          hero_image_url: s.hero_image_url || null,
+        } as any).eq("id", 1);
         if (error) return toast.error(error.message);
         toast.success("Configurações salvas");
       }}>Salvar</Button>
     </Card>
   );
 }
+
 
 // ============ Payments (PIX) ============
 const DEFAULT_PIX_SETTINGS = {

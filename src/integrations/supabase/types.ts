@@ -439,6 +439,7 @@ export type Database = {
       }
       store_settings: {
         Row: {
+          hero_image_url: string | null
           id: number
           origin_cep: string
           pix_bank: string
@@ -454,6 +455,7 @@ export type Database = {
           whatsapp_number: string
         }
         Insert: {
+          hero_image_url?: string | null
           id?: number
           origin_cep?: string
           pix_bank?: string
@@ -469,6 +471,7 @@ export type Database = {
           whatsapp_number?: string
         }
         Update: {
+          hero_image_url?: string | null
           id?: number
           origin_cep?: string
           pix_bank?: string
@@ -717,6 +720,7 @@ export type Database = {
       }
     }
     Functions: {
+      get_hero_image_url: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

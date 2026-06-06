@@ -23,14 +23,24 @@ function Index() {
     },
   });
 
+  const { data: heroUrl } = useQuery({
+    queryKey: ["hero-image-url"],
+    queryFn: async () => {
+      const { data } = await supabase.rpc("get_hero_image_url");
+      return (data as string | null) || null;
+    },
+    staleTime: 60_000,
+  });
+
   return (
     <div>
       {/* Hero */}
       <section className="relative overflow-hidden bg-dark text-dark-foreground">
         <div className="absolute inset-0">
-          <img src={heroImg} alt="" width={1600} height={1024} className="h-full w-full object-cover opacity-60" />
+          <img src={heroUrl || heroImg} alt="" width={1600} height={1024} className="h-full w-full object-cover opacity-60" />
           <div className="absolute inset-0 bg-gradient-to-r from-dark via-dark/80 to-transparent" />
         </div>
+
         <div className="container relative mx-auto px-4 py-20 md:py-28">
           <p className="text-xs font-bold uppercase tracking-widest text-primary">
             Capotas Marítimas <span className="text-dark-foreground">para sua picape</span>
