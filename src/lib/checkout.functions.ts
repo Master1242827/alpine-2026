@@ -426,6 +426,10 @@ export const createPixPayment = createServerFn({ method: "POST" })
     const origin = getRuntimeOrigin();
     const [firstName, ...rest] = data.customer.name.split(" ");
     const expiration = new Date(Date.now() + 30 * 60 * 1000).toISOString().replace("Z", "-00:00");
+    const rawEmail = (data.customer.email || "").trim().toLowerCase();
+    const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)
+      && !/@(test|example)\.(com|org|net)$/.test(rawEmail);
+    const payerEmail = emailValid ? rawEmail : `pedido+${String(order.id).slice(0, 8)}@alpine.com.br`;
     const pixBody = {
       transaction_amount: Number((total / 100).toFixed(2)),
       description: `Pedido Alpine #${String(order.id).slice(0, 8)}`,
@@ -434,11 +438,12 @@ export const createPixPayment = createServerFn({ method: "POST" })
       notification_url: `${origin}/api/public/webhooks/mercadopago`,
       date_of_expiration: expiration,
       payer: {
-        email: data.customer.email,
+        email: payerEmail,
         first_name: firstName,
         last_name: rest.join(" ") || firstName,
       },
     };
+
 
     console.info("[MercadoPago] create pix payment", { endpoint: MP_PAYMENTS_ENDPOINT, orderId: order.id, totalCents: total });
     const res = await fetch(MP_PAYMENTS_ENDPOINT, {
