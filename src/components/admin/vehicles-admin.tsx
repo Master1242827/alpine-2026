@@ -755,13 +755,36 @@ function FlowsPanel() {
               {modelFlows.map((f, i) => {
                 const q = questions.find((x) => x.id === f.question_id);
                 const qOpts = options.filter((o) => o.question_id === f.question_id);
+                const isDragging = dragId === f.id;
                 return (
-                  <div key={f.id} className="rounded border border-border bg-background p-2">
+                  <div
+                    key={f.id}
+                    className={`rounded border border-border bg-background p-2 ${isDragging ? "opacity-50" : ""}`}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const src = e.dataTransfer.getData("text/plain");
+                      if (src) reorderFlow(src, f.id);
+                      setDragId(null);
+                    }}
+                  >
                     <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex flex-col">
-                        <button onClick={() => move(f, -1)} disabled={i === 0} className="disabled:opacity-30"><ChevronUp className="h-3 w-3" /></button>
-                        <button onClick={() => move(f, 1)} disabled={i === modelFlows.length - 1} className="disabled:opacity-30"><ChevronDown className="h-3 w-3" /></button>
-                      </div>
+                      <button
+                        type="button"
+                        draggable
+                        onDragStart={(e) => {
+                          setDragId(f.id);
+                          e.dataTransfer.effectAllowed = "move";
+                          e.dataTransfer.setData("text/plain", f.id);
+                        }}
+                        onDragEnd={() => setDragId(null)}
+                        className="cursor-grab select-none text-muted-foreground hover:text-foreground active:cursor-grabbing"
+                        title="Arraste para reordenar"
+                        aria-label="Arrastar"
+                      >
+                        <GripVertical className="h-5 w-5" />
+                      </button>
+
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium">{q?.label ?? "?"}</p>
                         <p className="text-xs text-muted-foreground">chave: <code>{q?.key}</code></p>
