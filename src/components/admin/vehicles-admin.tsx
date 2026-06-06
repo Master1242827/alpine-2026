@@ -691,17 +691,26 @@ function FlowsPanel() {
     if (showAdminError(error)) return;
     load();
   };
-  const move = async (f: Flow, dir: -1 | 1) => {
-    const idx = modelFlows.findIndex((x) => x.id === f.id);
-    const swap = modelFlows[idx + dir];
-    if (!swap) return;
-    const results = await Promise.all([
-      sb.from("vehicle_question_flow").update({ display_order: swap.display_order }).eq("id", f.id),
-      sb.from("vehicle_question_flow").update({ display_order: f.display_order }).eq("id", swap.id),
-    ]);
-    if (results.some((r) => showAdminError(r.error))) return;
-    load();
+  const reorderFlow = async (sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return;
+    const srcIdx = modelFlows.findIndex((i) => i.id === sourceId);
+    const tgtIdx = modelFlows.findIndex((i) => i.id === targetId);
+    if (srcIdx < 0 || tgtIdx < 0) return;
+    const next = [...modelFlows];
+    const [moved] = next.splice(srcIdx, 1);
+    next.splice(tgtIdx, 0, moved);
+    // optimistic update
+    const otherFlows = flows.filter((x) => x.model_id !== selectedModel);
+    setFlows([...otherFlows, ...next.map((f, idx) => ({ ...f, display_order: idx }))]);
+    const results = await Promise.all(
+      next.map((f, idx) =>
+        sb.from("vehicle_question_flow").update({ display_order: idx }).eq("id", f.id),
+      ),
+    );
+    const err = results.find((r) => r.error)?.error;
+    if (err) { toast.error(err.message); load(); }
   };
+
   const updateYears = async (f: Flow, yf: number | null, yt: number | null) => {
     if (yf && yt && yf > yt) {
       return toast.error("O ano inicial não pode ser maior que o ano final");
