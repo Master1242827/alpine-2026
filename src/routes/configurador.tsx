@@ -181,11 +181,21 @@ function Configurator() {
     setSearching(true);
     setNotFound(false);
     setResults(null);
-    const { data } = await supabase
-      .from("vehicle_product_map")
-      .select("product_id, year_from, year_to, answers, products(slug, name, active, images, price_cents, compare_at_cents, featured)")
-      .eq("model_id", sel.model!.id)
-      .eq("active", true);
+    let data: any[] | null = null;
+    try {
+      const res = await supabase
+        .from("vehicle_product_map")
+        .select("product_id, year_from, year_to, answers, products(slug, name, active, images, price_cents, compare_at_cents, featured)")
+        .eq("model_id", sel.model!.id)
+        .eq("active", true);
+      if (res.error) throw res.error;
+      data = res.data as any[];
+    } catch (err) {
+      console.error("[Configurador] Erro ao consultar compatibilidade", err);
+      setSearching(false);
+      setNotFound(true);
+      return;
+    }
 
     const yr = sel.year!;
     const userAns = Object.fromEntries(Object.entries(sel.answers).map(([k, v]) => [k, v.value]));
@@ -220,20 +230,15 @@ function Configurator() {
           .map(normalizeCompatValue);
         if (accepted.length === 0) continue;
         const got = normalizeCompatValue(userAns[k]);
-        // If the question is NOT in the active flow for this year, skip validation for it
-        // unless it's a hidden auto-answered question that we definitely have in userAns.
-        if (!flowQuestionKeys.has(k)) {
-          const isAutoAnswered = orderedFlow.some(f => {
-            const q = questions?.find(x => x.id === f.question_id);
-            return q?.key === k && f.auto_answer;
-          });
-          
-          if (!isAutoAnswered) {
-            console.debug("[Configurador] Filtro ignorado (fora do fluxo)", { produto: productName, campo: k, valorAdmin: req });
-            continue;
-          }
+        // STRICT: never relax an active compatibility filter. If the admin
+        // requires a specific value for field `k` and we don't have a matching
+        // answer from the customer (whether the question is in the visible
+        // flow, hidden, or auto-answered), the product is rejected.
+        if (!got) {
+          console.debug("[Configurador] Produto rejeitado", { produto: productName, motivo: "resposta ausente para filtro obrigatório", campo: k, esperado: req });
+          return false;
         }
-        
+
         console.debug("[Configurador] Filtro aplicado", { produto: productName, campo: k, valorAdmin: req, respostaCliente: userAns[k] });
         const matchFound = accepted.some(acc => {
           // Check for exact match or bracketed match (e.g., "[value]" matching "value")
