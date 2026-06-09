@@ -181,11 +181,21 @@ function Configurator() {
     setSearching(true);
     setNotFound(false);
     setResults(null);
-    const { data } = await supabase
-      .from("vehicle_product_map")
-      .select("product_id, year_from, year_to, answers, products(slug, name, active, images, price_cents, compare_at_cents, featured)")
-      .eq("model_id", sel.model!.id)
-      .eq("active", true);
+    let data: any[] | null = null;
+    try {
+      const res = await supabase
+        .from("vehicle_product_map")
+        .select("product_id, year_from, year_to, answers, products(slug, name, active, images, price_cents, compare_at_cents, featured)")
+        .eq("model_id", sel.model!.id)
+        .eq("active", true);
+      if (res.error) throw res.error;
+      data = res.data as any[];
+    } catch (err) {
+      console.error("[Configurador] Erro ao consultar compatibilidade", err);
+      setSearching(false);
+      setNotFound(true);
+      return;
+    }
 
     const yr = sel.year!;
     const userAns = Object.fromEntries(Object.entries(sel.answers).map(([k, v]) => [k, v.value]));
