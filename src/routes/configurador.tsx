@@ -220,20 +220,15 @@ function Configurator() {
           .map(normalizeCompatValue);
         if (accepted.length === 0) continue;
         const got = normalizeCompatValue(userAns[k]);
-        // If the question is NOT in the active flow for this year, skip validation for it
-        // unless it's a hidden auto-answered question that we definitely have in userAns.
-        if (!flowQuestionKeys.has(k)) {
-          const isAutoAnswered = orderedFlow.some(f => {
-            const q = questions?.find(x => x.id === f.question_id);
-            return q?.key === k && f.auto_answer;
-          });
-          
-          if (!isAutoAnswered) {
-            console.debug("[Configurador] Filtro ignorado (fora do fluxo)", { produto: productName, campo: k, valorAdmin: req });
-            continue;
-          }
+        // STRICT: never relax an active compatibility filter. If the admin
+        // requires a specific value for field `k` and we don't have a matching
+        // answer from the customer (whether the question is in the visible
+        // flow, hidden, or auto-answered), the product is rejected.
+        if (!got) {
+          console.debug("[Configurador] Produto rejeitado", { produto: productName, motivo: "resposta ausente para filtro obrigatório", campo: k, esperado: req });
+          return false;
         }
-        
+
         console.debug("[Configurador] Filtro aplicado", { produto: productName, campo: k, valorAdmin: req, respostaCliente: userAns[k] });
         const matchFound = accepted.some(acc => {
           // Check for exact match or bracketed match (e.g., "[value]" matching "value")
