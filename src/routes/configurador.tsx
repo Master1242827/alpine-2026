@@ -48,6 +48,7 @@ function Configurator() {
   const [sel, setSel] = useState<Selection>({ answers: {} });
   const [searching, setSearching] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [earlyFinish, setEarlyFinish] = useState(false);
   const [results, setResults] = useState<ResultProduct[] | null>(null);
 
   // Step indexes:
