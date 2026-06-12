@@ -208,6 +208,10 @@ function Configurator() {
     }
     console.groupCollapsed("[Configurador] Compatibilidade");
     console.info("Seleção do cliente", { modelo: sel.model?.name, ano: yr, respostas: userAns });
+    console.info("Perguntas do fluxo para este ano", Array.from(flowQuestionKeys));
+    console.info("Registros de compatibilidade carregados do banco", (data ?? []).map((r: any) => ({
+      produto: r.products?.name, year_from: r.year_from, year_to: r.year_to, answers: r.answers,
+    })));
     const matches = ((data ?? []) as any[]).filter((r) => {
       const productName = r.products?.name ?? r.product_id ?? "Produto sem nome";
       const yf = r.year_from ?? 0;
