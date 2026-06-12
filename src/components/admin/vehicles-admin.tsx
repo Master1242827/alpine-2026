@@ -17,7 +17,7 @@ type Cabin = { id: string; name: string; description: string | null; image_url: 
 type CompatAnswer = string | string[];
 type Mapping = { id: string; model_id: string | null; cabin_type_id: string | null; product_id: string | null; year_from: number | null; year_to: number | null; active: boolean; answers: Record<string, CompatAnswer> | null };
 type Question = { id: string; key: string; label: string; help_text: string | null; type: string; active: boolean; model_id?: string | null };
-type Option = { id: string; question_id: string; value: string; label: string; image_url: string | null; display_order: number; active: boolean };
+type Option = { id: string; question_id: string; value: string; label: string; image_url: string | null; display_order: number; active: boolean; terminates_flow?: boolean };
 type Flow = { id: string; model_id: string; question_id: string; year_from: number | null; year_to: number | null; display_order: number; required: boolean; active: boolean; hidden?: boolean; auto_answer?: string | null };
 
 const sb = supabase as any;
@@ -575,6 +575,7 @@ function OptionsEditor({ question, onClose }: { question: Question; onClose: () 
       image_url: editing.image_url ?? null,
       display_order: editing.display_order ?? items.length,
       active: editing.active ?? true,
+      terminates_flow: editing.terminates_flow ?? false,
     };
     const res = editing.id
       ? await sb.from("configurator_options").update(payload).eq("id", editing.id)
@@ -609,6 +610,13 @@ function OptionsEditor({ question, onClose }: { question: Question; onClose: () 
           </div>
           <div><Label>Imagem (opcional)</Label><ImageField value={editing.image_url ?? null} onChange={(v) => setEditing({ ...editing, image_url: v })} /></div>
           <label className="flex items-center gap-2 text-sm"><Switch checked={editing.active ?? true} onCheckedChange={(v) => setEditing({ ...editing, active: v })} /> Ativa</label>
+          <label className="flex items-start gap-2 text-sm">
+            <Switch checked={editing.terminates_flow ?? false} onCheckedChange={(v) => setEditing({ ...editing, terminates_flow: v })} />
+            <span className="leading-tight">
+              Finaliza o fluxo antecipadamente
+              <span className="block text-xs text-muted-foreground">Quando o cliente escolhe esta opção, pula as perguntas seguintes e mostra o resultado direto. Útil para versões "completas" (ex.: Cross) que já vêm com todos os itens.</span>
+            </span>
+          </label>
           <div className="flex gap-2"><Button size="sm" onClick={save}>Salvar</Button><Button size="sm" variant="outline" onClick={() => setEditing(null)}>Cancelar</Button></div>
         </Card>
       )}
@@ -623,6 +631,7 @@ function OptionsEditor({ question, onClose }: { question: Question; onClose: () 
               <p className="text-sm font-medium">{o.label}</p>
               <p className="text-xs text-muted-foreground">valor: <code>{o.value}</code></p>
             </div>
+            {o.terminates_flow && <Badge className="text-xs">Finaliza fluxo</Badge>}
             {!o.active && <Badge variant="secondary" className="text-xs">Inativa</Badge>}
             <Button size="icon" variant="ghost" onClick={() => setEditing(o)}><Pencil className="h-4 w-4" /></Button>
             <Button size="icon" variant="ghost" onClick={() => remove(o)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -1132,6 +1141,13 @@ function MappingsPanel() {
               key={it.id} 
               className={`flex flex-wrap items-center gap-3 p-3 transition-colors ${!it.product_id || !mappedProductIds.has(it.product_id) ? "border-red-200 bg-red-50/50" : ""}`}
             >
+              <div className="h-14 w-14 shrink-0 overflow-hidden rounded border border-border bg-muted">
+                {(product as any)?.images?.[0] ? (
+                  <img src={(product as any).images[0]} alt={product?.name ?? ""} className="h-full w-full object-cover" loading="lazy" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">sem foto</div>
+                )}
+              </div>
               <div className="min-w-0 flex-1">
                 <p className="font-medium truncate">{make?.name} {model?.name} · {years}</p>
                 <p className="text-xs text-muted-foreground truncate">→ {product?.name ?? <span className="text-destructive">produto removido</span>}</p>
