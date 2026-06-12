@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Check } from "lucide-react";
 import { ProductCard } from "@/components/product-card";
+import {
+  isWildcardCompatValue,
+  normalizeCompatValue,
+} from "@/lib/configurator-match";
 
 export const Route = createFileRoute("/configurador")({ component: Configurator });
 
@@ -30,18 +34,6 @@ type Selection = {
   year?: number;
   answers: Record<string, { value: string; label: string }>;
 };
-
-const WILDCARD_VALUES = new Set(["", "*", "any", "all", "qualquer", "(qualquer)", "todos", "todas"]);
-
-function normalizeCompatValue(value: unknown) {
-  return String(value ?? "").trim().toLowerCase();
-}
-
-function isWildcardCompatValue(value: unknown) {
-  if (Array.isArray(value)) return value.length === 0 || value.every(isWildcardCompatValue);
-  const normalized = normalizeCompatValue(value);
-  return WILDCARD_VALUES.has(normalized) || normalized.replace(/[()]/g, "").trim() === "qualquer";
-}
 
 function Configurator() {
   const navigate = useNavigate();
