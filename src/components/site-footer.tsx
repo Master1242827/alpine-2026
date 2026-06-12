@@ -1,7 +1,27 @@
 import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import alpineLogo from "@/assets/alpine-logo-footer.jpg";
 
+function formatBrPhone(num: string | null | undefined) {
+  const digits = String(num ?? "").replace(/\D/g, "");
+  if (digits.length < 10) return "";
+  // Strip BR country code (55) for display if present
+  const local = digits.length > 11 && digits.startsWith("55") ? digits.slice(2) : digits;
+  if (local.length === 11) return `(${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7)}`;
+  if (local.length === 10) return `(${local.slice(0, 2)}) ${local.slice(2, 6)}-${local.slice(6)}`;
+  return digits;
+}
+
 export function SiteFooter() {
+  const { data: phone } = useQuery({
+    queryKey: ["whatsapp-number"],
+    queryFn: async () => {
+      const { data } = await (supabase as any).rpc("get_whatsapp_number");
+      return formatBrPhone(data as any) || "(18) 98800-1823";
+    },
+    staleTime: 60_000,
+  });
   return (
     <footer className="mt-20 bg-dark text-dark-foreground">
       <div className="container mx-auto grid gap-8 px-4 py-12 md:grid-cols-4">
@@ -22,7 +42,7 @@ export function SiteFooter() {
         <div>
           <h4 className="text-sm font-bold uppercase tracking-wide">Atendimento</h4>
           <ul className="mt-3 space-y-2 text-sm text-dark-foreground/70">
-            <li>WhatsApp: (18) 98800-1823</li>
+            <li>WhatsApp: {phone || "(18) 98800-1823"}</li>
             <li>Seg-Sex 9h-18h</li>
           </ul>
         </div>
