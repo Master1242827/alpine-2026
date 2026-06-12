@@ -21,7 +21,7 @@ type ResultProduct = {
 type Make = { id: string; name: string; image_url: string | null };
 type Model = { id: string; name: string; image_url: string | null; year_from: number | null; year_to: number | null };
 type Question = { id: string; key: string; label: string; help_text: string | null };
-type Option = { id: string; question_id: string; value: string; label: string; image_url: string | null };
+type Option = { id: string; question_id: string; value: string; label: string; image_url: string | null; terminates_flow?: boolean };
 type FlowItem = { question_id: string; display_order: number; required: boolean; year_from: number | null; year_to: number | null; hidden?: boolean; auto_answer?: string | null };
 
 type Selection = {
@@ -107,7 +107,7 @@ function Configurator() {
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("configurator_options")
-        .select("id,question_id,value,label,image_url,display_order")
+        .select("id,question_id,value,label,image_url,display_order,terminates_flow")
         .in("question_id", questionIds)
         .eq("active", true)
         .order("display_order");
