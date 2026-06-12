@@ -863,7 +863,7 @@ function MappingsPanel() {
   const [items, setItems] = useState<Mapping[]>([]);
   const [makes, setMakes] = useState<Make[]>([]);
   const [models, setModels] = useState<Model[]>([]);
-  const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
+  const [products, setProducts] = useState<{ id: string; name: string; images?: string[] | null }[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [options, setOptions] = useState<Option[]>([]);
   const [flows, setFlows] = useState<Flow[]>([]);
@@ -878,7 +878,7 @@ function MappingsPanel() {
       sb.from("vehicle_product_map").select("*"),
       supabase.from("vehicle_makes").select("*").order("display_order"),
       supabase.from("vehicle_models").select("*").order("display_order"),
-      supabase.from("products").select("id, name").order("name"),
+      supabase.from("products").select("id, name, images").order("name"),
       sb.from("configurator_questions").select("*"),
       sb.from("configurator_options").select("*").order("display_order"),
       sb.from("vehicle_question_flow").select("*").order("display_order"),
