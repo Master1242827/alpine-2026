@@ -354,7 +354,13 @@ function Configurator() {
           <DynamicQuestionStep
             question={currentDynamic}
             options={(options ?? []).filter((o) => o.question_id === currentDynamic.id)}
-            onPick={(opt) => setSel((s) => ({ ...s, answers: { ...s.answers, [currentDynamic.key]: { value: opt.value, label: opt.label } } }))}
+            onPick={(opt) => {
+              setSel((s) => ({ ...s, answers: { ...s.answers, [currentDynamic.key]: { value: opt.value, label: opt.label } } }));
+              if (opt.terminates_flow) {
+                console.info("[Configurador] Resposta finaliza fluxo antecipadamente", { pergunta: currentDynamic.label, resposta: opt.label });
+                setEarlyFinish(true);
+              }
+            }}
             onBack={() => {
               if (dynamicIndex === 0) resetTo("year");
               else resetTo(dynamicIndex - 1);
