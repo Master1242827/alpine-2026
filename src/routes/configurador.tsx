@@ -152,7 +152,7 @@ function Configurator() {
   const answeredCount = dynamicSteps.filter((q) => sel.answers[q.key]).length;
   const dynamicIndex = answeredCount; // 0-based within dynamic
   const currentDynamic = baseStep === 3 ? dynamicSteps[dynamicIndex] : undefined;
-  const isFinal = baseStep === 3 && dynamicSteps.length > 0 && answeredCount >= dynamicSteps.length;
+  const isFinal = baseStep === 3 && dynamicSteps.length > 0 && (earlyFinish || answeredCount >= dynamicSteps.length);
   const isFinalNoQuestions = baseStep === 3 && dynamicSteps.length === 0 && flow !== undefined;
 
   const years = useMemo(() => {
@@ -167,6 +167,7 @@ function Configurator() {
   const resetTo = (level: "make" | "model" | "year" | number) => {
     setNotFound(false);
     setResults(null);
+    setEarlyFinish(false);
     if (level === "make") setSel({ answers: {} });
     else if (level === "model") setSel({ make: sel.make, answers: {} });
     else if (level === "year") setSel({ make: sel.make, model: sel.model, answers: {} });
