@@ -236,10 +236,15 @@ function Configurator() {
           .map(normalizeCompatValue);
         if (accepted.length === 0) continue;
         const got = normalizeCompatValue(userAns[k]);
-        // STRICT: never relax an active compatibility filter. If the admin
-        // requires a specific value for field `k` and we don't have a matching
-        // answer from the customer (whether the question is in the visible
-        // flow, hidden, or auto-answered), the product is rejected.
+        // If this filter key isn't part of the question flow for the
+        // selected year (e.g. version question for another year range),
+        // skip it — the customer was never asked, so it doesn't apply.
+        if (!got && !flowQuestionKeys.has(k)) {
+          console.debug("[Configurador] Filtro ignorado (pergunta fora do fluxo deste ano)", { produto: productName, campo: k, valorAdmin: req });
+          continue;
+        }
+        // STRICT: if the filter IS part of this year's flow and the
+        // customer somehow has no answer, reject (shouldn't happen in practice).
         if (!got) {
           console.debug("[Configurador] Produto rejeitado", { produto: productName, motivo: "resposta ausente para filtro obrigatório", campo: k, esperado: req });
           return false;
