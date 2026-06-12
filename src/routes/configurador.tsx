@@ -21,7 +21,7 @@ type ResultProduct = {
 type Make = { id: string; name: string; image_url: string | null };
 type Model = { id: string; name: string; image_url: string | null; year_from: number | null; year_to: number | null };
 type Question = { id: string; key: string; label: string; help_text: string | null };
-type Option = { id: string; question_id: string; value: string; label: string; image_url: string | null };
+type Option = { id: string; question_id: string; value: string; label: string; image_url: string | null; terminates_flow?: boolean };
 type FlowItem = { question_id: string; display_order: number; required: boolean; year_from: number | null; year_to: number | null; hidden?: boolean; auto_answer?: string | null };
 
 type Selection = {
@@ -48,6 +48,7 @@ function Configurator() {
   const [sel, setSel] = useState<Selection>({ answers: {} });
   const [searching, setSearching] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [earlyFinish, setEarlyFinish] = useState(false);
   const [results, setResults] = useState<ResultProduct[] | null>(null);
 
   // Step indexes:
@@ -107,7 +108,7 @@ function Configurator() {
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("configurator_options")
-        .select("id,question_id,value,label,image_url,display_order")
+        .select("id,question_id,value,label,image_url,display_order,terminates_flow")
         .in("question_id", questionIds)
         .eq("active", true)
         .order("display_order");
@@ -151,7 +152,7 @@ function Configurator() {
   const answeredCount = dynamicSteps.filter((q) => sel.answers[q.key]).length;
   const dynamicIndex = answeredCount; // 0-based within dynamic
   const currentDynamic = baseStep === 3 ? dynamicSteps[dynamicIndex] : undefined;
-  const isFinal = baseStep === 3 && dynamicSteps.length > 0 && answeredCount >= dynamicSteps.length;
+  const isFinal = baseStep === 3 && dynamicSteps.length > 0 && (earlyFinish || answeredCount >= dynamicSteps.length);
   const isFinalNoQuestions = baseStep === 3 && dynamicSteps.length === 0 && flow !== undefined;
 
   const years = useMemo(() => {
@@ -166,6 +167,7 @@ function Configurator() {
   const resetTo = (level: "make" | "model" | "year" | number) => {
     setNotFound(false);
     setResults(null);
+    setEarlyFinish(false);
     if (level === "make") setSel({ answers: {} });
     else if (level === "model") setSel({ make: sel.make, answers: {} });
     else if (level === "year") setSel({ make: sel.make, model: sel.model, answers: {} });
@@ -352,7 +354,13 @@ function Configurator() {
           <DynamicQuestionStep
             question={currentDynamic}
             options={(options ?? []).filter((o) => o.question_id === currentDynamic.id)}
-            onPick={(opt) => setSel((s) => ({ ...s, answers: { ...s.answers, [currentDynamic.key]: { value: opt.value, label: opt.label } } }))}
+            onPick={(opt) => {
+              setSel((s) => ({ ...s, answers: { ...s.answers, [currentDynamic.key]: { value: opt.value, label: opt.label } } }));
+              if (opt.terminates_flow) {
+                console.info("[Configurador] Resposta finaliza fluxo antecipadamente", { pergunta: currentDynamic.label, resposta: opt.label });
+                setEarlyFinish(true);
+              }
+            }}
             onBack={() => {
               if (dynamicIndex === 0) resetTo("year");
               else resetTo(dynamicIndex - 1);

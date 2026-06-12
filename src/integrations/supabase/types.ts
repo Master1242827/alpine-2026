@@ -98,6 +98,7 @@ export type Database = {
           image_url: string | null
           label: string
           question_id: string
+          terminates_flow: boolean
           value: string
         }
         Insert: {
@@ -108,6 +109,7 @@ export type Database = {
           image_url?: string | null
           label: string
           question_id: string
+          terminates_flow?: boolean
           value: string
         }
         Update: {
@@ -118,6 +120,7 @@ export type Database = {
           image_url?: string | null
           label?: string
           question_id?: string
+          terminates_flow?: boolean
           value?: string
         }
         Relationships: [
@@ -721,6 +724,7 @@ export type Database = {
     }
     Functions: {
       get_hero_image_url: { Args: never; Returns: string }
+      get_whatsapp_number: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
