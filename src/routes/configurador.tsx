@@ -180,7 +180,7 @@ function Configurator() {
     try {
       const res = await supabase
         .from("vehicle_product_map")
-        .select("product_id, year_from, year_to, answers, products(slug, name, active, images, price_cents, compare_at_cents, featured)")
+        .select("id, product_id, year_from, year_to, answers, products(slug, name, active, images, price_cents, compare_at_cents, featured)")
         .eq("model_id", sel.model!.id)
         .eq("active", true);
       if (res.error) throw res.error;
@@ -259,8 +259,9 @@ function Configurator() {
     const products: ResultProduct[] = [];
     for (const m of matches) {
       const p = getCompatProduct(m as any) as any;
-      if (!p || seen.has(m.product_id)) continue;
-      seen.add(m.product_id);
+      const productId = m.product_id;
+      if (!p || !productId || seen.has(productId)) continue;
+      seen.add(productId);
       products.push({
         slug: p.slug,
         name: p.name,
