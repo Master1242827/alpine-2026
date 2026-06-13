@@ -53,6 +53,27 @@ describe("normalizeCompatValue / isWildcardCompatValue", () => {
     expect(normalizeCompatValue("  Trend  ")).toBe("trend");
     expect(normalizeCompatValue(null)).toBe("");
   });
+
+  it("matches equivalent values even with case, spaces, and underscore differences", () => {
+    const recordWithAdminSlug: CompatRecord = {
+      ...saveiroTrendRecord,
+      answers: {
+        ...saveiroTrendRecord.answers,
+        saveiro_2010_a_2014: ["saveiro_trend_"],
+      },
+    };
+
+    const ok = matchesCompatRecord(recordWithAdminSlug, {
+      year: 2012,
+      userAnswers: {
+        cabine: "estendida",
+        ganchos: "com_ganchos",
+        saveiro_2010_a_2014: "SAVEIRO TREND",
+      },
+      flowQuestionKeys: flow2012,
+    });
+    expect(ok).toBe(true);
+  });
 });
 
 describe("Saveiro 2012 Trend (regression)", () => {

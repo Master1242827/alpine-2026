@@ -13,7 +13,28 @@ const WILDCARD_VALUES = new Set([
 ]);
 
 export function normalizeCompatValue(value: unknown): string {
-  return String(value ?? "").trim().toLowerCase();
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+export function canonicalizeCompatValue(value: unknown): string {
+  return normalizeCompatValue(value)
+    .replace(/[\[\]]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+export function compatValuesEqual(expected: unknown, received: unknown): boolean {
+  const normalizedExpected = normalizeCompatValue(expected).replace(/[\[\]]/g, "");
+  const normalizedReceived = normalizeCompatValue(received).replace(/[\[\]]/g, "");
+  return (
+    normalizedExpected === normalizedReceived ||
+    canonicalizeCompatValue(expected) === canonicalizeCompatValue(received)
+  );
 }
 
 export function isWildcardCompatValue(value: unknown): boolean {
@@ -27,8 +48,9 @@ export function isWildcardCompatValue(value: unknown): boolean {
 }
 
 export type CompatRecord = {
+  id?: string;
   product_id?: string;
-  products?: { name?: string; active?: boolean } | null;
+  products?: { name?: string; active?: boolean } | { name?: string; active?: boolean }[] | null;
   year_from?: number | null;
   year_to?: number | null;
   answers?: Record<string, string | string[]> | null;
@@ -54,7 +76,8 @@ export function matchesCompatRecord(
   const yf = record.year_from ?? 0;
   const yt = record.year_to ?? 9999;
   if (!(input.year >= yf && input.year <= yt)) return false;
-  if (record.products && record.products.active === false) return false;
+  const product = getCompatProduct(record);
+  if (product && product.active === false) return false;
 
   const required = (record.answers ?? {}) as Record<string, string | string[]>;
   for (const k of Object.keys(required)) {
@@ -73,13 +96,77 @@ export function matchesCompatRecord(
     // In-flow filter with no answer → strict reject.
     if (!got) return false;
 
-    const matched = accepted.some((acc) => {
-      const cleanAcc = acc.replace(/[\[\]]/g, "");
-      return cleanAcc === got || acc === got;
-    });
+    const matched = accepted.some((acc) => compatValuesEqual(acc, got));
     if (!matched) return false;
   }
   return true;
+}
+
+export function getCompatProduct(record: CompatRecord) {
+  return Array.isArray(record.products) ? (record.products[0] ?? null) : (record.products ?? null);
+}
+
+export function getCompatRecordDiagnostics(record: CompatRecord, input: MatchInput) {
+  const product = getCompatProduct(record);
+  const checks: Array<Record<string, unknown>> = [];
+  const yf = record.year_from ?? 0;
+  const yt = record.year_to ?? 9999;
+
+  if (!(input.year >= yf && input.year <= yt)) {
+    return { matches: false, reason: "ano fora da faixa", checks, year_from: yf, year_to: yt, product };
+  }
+  if (product && product.active === false) {
+    return { matches: false, reason: "produto inativo", checks, year_from: yf, year_to: yt, product };
+  }
+
+  const required = (record.answers ?? {}) as Record<string, string | string[]>;
+  for (const key of Object.keys(required)) {
+    const adminValue = required[key];
+    const received = input.userAnswers[key];
+    const inFlow = input.flowQuestionKeys.has(key);
+
+    if (isWildcardCompatValue(adminValue)) {
+      checks.push({ key, status: "ignorado: qualquer", inFlow, adminValue, received });
+      continue;
+    }
+
+    const accepted = (Array.isArray(adminValue) ? adminValue : [adminValue])
+      .filter((value) => !isWildcardCompatValue(value));
+
+    if (accepted.length === 0) {
+      checks.push({ key, status: "ignorado: lista vazia/qualquer", inFlow, adminValue, received });
+      continue;
+    }
+
+    const got = normalizeCompatValue(received);
+    if (!got && !inFlow) {
+      checks.push({ key, status: "ignorado: fora do fluxo deste ano", inFlow, adminValue, received });
+      continue;
+    }
+    if (!got) {
+      checks.push({ key, status: "falhou: resposta ausente", inFlow, adminValue, received });
+      return { matches: false, reason: `resposta ausente: ${key}`, checks, year_from: yf, year_to: yt, product };
+    }
+
+    const matched = accepted.some((value) => compatValuesEqual(value, got));
+    checks.push({
+      key,
+      status: matched ? "ok" : "falhou: valor diferente",
+      inFlow,
+      adminValue,
+      received,
+      receivedNormalizado: normalizeCompatValue(received),
+      receivedCanonico: canonicalizeCompatValue(received),
+      adminNormalizado: accepted.map(normalizeCompatValue),
+      adminCanonico: accepted.map(canonicalizeCompatValue),
+    });
+
+    if (!matched) {
+      return { matches: false, reason: `valor diferente: ${key}`, checks, year_from: yf, year_to: yt, product };
+    }
+  }
+
+  return { matches: true, reason: "compatível", checks, year_from: yf, year_to: yt, product };
 }
 
 export function filterCompatibleProducts(
