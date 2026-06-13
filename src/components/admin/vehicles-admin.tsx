@@ -1141,9 +1141,11 @@ function MappingsPanel() {
               key={it.id} 
               className={`flex flex-wrap items-center gap-3 p-3 transition-colors ${!it.product_id || !mappedProductIds.has(it.product_id) ? "border-red-200 bg-red-50/50" : ""}`}
             >
-              <div className="h-14 w-14 shrink-0 overflow-hidden rounded border border-border bg-muted">
+              <div className="h-24 w-24 shrink-0 overflow-hidden rounded border border-border bg-muted">
                 {(product as any)?.images?.[0] ? (
-                  <img src={(product as any).images[0]} alt={product?.name ?? ""} className="h-full w-full object-cover" loading="lazy" />
+                  <a href={(product as any).images[0]} target="_blank" rel="noreferrer" title="Abrir imagem em nova aba">
+                    <img src={(product as any).images[0]} alt={product?.name ?? ""} className="h-full w-full object-cover transition-transform hover:scale-105" loading="lazy" />
+                  </a>
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">sem foto</div>
                 )}
