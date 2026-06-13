@@ -6,8 +6,9 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Check } from "lucide-react";
 import { ProductCard } from "@/components/product-card";
 import {
-  isWildcardCompatValue,
-  normalizeCompatValue,
+  filterCompatibleProducts,
+  getCompatProduct,
+  getCompatRecordDiagnostics,
 } from "@/lib/configurator-match";
 
 export const Route = createFileRoute("/configurador")({ component: Configurator });
@@ -198,73 +199,66 @@ function Configurator() {
       const q = questions?.find((x) => x.id === f.question_id);
       if (q && !userAns[q.key]) userAns[q.key] = f.auto_answer;
     }
-    console.groupCollapsed("[Configurador] Compatibilidade");
-    console.info("Seleção do cliente", { modelo: sel.model?.name, ano: yr, respostas: userAns });
-    console.info("Perguntas do fluxo para este ano", Array.from(flowQuestionKeys));
-    console.info("Registros de compatibilidade carregados do banco", (data ?? []).map((r: any) => ({
-      produto: r.products?.name, year_from: r.year_from, year_to: r.year_to, answers: r.answers,
-    })));
-    const matches = ((data ?? []) as any[]).filter((r) => {
-      const productName = r.products?.name ?? r.product_id ?? "Produto sem nome";
-      const yf = r.year_from ?? 0;
-      const yt = r.year_to ?? 9999;
-      if (!(yr >= yf && yr <= yt)) {
-        console.debug("[Configurador] Produto rejeitado", { produto: productName, motivo: "ano fora da faixa", anoCliente: yr, anoInicial: yf, anoFinal: yt });
-        return false;
-      }
-      if (!r.products?.active) {
-        console.debug("[Configurador] Produto rejeitado", { produto: productName, motivo: "produto inativo" });
-        return false;
-      }
-      const required = (r.answers ?? {}) as Record<string, string | string[]>;
-      for (const k of Object.keys(required)) {
-        const req = required[k];
-        if (isWildcardCompatValue(req)) {
-          console.debug("[Configurador] Filtro ignorado (qualquer)", { produto: productName, campo: k, valorAdmin: req, respostaCliente: userAns[k] });
-          continue;
-        }
-        const accepted = (Array.isArray(req) ? req : [req])
-          .filter((v) => !isWildcardCompatValue(v))
-          .map(normalizeCompatValue);
-        if (accepted.length === 0) continue;
-        const got = normalizeCompatValue(userAns[k]);
-        // If this filter key isn't part of the question flow for the
-        // selected year (e.g. version question for another year range),
-        // skip it — the customer was never asked, so it doesn't apply.
-        if (!got && !flowQuestionKeys.has(k)) {
-          console.debug("[Configurador] Filtro ignorado (pergunta fora do fluxo deste ano)", { produto: productName, campo: k, valorAdmin: req });
-          continue;
-        }
-        // STRICT: if the filter IS part of this year's flow and the
-        // customer somehow has no answer, reject (shouldn't happen in practice).
-        if (!got) {
-          console.debug("[Configurador] Produto rejeitado", { produto: productName, motivo: "resposta ausente para filtro obrigatório", campo: k, esperado: req });
-          return false;
-        }
-
-        console.debug("[Configurador] Filtro aplicado", { produto: productName, campo: k, valorAdmin: req, respostaCliente: userAns[k] });
-        const matchFound = accepted.some(acc => {
-          // Check for exact match or bracketed match (e.g., "[value]" matching "value")
-          const cleanAcc = acc.replace(/[\[\]]/g, "");
-          return cleanAcc === got || acc === got;
-        });
-
-        if (!matchFound) {
-          console.debug("[Configurador] Produto rejeitado", { produto: productName, motivo: "resposta não está entre as aceitas", campo: k, esperado: req, recebido: userAns[k] });
-          return false;
-        }
-      }
-      console.debug("[Configurador] Produto compatível", { produto: productName });
-      return true;
+    const matchInput = { year: yr, userAnswers: userAns, flowQuestionKeys };
+    const selectedFields = {
+      marca: sel.make,
+      modelo: sel.model ? { id: sel.model.id, name: sel.model.name, year_from: sel.model.year_from, year_to: sel.model.year_to } : null,
+      ano: yr,
+      tipoAno: typeof yr,
+      respostas: Object.fromEntries(
+        Object.entries(sel.answers).map(([key, answer]) => [
+          key,
+          { value: answer.value, label: answer.label, tipoValue: typeof answer.value },
+        ]),
+      ),
+      respostasUsadasNoMatch: userAns,
+      perguntasDoFluxoDesteAno: Array.from(flowQuestionKeys),
+    };
+    const bankRecords = (data ?? []).map((r: any) => {
+      const p = getCompatProduct(r as any) as any;
+      return {
+        id: r.id,
+        product_id: r.product_id,
+        produto: p?.name,
+        produtoAtivo: p?.active,
+        year_from: r.year_from,
+        tipoYearFrom: typeof r.year_from,
+        year_to: r.year_to,
+        tipoYearTo: typeof r.year_to,
+        answers: r.answers,
+      };
     });
-    console.info("Resultado da compatibilidade", { encontrados: matches.length, produtos: matches.map((m: any) => m.products?.name ?? m.product_id) });
+    const diagnostics = ((data ?? []) as any[]).map((r) => {
+      const p = getCompatProduct(r as any) as any;
+      const diag = getCompatRecordDiagnostics(r, matchInput);
+      return {
+        id: r.id,
+        product_id: r.product_id,
+        produto: p?.name ?? r.product_id ?? "Produto sem nome",
+        bateu: diag.matches,
+        motivo: diag.reason,
+        anoCliente: yr,
+        tipoAnoCliente: typeof yr,
+        year_from: r.year_from,
+        tipoYearFrom: typeof r.year_from,
+        year_to: r.year_to,
+        tipoYearTo: typeof r.year_to,
+        checks: diag.checks,
+      };
+    });
+    console.groupCollapsed("[Configurador] Busca final de compatibilidade");
+    console.info("[Configurador] Valores exatos enviados pelo configurador", selectedFields);
+    console.info("[Configurador] Registros de compatibilidade retornados do banco para Saveiro", bankRecords);
+    console.info("[Configurador] Comparação seleção x compatibilidades", diagnostics);
+    const matches = filterCompatibleProducts((data ?? []) as any[], matchInput);
+    console.info("[Configurador] Resultado da compatibilidade", { encontrados: matches.length, produtos: matches.map((m: any) => (getCompatProduct(m as any) as any)?.name ?? m.product_id) });
     console.groupEnd();
 
     // Dedup by product id (same product can have multiple compat rows)
     const seen = new Set<string>();
     const products: ResultProduct[] = [];
     for (const m of matches) {
-      const p = m.products;
+      const p = getCompatProduct(m as any) as any;
       if (!p || seen.has(m.product_id)) continue;
       seen.add(m.product_id);
       products.push({
