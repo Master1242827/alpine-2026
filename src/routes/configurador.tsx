@@ -199,7 +199,12 @@ function Configurator() {
       const q = questions?.find((x) => x.id === f.question_id);
       if (q && !userAns[q.key]) userAns[q.key] = f.auto_answer;
     }
-    const matchInput = { year: yr, userAnswers: userAns, flowQuestionKeys };
+    // When the flow was interrupted early, treat unanswered (skipped) keys as out-of-flow
+    // so the strict matcher doesn't reject products for missing answers.
+    const effectiveFlowKeys = earlyFinish
+      ? new Set(Array.from(flowQuestionKeys).filter((k) => !!userAns[k]))
+      : flowQuestionKeys;
+    const matchInput = { year: yr, userAnswers: userAns, flowQuestionKeys: effectiveFlowKeys };
     const selectedFields = {
       marca: sel.make,
       modelo: sel.model ? { id: sel.model.id, name: sel.model.name, year_from: sel.model.year_from, year_to: sel.model.year_to } : null,
