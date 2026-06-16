@@ -18,7 +18,7 @@ type CompatAnswer = string | string[];
 type Mapping = { id: string; model_id: string | null; cabin_type_id: string | null; product_id: string | null; year_from: number | null; year_to: number | null; active: boolean; answers: Record<string, CompatAnswer> | null };
 type Question = { id: string; key: string; label: string; help_text: string | null; type: string; active: boolean; model_id?: string | null };
 type Option = { id: string; question_id: string; value: string; label: string; image_url: string | null; display_order: number; active: boolean; terminates_flow?: boolean };
-type Flow = { id: string; model_id: string; question_id: string; year_from: number | null; year_to: number | null; display_order: number; required: boolean; active: boolean; hidden?: boolean; auto_answer?: string | null };
+type Flow = { id: string; model_id: string; question_id: string; year_from: number | null; year_to: number | null; display_order: number; required: boolean; active: boolean; hidden?: boolean; auto_answer?: string | null; terminator_values?: string[] | null };
 
 const sb = supabase as any;
 
