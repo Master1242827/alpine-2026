@@ -817,6 +817,13 @@ function FlowsPanel() {
                         <Switch checked={!!f.hidden} onCheckedChange={(v) => updateFlow(f, { hidden: v })} />
                         Ocultar do cliente
                       </label>
+                      <label className="flex items-center gap-2 text-xs">
+                        <Switch
+                          checked={(f.terminator_values ?? []).length > 0}
+                          onCheckedChange={(v) => updateFlow(f, { terminator_values: v ? (qOpts[0] ? [qOpts[0].value] : []) : [] })}
+                        />
+                        Interromper Fluxo
+                      </label>
                       <div className="flex items-center gap-1">
                         <Label className="text-xs text-muted-foreground">Resposta automática:</Label>
                         <select
@@ -832,6 +839,40 @@ function FlowsPanel() {
                         Oculta + resposta automática = item de fábrica (ex.: ganchos sempre "sim").
                       </span>
                     </div>
+                    {(f.terminator_values ?? []).length > 0 && (
+                      <div className="mt-2 rounded border border-destructive/40 bg-destructive/5 p-2">
+                        <p className="mb-1 text-[11px] font-medium text-destructive">
+                          Respostas que interrompem o fluxo:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {qOpts.map((o) => {
+                            const selected = (f.terminator_values ?? []).includes(o.value);
+                            return (
+                              <button
+                                key={o.id}
+                                type="button"
+                                onClick={() => {
+                                  const cur = new Set(f.terminator_values ?? []);
+                                  if (selected) cur.delete(o.value); else cur.add(o.value);
+                                  updateFlow(f, { terminator_values: Array.from(cur) });
+                                }}
+                                className={`rounded-full border px-2 py-0.5 text-[11px] transition-colors ${
+                                  selected
+                                    ? "border-destructive bg-destructive text-destructive-foreground"
+                                    : "border-border bg-background hover:border-destructive/50"
+                                }`}
+                              >
+                                {o.label}
+                              </button>
+                            );
+                          })}
+                          {qOpts.length === 0 && <span className="text-[11px] text-muted-foreground">Cadastre opções para esta pergunta.</span>}
+                        </div>
+                        <p className="mt-1 text-[10px] text-muted-foreground">
+                          Se o cliente escolher uma destas respostas, o fluxo é encerrado e os produtos são exibidos.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 );
               })}
