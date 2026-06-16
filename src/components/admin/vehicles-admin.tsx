@@ -1328,13 +1328,16 @@ function FlowSimulator({
             const isFuture = !isPast && !isCurrent;
             const skipped = terminatedAt !== null && idx > terminatedAt;
 
+            const isTerminator = terminatedAt === idx;
+            const flowTerms = step.flow.terminator_values ?? [];
+
             return (
               <div
                 key={step.flow.id}
                 className={`rounded border p-3 ${
-                  isCurrent ? "border-primary bg-primary/5"
+                  isTerminator ? "border-destructive bg-destructive/10"
+                  : isCurrent ? "border-primary bg-primary/5"
                   : skipped ? "border-dashed border-border bg-muted/30 opacity-60"
-                  : isPast ? "border-border bg-background"
                   : "border-border bg-background"
                 }`}
               >
@@ -1344,10 +1347,11 @@ function FlowSimulator({
                     {step.question.label}
                   </p>
                   {ans && (
-                    <Badge variant={ans.terminates ? "default" : "secondary"} className="text-xs">
-                      {ans.label}{ans.terminates && " · finaliza fluxo"}
+                    <Badge variant={ans.terminates ? "destructive" : "secondary"} className="text-xs">
+                      {ans.label}{ans.terminates && " · interrompe"}
                     </Badge>
                   )}
+                  {isTerminator && <Badge variant="destructive" className="text-xs">Interrompido</Badge>}
                   {skipped && <Badge variant="outline" className="text-xs">Pulada</Badge>}
                 </div>
 
@@ -1356,18 +1360,21 @@ function FlowSimulator({
                     {step.options.length === 0 && (
                       <span className="text-xs text-muted-foreground">Sem opções cadastradas.</span>
                     )}
-                    {step.options.map((o) => (
-                      <Button
-                        key={o.id}
-                        size="sm"
-                        variant={o.terminates_flow ? "default" : "outline"}
-                        onClick={() => pick(idx, o)}
-                        title={o.terminates_flow ? "Esta opção finaliza o fluxo" : undefined}
-                      >
-                        {o.label}
-                        {o.terminates_flow && <span className="ml-1 text-[10px]">⚡</span>}
-                      </Button>
-                    ))}
+                    {step.options.map((o) => {
+                      const willTerminate = flowTerms.includes(o.value) || !!o.terminates_flow;
+                      return (
+                        <Button
+                          key={o.id}
+                          size="sm"
+                          variant={willTerminate ? "destructive" : "outline"}
+                          onClick={() => pick(idx, o)}
+                          title={willTerminate ? "Esta resposta interrompe o fluxo" : undefined}
+                        >
+                          {o.label}
+                          {willTerminate && <span className="ml-1 text-[10px]">⚡</span>}
+                        </Button>
+                      );
+                    })}
                   </div>
                 )}
 
