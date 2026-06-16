@@ -18,7 +18,7 @@ type CompatAnswer = string | string[];
 type Mapping = { id: string; model_id: string | null; cabin_type_id: string | null; product_id: string | null; year_from: number | null; year_to: number | null; active: boolean; answers: Record<string, CompatAnswer> | null };
 type Question = { id: string; key: string; label: string; help_text: string | null; type: string; active: boolean; model_id?: string | null };
 type Option = { id: string; question_id: string; value: string; label: string; image_url: string | null; display_order: number; active: boolean; terminates_flow?: boolean };
-type Flow = { id: string; model_id: string; question_id: string; year_from: number | null; year_to: number | null; display_order: number; required: boolean; active: boolean; hidden?: boolean; auto_answer?: string | null };
+type Flow = { id: string; model_id: string; question_id: string; year_from: number | null; year_to: number | null; display_order: number; required: boolean; active: boolean; hidden?: boolean; auto_answer?: string | null; terminator_values?: string[] | null };
 
 const sb = supabase as any;
 
@@ -817,6 +817,13 @@ function FlowsPanel() {
                         <Switch checked={!!f.hidden} onCheckedChange={(v) => updateFlow(f, { hidden: v })} />
                         Ocultar do cliente
                       </label>
+                      <label className="flex items-center gap-2 text-xs">
+                        <Switch
+                          checked={(f.terminator_values ?? []).length > 0}
+                          onCheckedChange={(v) => updateFlow(f, { terminator_values: v ? (qOpts[0] ? [qOpts[0].value] : []) : [] })}
+                        />
+                        Interromper Fluxo
+                      </label>
                       <div className="flex items-center gap-1">
                         <Label className="text-xs text-muted-foreground">Resposta automática:</Label>
                         <select
@@ -832,6 +839,40 @@ function FlowsPanel() {
                         Oculta + resposta automática = item de fábrica (ex.: ganchos sempre "sim").
                       </span>
                     </div>
+                    {(f.terminator_values ?? []).length > 0 && (
+                      <div className="mt-2 rounded border border-destructive/40 bg-destructive/5 p-2">
+                        <p className="mb-1 text-[11px] font-medium text-destructive">
+                          Respostas que interrompem o fluxo:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {qOpts.map((o) => {
+                            const selected = (f.terminator_values ?? []).includes(o.value);
+                            return (
+                              <button
+                                key={o.id}
+                                type="button"
+                                onClick={() => {
+                                  const cur = new Set(f.terminator_values ?? []);
+                                  if (selected) cur.delete(o.value); else cur.add(o.value);
+                                  updateFlow(f, { terminator_values: Array.from(cur) });
+                                }}
+                                className={`rounded-full border px-2 py-0.5 text-[11px] transition-colors ${
+                                  selected
+                                    ? "border-destructive bg-destructive text-destructive-foreground"
+                                    : "border-border bg-background hover:border-destructive/50"
+                                }`}
+                              >
+                                {o.label}
+                              </button>
+                            );
+                          })}
+                          {qOpts.length === 0 && <span className="text-[11px] text-muted-foreground">Cadastre opções para esta pergunta.</span>}
+                        </div>
+                        <p className="mt-1 text-[10px] text-muted-foreground">
+                          Se o cliente escolher uma destas respostas, o fluxo é encerrado e os produtos são exibidos.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -1239,8 +1280,11 @@ function FlowSimulator({
   const pick = (stepIdx: number, opt: Option) => {
     const step = visibleSteps[stepIdx];
     if (!step) return;
-    setAnswers((s) => ({ ...s, [step.question.key]: { value: opt.value, label: opt.label, terminates: !!opt.terminates_flow } }));
-    if (opt.terminates_flow) setTerminatedAt(stepIdx);
+    const flowTerminators = step.flow.terminator_values ?? [];
+    const flowTerminates = flowTerminators.includes(opt.value);
+    const terminates = flowTerminates || !!opt.terminates_flow;
+    setAnswers((s) => ({ ...s, [step.question.key]: { value: opt.value, label: opt.label, terminates } }));
+    if (terminates) setTerminatedAt(stepIdx);
   };
 
   const reset = () => {
@@ -1284,13 +1328,16 @@ function FlowSimulator({
             const isFuture = !isPast && !isCurrent;
             const skipped = terminatedAt !== null && idx > terminatedAt;
 
+            const isTerminator = terminatedAt === idx;
+            const flowTerms = step.flow.terminator_values ?? [];
+
             return (
               <div
                 key={step.flow.id}
                 className={`rounded border p-3 ${
-                  isCurrent ? "border-primary bg-primary/5"
+                  isTerminator ? "border-destructive bg-destructive/10"
+                  : isCurrent ? "border-primary bg-primary/5"
                   : skipped ? "border-dashed border-border bg-muted/30 opacity-60"
-                  : isPast ? "border-border bg-background"
                   : "border-border bg-background"
                 }`}
               >
@@ -1300,10 +1347,11 @@ function FlowSimulator({
                     {step.question.label}
                   </p>
                   {ans && (
-                    <Badge variant={ans.terminates ? "default" : "secondary"} className="text-xs">
-                      {ans.label}{ans.terminates && " · finaliza fluxo"}
+                    <Badge variant={ans.terminates ? "destructive" : "secondary"} className="text-xs">
+                      {ans.label}{ans.terminates && " · interrompe"}
                     </Badge>
                   )}
+                  {isTerminator && <Badge variant="destructive" className="text-xs">Interrompido</Badge>}
                   {skipped && <Badge variant="outline" className="text-xs">Pulada</Badge>}
                 </div>
 
@@ -1312,18 +1360,21 @@ function FlowSimulator({
                     {step.options.length === 0 && (
                       <span className="text-xs text-muted-foreground">Sem opções cadastradas.</span>
                     )}
-                    {step.options.map((o) => (
-                      <Button
-                        key={o.id}
-                        size="sm"
-                        variant={o.terminates_flow ? "default" : "outline"}
-                        onClick={() => pick(idx, o)}
-                        title={o.terminates_flow ? "Esta opção finaliza o fluxo" : undefined}
-                      >
-                        {o.label}
-                        {o.terminates_flow && <span className="ml-1 text-[10px]">⚡</span>}
-                      </Button>
-                    ))}
+                    {step.options.map((o) => {
+                      const willTerminate = flowTerms.includes(o.value) || !!o.terminates_flow;
+                      return (
+                        <Button
+                          key={o.id}
+                          size="sm"
+                          variant={willTerminate ? "destructive" : "outline"}
+                          onClick={() => pick(idx, o)}
+                          title={willTerminate ? "Esta resposta interrompe o fluxo" : undefined}
+                        >
+                          {o.label}
+                          {willTerminate && <span className="ml-1 text-[10px]">⚡</span>}
+                        </Button>
+                      );
+                    })}
                   </div>
                 )}
 

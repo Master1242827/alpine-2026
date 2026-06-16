@@ -27,7 +27,7 @@ type Make = { id: string; name: string; image_url: string | null };
 type Model = { id: string; name: string; image_url: string | null; year_from: number | null; year_to: number | null };
 type Question = { id: string; key: string; label: string; help_text: string | null };
 type Option = { id: string; question_id: string; value: string; label: string; image_url: string | null; terminates_flow?: boolean };
-type FlowItem = { question_id: string; display_order: number; required: boolean; year_from: number | null; year_to: number | null; hidden?: boolean; auto_answer?: string | null };
+type FlowItem = { question_id: string; display_order: number; required: boolean; year_from: number | null; year_to: number | null; hidden?: boolean; auto_answer?: string | null; terminator_values?: string[] | null };
 
 type Selection = {
   make?: { id: string; name: string };
@@ -67,7 +67,7 @@ function Configurator() {
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("vehicle_question_flow")
-        .select("question_id, display_order, required, year_from, year_to, active, hidden, auto_answer")
+        .select("question_id, display_order, required, year_from, year_to, active, hidden, auto_answer, terminator_values")
         .eq("model_id", sel.model!.id)
         .eq("active", true)
         .order("display_order");
@@ -199,7 +199,12 @@ function Configurator() {
       const q = questions?.find((x) => x.id === f.question_id);
       if (q && !userAns[q.key]) userAns[q.key] = f.auto_answer;
     }
-    const matchInput = { year: yr, userAnswers: userAns, flowQuestionKeys };
+    // When the flow was interrupted early, treat unanswered (skipped) keys as out-of-flow
+    // so the strict matcher doesn't reject products for missing answers.
+    const effectiveFlowKeys = earlyFinish
+      ? new Set(Array.from(flowQuestionKeys).filter((k) => !!userAns[k]))
+      : flowQuestionKeys;
+    const matchInput = { year: yr, userAnswers: userAns, flowQuestionKeys: effectiveFlowKeys };
     const selectedFields = {
       marca: sel.make,
       modelo: sel.model ? { id: sel.model.id, name: sel.model.name, year_from: sel.model.year_from, year_to: sel.model.year_to } : null,
@@ -352,8 +357,10 @@ function Configurator() {
             options={(options ?? []).filter((o) => o.question_id === currentDynamic.id)}
             onPick={(opt) => {
               setSel((s) => ({ ...s, answers: { ...s.answers, [currentDynamic.key]: { value: opt.value, label: opt.label } } }));
-              if (opt.terminates_flow) {
-                console.info("[Configurador] Resposta finaliza fluxo antecipadamente", { pergunta: currentDynamic.label, resposta: opt.label });
+              const flowItem = orderedFlow.find((f) => f.question_id === currentDynamic.id);
+              const flowTerminates = (flowItem?.terminator_values ?? []).includes(opt.value);
+              if (flowTerminates || opt.terminates_flow) {
+                console.info("[Configurador] Resposta interrompe o fluxo", { pergunta: currentDynamic.label, resposta: opt.label, motivo: flowTerminates ? "flow.terminator_values" : "option.terminates_flow" });
                 setEarlyFinish(true);
               }
             }}
