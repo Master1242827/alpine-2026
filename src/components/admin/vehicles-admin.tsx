@@ -852,6 +852,14 @@ function FlowsPanel() {
               </div>
             </Card>
           )}
+
+          <FlowSimulator
+            model={selectedModelObj}
+            flows={modelFlows}
+            questions={questions}
+            options={options}
+          />
+
         </div>
       )}
     </div>
@@ -1175,5 +1183,176 @@ function MappingsPanel() {
         )}
       </div>
     </div>
+  );
+}
+
+// ---------- Simulador do fluxo do configurador ----------
+function FlowSimulator({
+  model,
+  flows,
+  questions,
+  options,
+}: {
+  model: Model | undefined;
+  flows: Flow[];
+  questions: Question[];
+  options: Option[];
+}) {
+  const currentYear = new Date().getFullYear();
+  const defaultYear = model?.year_to ?? currentYear;
+  const [year, setYear] = useState<number>(defaultYear);
+  const [answers, setAnswers] = useState<Record<string, { value: string; label: string; terminates: boolean }>>({});
+  const [terminatedAt, setTerminatedAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    setYear(model?.year_to ?? currentYear);
+    setAnswers({});
+    setTerminatedAt(null);
+  }, [model?.id]);
+
+  const yearFlows = useMemo(() => {
+    return flows
+      .filter((f) => f.active)
+      .filter((f) => {
+        const yf = f.year_from ?? -Infinity;
+        const yt = f.year_to ?? Infinity;
+        return year >= yf && year <= yt;
+      })
+      .sort((a, b) => a.display_order - b.display_order);
+  }, [flows, year]);
+
+  const visibleSteps = useMemo(() => {
+    return yearFlows
+      .filter((f) => !f.hidden && !f.auto_answer)
+      .map((f) => {
+        const q = questions.find((x) => x.id === f.question_id);
+        const opts = options.filter((o) => o.question_id === f.question_id);
+        return q ? { flow: f, question: q, options: opts } : null;
+      })
+      .filter(Boolean) as { flow: Flow; question: Question; options: Option[] }[];
+  }, [yearFlows, questions, options]);
+
+  const answeredKeys = Object.keys(answers);
+  const currentIdx = terminatedAt !== null ? terminatedAt + 1 : answeredKeys.length;
+  const finished = terminatedAt !== null || currentIdx >= visibleSteps.length;
+
+  const pick = (stepIdx: number, opt: Option) => {
+    const step = visibleSteps[stepIdx];
+    if (!step) return;
+    setAnswers((s) => ({ ...s, [step.question.key]: { value: opt.value, label: opt.label, terminates: !!opt.terminates_flow } }));
+    if (opt.terminates_flow) setTerminatedAt(stepIdx);
+  };
+
+  const reset = () => {
+    setAnswers({});
+    setTerminatedAt(null);
+  };
+
+  if (!model) return null;
+
+  return (
+    <Card className="p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h4 className="font-semibold">Simulação do fluxo</h4>
+          <p className="text-xs text-muted-foreground">Veja como o cliente percorre as perguntas e onde o fluxo é finalizado antecipadamente.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground">Ano:</Label>
+          <Input
+            type="number"
+            className="h-8 w-24 text-xs"
+            value={year}
+            onChange={(e) => { setYear(parseInt(e.target.value) || currentYear); reset(); }}
+          />
+          <Button size="sm" variant="outline" onClick={reset}>Reiniciar</Button>
+        </div>
+      </div>
+
+      {visibleSteps.length === 0 && (
+        <p className="mt-3 rounded border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+          Sem perguntas visíveis para esse ano. {yearFlows.length > 0 && "Todas as perguntas estão ocultas ou com resposta automática."}
+        </p>
+      )}
+
+      {visibleSteps.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {visibleSteps.map((step, idx) => {
+            const ans = answers[step.question.key];
+            const isCurrent = idx === currentIdx && !finished;
+            const isPast = idx < currentIdx || (terminatedAt !== null && idx <= terminatedAt);
+            const isFuture = !isPast && !isCurrent;
+            const skipped = terminatedAt !== null && idx > terminatedAt;
+
+            return (
+              <div
+                key={step.flow.id}
+                className={`rounded border p-3 ${
+                  isCurrent ? "border-primary bg-primary/5"
+                  : skipped ? "border-dashed border-border bg-muted/30 opacity-60"
+                  : isPast ? "border-border bg-background"
+                  : "border-border bg-background"
+                }`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium">
+                    <span className="mr-2 text-muted-foreground">{idx + 1}/{visibleSteps.length}</span>
+                    {step.question.label}
+                  </p>
+                  {ans && (
+                    <Badge variant={ans.terminates ? "default" : "secondary"} className="text-xs">
+                      {ans.label}{ans.terminates && " · finaliza fluxo"}
+                    </Badge>
+                  )}
+                  {skipped && <Badge variant="outline" className="text-xs">Pulada</Badge>}
+                </div>
+
+                {isCurrent && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {step.options.length === 0 && (
+                      <span className="text-xs text-muted-foreground">Sem opções cadastradas.</span>
+                    )}
+                    {step.options.map((o) => (
+                      <Button
+                        key={o.id}
+                        size="sm"
+                        variant={o.terminates_flow ? "default" : "outline"}
+                        onClick={() => pick(idx, o)}
+                        title={o.terminates_flow ? "Esta opção finaliza o fluxo" : undefined}
+                      >
+                        {o.label}
+                        {o.terminates_flow && <span className="ml-1 text-[10px]">⚡</span>}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+
+                {isFuture && !skipped && (
+                  <p className="mt-1 text-[11px] text-muted-foreground">Aguardando respostas anteriores…</p>
+                )}
+              </div>
+            );
+          })}
+
+          {finished && (
+            <div className={`rounded border p-3 text-sm ${terminatedAt !== null ? "border-primary bg-primary/10" : "border-border bg-muted/50"}`}>
+              {terminatedAt !== null ? (
+                <>
+                  <strong>Fluxo finalizado antecipadamente</strong> na pergunta{" "}
+                  <strong>{terminatedAt + 1} de {visibleSteps.length}</strong> —{" "}
+                  "{visibleSteps[terminatedAt].question.label}" com a resposta{" "}
+                  "{answers[visibleSteps[terminatedAt].question.key]?.label}".
+                  {terminatedAt + 1 < visibleSteps.length && (
+                    <> As {visibleSteps.length - terminatedAt - 1} pergunta(s) seguinte(s) serão puladas.</>
+                  )}
+                </>
+              ) : (
+                <>Fluxo completo — todas as {visibleSteps.length} perguntas foram respondidas.</>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
   );
 }
