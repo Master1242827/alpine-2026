@@ -352,8 +352,10 @@ function Configurator() {
             options={(options ?? []).filter((o) => o.question_id === currentDynamic.id)}
             onPick={(opt) => {
               setSel((s) => ({ ...s, answers: { ...s.answers, [currentDynamic.key]: { value: opt.value, label: opt.label } } }));
-              if (opt.terminates_flow) {
-                console.info("[Configurador] Resposta finaliza fluxo antecipadamente", { pergunta: currentDynamic.label, resposta: opt.label });
+              const flowItem = orderedFlow.find((f) => f.question_id === currentDynamic.id);
+              const flowTerminates = (flowItem?.terminator_values ?? []).includes(opt.value);
+              if (flowTerminates || opt.terminates_flow) {
+                console.info("[Configurador] Resposta interrompe o fluxo", { pergunta: currentDynamic.label, resposta: opt.label, motivo: flowTerminates ? "flow.terminator_values" : "option.terminates_flow" });
                 setEarlyFinish(true);
               }
             }}
