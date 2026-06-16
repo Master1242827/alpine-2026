@@ -1280,8 +1280,11 @@ function FlowSimulator({
   const pick = (stepIdx: number, opt: Option) => {
     const step = visibleSteps[stepIdx];
     if (!step) return;
-    setAnswers((s) => ({ ...s, [step.question.key]: { value: opt.value, label: opt.label, terminates: !!opt.terminates_flow } }));
-    if (opt.terminates_flow) setTerminatedAt(stepIdx);
+    const flowTerminators = step.flow.terminator_values ?? [];
+    const flowTerminates = flowTerminators.includes(opt.value);
+    const terminates = flowTerminates || !!opt.terminates_flow;
+    setAnswers((s) => ({ ...s, [step.question.key]: { value: opt.value, label: opt.label, terminates } }));
+    if (terminates) setTerminatedAt(stepIdx);
   };
 
   const reset = () => {
