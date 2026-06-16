@@ -67,7 +67,7 @@ function Configurator() {
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("vehicle_question_flow")
-        .select("question_id, display_order, required, year_from, year_to, active, hidden, auto_answer")
+        .select("question_id, display_order, required, year_from, year_to, active, hidden, auto_answer, terminator_values")
         .eq("model_id", sel.model!.id)
         .eq("active", true)
         .order("display_order");
