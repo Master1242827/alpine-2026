@@ -646,6 +646,7 @@ export type Database = {
           model_id: string
           question_id: string
           required: boolean
+          terminator_values: string[]
           year_from: number | null
           year_to: number | null
         }
@@ -659,6 +660,7 @@ export type Database = {
           model_id: string
           question_id: string
           required?: boolean
+          terminator_values?: string[]
           year_from?: number | null
           year_to?: number | null
         }
@@ -672,6 +674,7 @@ export type Database = {
           model_id?: string
           question_id?: string
           required?: boolean
+          terminator_values?: string[]
           year_from?: number | null
           year_to?: number | null
         }

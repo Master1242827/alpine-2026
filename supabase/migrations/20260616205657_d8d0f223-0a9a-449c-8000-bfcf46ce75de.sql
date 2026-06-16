@@ -1,0 +1,1 @@
+ALTER TABLE public.vehicle_question_flow ADD COLUMN IF NOT EXISTS terminator_values text[] NOT NULL DEFAULT '{}'::text[];
