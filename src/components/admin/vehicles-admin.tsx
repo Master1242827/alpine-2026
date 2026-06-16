@@ -852,6 +852,14 @@ function FlowsPanel() {
               </div>
             </Card>
           )}
+
+          <FlowSimulator
+            model={selectedModelObj}
+            flows={modelFlows}
+            questions={questions}
+            options={options}
+          />
+
         </div>
       )}
     </div>
