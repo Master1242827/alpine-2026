@@ -203,11 +203,18 @@ function Configurator() {
       const q = questions?.find((x) => x.id === f.question_id);
       if (q && !userAns[q.key]) userAns[q.key] = f.auto_answer;
     }
-    // When the flow was interrupted early, treat unanswered (skipped) keys as out-of-flow
-    // so the strict matcher doesn't reject products for missing answers.
-    const effectiveFlowKeys = earlyFinish
-      ? new Set(Array.from(flowQuestionKeys).filter((k) => !!userAns[k]))
-      : flowQuestionKeys;
+    // When the flow was interrupted early, ignore ONLY questions that come AFTER
+    // the terminator step (those were skipped). Questions before/at the terminator
+    // remain in-flow so the matcher still enforces them.
+    let effectiveFlowKeys = flowQuestionKeys;
+    if (earlyFinish && terminatorStepIndex !== null) {
+      const skippedKeys = new Set(
+        dynamicSteps.slice(terminatorStepIndex + 1).map((q) => q.key),
+      );
+      effectiveFlowKeys = new Set(
+        Array.from(flowQuestionKeys).filter((k) => !skippedKeys.has(k)),
+      );
+    }
     const matchInput = { year: yr, userAnswers: userAns, flowQuestionKeys: effectiveFlowKeys };
     const selectedFields = {
       marca: sel.make,
