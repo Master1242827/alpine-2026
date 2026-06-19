@@ -164,6 +164,7 @@ function Configurator() {
     setNotFound(false);
     setResults(null);
     setEarlyFinish(false);
+    setTerminatorStepIndex(null);
     if (level === "make") setSel({ answers: {} });
     else if (level === "model") setSel({ make: sel.make, answers: {} });
     else if (level === "year") setSel({ make: sel.make, model: sel.model, answers: {} });
