@@ -376,6 +376,7 @@ function Configurator() {
               if (flowTerminates || opt.terminates_flow) {
                 console.info("[Configurador] Resposta interrompe o fluxo", { pergunta: currentDynamic.label, resposta: opt.label, motivo: flowTerminates ? "flow.terminator_values" : "option.terminates_flow" });
                 setEarlyFinish(true);
+                setTerminatorStepIndex(dynamicIndex);
               }
             }}
             onBack={() => {
