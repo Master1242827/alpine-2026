@@ -1,57 +1,60 @@
-# Páginas de retorno do Mercado Pago
+## Diagnóstico
 
-Criar três páginas distintas para os status de retorno do Mercado Pago, cada uma com URL própria e comportamento visual adequado. Atualizar as `back_urls` da preferência para apontar para as rotas corretas.
+O bug intermitente ("retorna todas as capotas") tem duas causas prováveis no `src/routes/configurador.tsx`:
 
-## Rotas
-
-| Status MP | URL | Arquivo |
-|-----------|-----|---------|
-| Aprovado (`success` / `approved`) | `/checkout/aprovado?order=<id>` | `src/routes/checkout.aprovado.tsx` |
-| Pendente (`pending` / `in_process`) | `/checkout/pendente?order=<id>` | `src/routes/checkout.pendente.tsx` |
-| Recusado/Cancelado (`failure` / `rejected`) | `/checkout/recusado?order=<id>` | `src/routes/checkout.recusado.tsx` |
-
-A rota antiga `/checkout/sucesso` permanece como redirecionamento (compat) para `/checkout/aprovado`, e `/checkout/falha` redireciona para `/checkout/recusado`, para não quebrar pagamentos em curso.
-
-## Comportamento de cada página
-
-Todas:
-- Lêem `?order=<orderId>` via `validateSearch`.
-- Chamam `getOrderPaymentStatus` com polling (3s, até 10x) enquanto status for `pending` — confirmação automática quando o webhook chegar.
-- Mostram número do pedido, valor total, status legível, método de pagamento, e ID do pagamento quando disponível.
-- Botões: "Voltar para a loja" e "Falar no WhatsApp" (suporte).
-- Mobile responsivo, usando os tokens do design system existente (`Card`, `Button`).
-
-Específicas:
-- **Aprovado** — ícone `CheckCircle2`, cor primária, mensagem de confirmação e próximos passos (acompanhar por e-mail/WhatsApp).
-- **Pendente** — ícone `Clock`, mensagem explicando que o Mercado Pago ainda está confirmando (boleto/PIX); continua o polling.
-- **Recusado** — ícone `XCircle`, cor destructive, mensagem clara, CTA para tentar novamente (`/carrinho`) e link para suporte.
-
-## Integração com a preferência
-
-Em `src/lib/checkout.functions.ts`, atualizar `back_urls`:
+### Causa 1 — `flowQuestionKeys` vazio em race condition
 
 ```ts
-back_urls: {
-  success: `${origin}/checkout/aprovado?order=${order.id}`,
-  pending: `${origin}/checkout/pendente?order=${order.id}`,
-  failure: `${origin}/checkout/recusado?order=${order.id}`,
-},
-auto_return: "approved",
+const flowQuestionKeys = useMemo(() => new Set(
+  orderedFlow.map(f => questions?.find(q => q.id === f.question_id)?.key).filter(Boolean)
+), [orderedFlow, questions]);
 ```
 
-Nenhuma mudança no webhook — ele continua atualizando o status do pedido independentemente da URL de retorno.
+Se `questions` ainda não carregou quando `findProducts()` roda, o Set fica **vazio**. Com `flowQuestionKeys` vazio, todo filtro de resposta vira "out-of-flow" e é ignorado — passa só o filtro de ano. Resultado: **todos os produtos do modelo no ano retornam**.
 
-## Detalhes técnicos
+Hoje `findProducts` só checa `sel.model!.id` antes de consultar; não espera `questions`, `flow` e `options`.
 
-- Extrair a lógica de polling+exibição compartilhada para um helper local em cada arquivo (sem novo componente global, mantendo o escopo da mudança).
-- Adicionar as 3 novas rotas; o `routeTree.gen.ts` é regenerado automaticamente.
-- Manter `checkout.sucesso.tsx` e `checkout.falha.tsx` como rotas que fazem `<Navigate>` para as novas URLs, preservando o parâmetro `order`.
+### Causa 2 — `effectiveFlowKeys` strip demais quando há terminator
 
-## Arquivos
+```ts
+const effectiveFlowKeys = earlyFinish
+  ? new Set([...flowQuestionKeys].filter(k => !!userAns[k]))
+  : flowQuestionKeys;
+```
 
-- novo: `src/routes/checkout.aprovado.tsx`
-- novo: `src/routes/checkout.pendente.tsx`
-- novo: `src/routes/checkout.recusado.tsx`
-- editado: `src/routes/checkout.sucesso.tsx` (redirect compat)
-- editado: `src/routes/checkout.falha.tsx` (redirect compat)
-- editado: `src/lib/checkout.functions.ts` (back_urls)
+Isso remove **todas** as chaves sem resposta — inclusive perguntas que vieram ANTES da pergunta terminadora e que o usuário deveria ter respondido (mas que por algum motivo não foram salvas, p.ex. terminator disparado na 1ª pergunta). O correto é remover apenas perguntas posteriores ao step que terminou o fluxo.
+
+Além disso, `flowQuestionKeys` inclui chaves de TODOS os anos (ex.: `saveiro_1982_a_1985` para um cliente 2018), o que confunde a lógica. Deveria conter só as do ano atual.
+
+## Correções
+
+Em `src/routes/configurador.tsx`:
+
+1. **Bloquear `findProducts` enquanto dados-base não carregaram.**
+   No `useEffect` que dispara a busca (linha ~290), só chamar `findProducts()` quando `flow !== undefined && questions !== undefined && options !== undefined`. Mostrar estado "carregando" enquanto isso.
+
+2. **Restringir `flowQuestionKeys` ao ano selecionado.**
+   Filtrar `orderedFlow` por `year_from <= sel.year <= year_to` (com fallback amplo quando nulos) antes de extrair as keys. Isso elimina chaves de outros buckets de versão.
+
+3. **Trocar a estratégia de `effectiveFlowKeys`.**
+   Em vez de "manter apenas keys respondidas", manter as keys das perguntas **até o step terminador (inclusive)** + perguntas com `auto_answer`/`hidden`. Perguntas POSTERIORES ao terminador são removidas. Implementação: localizar o índice do step cuja resposta atual está em `terminator_values`/`terminates_flow` e cortar `dynamicSteps` ali.
+
+4. **Guard final em `matchesCompatRecord` (defensa extra).**
+   Se `flowQuestionKeys` estiver vazio E `userAnswers` tiver pelo menos 1 entrada, considerar essas keys como in-flow para evitar fallback silencioso. Pequena rede de segurança contra a Causa 1 caso volte a aparecer.
+
+5. **Teste de regressão.**
+   Adicionar em `src/lib/configurator-match.test.ts`:
+   - Saveiro 2018 + Cabine Estendida + Cross_ deve retornar **apenas** os produtos Cross (Cabine Estendida) e produtos cuja regra de versão inclua `cross_`. NÃO deve retornar Pepper, Trendline, Robust, Simples, Dupla.
+   - Caso `flowQuestionKeys` vazio com respostas presentes não pode retornar produto cuja `answers` exige valor diferente do recebido.
+
+### Arquivos alterados
+
+- `src/routes/configurador.tsx` — itens 1, 2, 3
+- `src/lib/configurator-match.ts` — item 4 (guard pequeno em `matchesCompatRecord`)
+- `src/lib/configurator-match.test.ts` — item 5
+
+### Sem mudanças em
+
+- Schema do banco
+- Painel admin
+- Lógica de outros modelos/fluxos que já funcionam (as mudanças só endurecem o match; não afrouxam)

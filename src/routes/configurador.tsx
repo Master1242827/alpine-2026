@@ -42,6 +42,9 @@ function Configurator() {
   const [searching, setSearching] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [earlyFinish, setEarlyFinish] = useState(false);
+  // Index in `dynamicSteps` of the question whose answer triggered the early termination.
+  // Steps AFTER this index are skipped and treated as out-of-flow for matching.
+  const [terminatorStepIndex, setTerminatorStepIndex] = useState<number | null>(null);
   const [results, setResults] = useState<ResultProduct[] | null>(null);
 
   // Step indexes:
@@ -161,6 +164,7 @@ function Configurator() {
     setNotFound(false);
     setResults(null);
     setEarlyFinish(false);
+    setTerminatorStepIndex(null);
     if (level === "make") setSel({ answers: {} });
     else if (level === "model") setSel({ make: sel.make, answers: {} });
     else if (level === "year") setSel({ make: sel.make, model: sel.model, answers: {} });
@@ -199,11 +203,18 @@ function Configurator() {
       const q = questions?.find((x) => x.id === f.question_id);
       if (q && !userAns[q.key]) userAns[q.key] = f.auto_answer;
     }
-    // When the flow was interrupted early, treat unanswered (skipped) keys as out-of-flow
-    // so the strict matcher doesn't reject products for missing answers.
-    const effectiveFlowKeys = earlyFinish
-      ? new Set(Array.from(flowQuestionKeys).filter((k) => !!userAns[k]))
-      : flowQuestionKeys;
+    // When the flow was interrupted early, ignore ONLY questions that come AFTER
+    // the terminator step (those were skipped). Questions before/at the terminator
+    // remain in-flow so the matcher still enforces them.
+    let effectiveFlowKeys = flowQuestionKeys;
+    if (earlyFinish && terminatorStepIndex !== null) {
+      const skippedKeys = new Set(
+        dynamicSteps.slice(terminatorStepIndex + 1).map((q) => q.key),
+      );
+      effectiveFlowKeys = new Set(
+        Array.from(flowQuestionKeys).filter((k) => !skippedKeys.has(k)),
+      );
+    }
     const matchInput = { year: yr, userAnswers: userAns, flowQuestionKeys: effectiveFlowKeys };
     const selectedFields = {
       marca: sel.make,
@@ -286,13 +297,16 @@ function Configurator() {
   };
 
 
-  // auto-trigger search when reaching final state
+  // auto-trigger search when reaching final state — but only after ALL config data
+  // is loaded, to avoid a race where flowQuestionKeys is empty and the matcher
+  // falsely treats every key as out-of-flow (returning all products).
+  const configReady = flow !== undefined && questions !== undefined && options !== undefined;
   useEffect(() => {
-    if ((isFinal || isFinalNoQuestions) && !searching && !notFound && !results) {
+    if ((isFinal || isFinalNoQuestions) && configReady && !searching && !notFound && !results) {
       findProducts();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isFinal, isFinalNoQuestions]);
+  }, [isFinal, isFinalNoQuestions, configReady]);
 
   // Total visible steps (for the stepper)
   const totalSteps = 3 + (dynamicSteps.length || 0);
@@ -362,6 +376,7 @@ function Configurator() {
               if (flowTerminates || opt.terminates_flow) {
                 console.info("[Configurador] Resposta interrompe o fluxo", { pergunta: currentDynamic.label, resposta: opt.label, motivo: flowTerminates ? "flow.terminator_values" : "option.terminates_flow" });
                 setEarlyFinish(true);
+                setTerminatorStepIndex(dynamicIndex);
               }
             }}
             onBack={() => {

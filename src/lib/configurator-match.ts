@@ -79,6 +79,14 @@ export function matchesCompatRecord(
   const product = getCompatProduct(record);
   if (product && product.active === false) return false;
 
+  // Safety net: if flowQuestionKeys is empty (e.g. race condition where questions
+  // are still loading) but the user has already provided answers, treat those
+  // answered keys as in-flow. Prevents a silent fallback to "match-all".
+  const safeFlowKeys =
+    input.flowQuestionKeys.size === 0
+      ? new Set(Object.keys(input.userAnswers).filter((k) => !!input.userAnswers[k]))
+      : input.flowQuestionKeys;
+
   const required = (record.answers ?? {}) as Record<string, string | string[]>;
   for (const k of Object.keys(required)) {
     const req = required[k];
@@ -91,7 +99,7 @@ export function matchesCompatRecord(
     const got = normalizeCompatValue(input.userAnswers[k]);
 
     // Out-of-flow filter (asked only for other years) → skip, don't reject.
-    if (!got && !input.flowQuestionKeys.has(k)) continue;
+    if (!got && !safeFlowKeys.has(k)) continue;
 
     // In-flow filter with no answer → strict reject.
     if (!got) return false;

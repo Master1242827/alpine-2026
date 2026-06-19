@@ -212,3 +212,65 @@ describe("filterCompatibleProducts", () => {
     expect(ok).toBe(true);
   });
 });
+
+describe("Saveiro 2018 Cross early-finish (regression: returns ALL products)", () => {
+  // Real-world records that triggered the "18 capotas" bug.
+  const crossEstendida: CompatRecord = {
+    product_id: "p-cross-est",
+    products: { name: "Cross Cabine Estendida", active: true },
+    year_from: 2010,
+    year_to: 2026,
+    answers: {
+      saveiro_2018_e_2019: ["cross_"],
+      qual_a_configura__o_da_cabine_2015_em_diante: ["cabine_estendida"],
+    },
+  };
+  const pepperDupla: CompatRecord = {
+    product_id: "p-pepper-dupla",
+    products: { name: "Pepper Cabine Dupla", active: true },
+    year_from: 2018,
+    year_to: 2019,
+    answers: {
+      cabine: "cabine_dupla",
+      saveiro_2018_e_2019: ["pepper_"],
+      qual_a_configura__o_da_cabine_2015_em_diante: ["cabine_dupla"],
+    },
+  };
+  const trendEstendida: CompatRecord = {
+    product_id: "p-trend-est",
+    products: { name: "Trendline Cabine Estendida", active: true },
+    year_from: 2015,
+    year_to: 2026,
+    answers: {
+      saveiro_2018_e_2019: ["trendline_"],
+      qual_a_configura__o_da_cabine_2015_em_diante: ["cabine_estendida"],
+    },
+  };
+  const flow2018 = new Set([
+    "qual_a_configura__o_da_cabine_2015_em_diante",
+    "saveiro_2018_e_2019",
+    "estendida_ganchos_ate2013",
+  ]);
+  const userAnswers = {
+    qual_a_configura__o_da_cabine_2015_em_diante: "cabine_estendida",
+    saveiro_2018_e_2019: "cross_",
+  };
+
+  it("returns only Cross-compatible Estendida products, never Pepper/Trendline/Dupla", () => {
+    const matches = filterCompatibleProducts(
+      [crossEstendida, pepperDupla, trendEstendida],
+      { year: 2018, userAnswers, flowQuestionKeys: flow2018 },
+    );
+    expect(matches.map((m) => m.product_id)).toEqual(["p-cross-est"]);
+  });
+
+  it("safety net: empty flowQuestionKeys with answers still rejects mismatches (no fallback to all)", () => {
+    // Simulates race where `questions` hasn't loaded → flowQuestionKeys is empty.
+    const matches = filterCompatibleProducts(
+      [crossEstendida, pepperDupla, trendEstendida],
+      { year: 2018, userAnswers, flowQuestionKeys: new Set<string>() },
+    );
+    expect(matches.map((m) => m.product_id)).toEqual(["p-cross-est"]);
+  });
+});
+
