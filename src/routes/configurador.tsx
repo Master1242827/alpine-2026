@@ -42,6 +42,9 @@ function Configurator() {
   const [searching, setSearching] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [earlyFinish, setEarlyFinish] = useState(false);
+  // Index in `dynamicSteps` of the question whose answer triggered the early termination.
+  // Steps AFTER this index are skipped and treated as out-of-flow for matching.
+  const [terminatorStepIndex, setTerminatorStepIndex] = useState<number | null>(null);
   const [results, setResults] = useState<ResultProduct[] | null>(null);
 
   // Step indexes:
