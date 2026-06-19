@@ -297,13 +297,16 @@ function Configurator() {
   };
 
 
-  // auto-trigger search when reaching final state
+  // auto-trigger search when reaching final state — but only after ALL config data
+  // is loaded, to avoid a race where flowQuestionKeys is empty and the matcher
+  // falsely treats every key as out-of-flow (returning all products).
+  const configReady = flow !== undefined && questions !== undefined && options !== undefined;
   useEffect(() => {
-    if ((isFinal || isFinalNoQuestions) && !searching && !notFound && !results) {
+    if ((isFinal || isFinalNoQuestions) && configReady && !searching && !notFound && !results) {
       findProducts();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isFinal, isFinalNoQuestions]);
+  }, [isFinal, isFinalNoQuestions, configReady]);
 
   // Total visible steps (for the stepper)
   const totalSteps = 3 + (dynamicSteps.length || 0);
