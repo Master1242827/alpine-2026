@@ -751,6 +751,7 @@ function SettingsTab() {
       <Button onClick={async () => {
         const { error } = await supabase.from("store_settings").update({
           store_name: s.store_name, whatsapp_number: s.whatsapp_number, origin_cep: s.origin_cep,
+          cnpj: (s.cnpj || "").trim() || null,
           hero_image_url: s.hero_image_url || null,
         } as any).eq("id", 1);
         if (error) return toast.error(error.message);
