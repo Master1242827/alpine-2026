@@ -81,6 +81,7 @@ const InputSchema = z.object({
   shippingCostCents: z.number().int().min(0).default(0),
   shippingService: z.string().max(60).optional().default("A combinar"),
   notes: z.string().max(500).optional().default(""),
+  notesImages: z.array(z.string().url().max(500)).max(6).optional().default([]),
   items: z.array(ItemSchema).min(1).max(50),
   paymentMethod: z.enum(["mercadopago", "pix"]).optional().default("mercadopago"),
   discountCents: z.number().int().min(0).optional().default(0),
@@ -202,6 +203,7 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
         discount_cents: discountCents,
         total_cents: total,
         notes: data.notes,
+        notes_images: data.notesImages ?? [],
         status: "pending",
         payment_method: data.paymentMethod,
       })
@@ -399,6 +401,7 @@ export const createPixPayment = createServerFn({ method: "POST" })
         discount_cents: discountCents,
         total_cents: total,
         notes: data.notes,
+        notes_images: data.notesImages ?? [],
         status: "pending",
         payment_method: "pix",
       })
@@ -425,7 +428,8 @@ export const createPixPayment = createServerFn({ method: "POST" })
 
     const origin = getRuntimeOrigin();
     const [firstName, ...rest] = data.customer.name.split(" ");
-    const expiration = new Date(Date.now() + 30 * 60 * 1000).toISOString().replace("Z", "-00:00");
+    // MP requires ISO 8601 with explicit offset (e.g. .000+00:00 or -03:00)
+    const expiration = new Date(Date.now() + 30 * 60 * 1000).toISOString().replace("Z", "+00:00");
     const rawEmail = (data.customer.email || "").trim().toLowerCase();
     const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)
       && !/@(test|example)\.(com|org|net)$/.test(rawEmail);

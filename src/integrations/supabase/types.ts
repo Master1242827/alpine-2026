@@ -272,11 +272,13 @@ export type Database = {
           mp_payment_id: string | null
           mp_preference_id: string | null
           notes: string | null
+          notes_images: string[]
           payment_method: string
           shipping_address: Json | null
           shipping_cost_cents: number
           shipping_service: string | null
           status: Database["public"]["Enums"]["order_status"]
+          stock_decremented: boolean
           subtotal_cents: number
           total_cents: number
           updated_at: string
@@ -292,11 +294,13 @@ export type Database = {
           mp_payment_id?: string | null
           mp_preference_id?: string | null
           notes?: string | null
+          notes_images?: string[]
           payment_method?: string
           shipping_address?: Json | null
           shipping_cost_cents?: number
           shipping_service?: string | null
           status?: Database["public"]["Enums"]["order_status"]
+          stock_decremented?: boolean
           subtotal_cents: number
           total_cents: number
           updated_at?: string
@@ -312,11 +316,13 @@ export type Database = {
           mp_payment_id?: string | null
           mp_preference_id?: string | null
           notes?: string | null
+          notes_images?: string[]
           payment_method?: string
           shipping_address?: Json | null
           shipping_cost_cents?: number
           shipping_service?: string | null
           status?: Database["public"]["Enums"]["order_status"]
+          stock_decremented?: boolean
           subtotal_cents?: number
           total_cents?: number
           updated_at?: string
@@ -442,6 +448,7 @@ export type Database = {
       }
       store_settings: {
         Row: {
+          cnpj: string | null
           hero_image_url: string | null
           id: number
           origin_cep: string
@@ -458,6 +465,7 @@ export type Database = {
           whatsapp_number: string
         }
         Insert: {
+          cnpj?: string | null
           hero_image_url?: string | null
           id?: number
           origin_cep?: string
@@ -474,6 +482,7 @@ export type Database = {
           whatsapp_number?: string
         }
         Update: {
+          cnpj?: string | null
           hero_image_url?: string | null
           id?: number
           origin_cep?: string
@@ -727,6 +736,14 @@ export type Database = {
     }
     Functions: {
       get_hero_image_url: { Args: never; Returns: string }
+      get_public_store_info: {
+        Args: never
+        Returns: {
+          cnpj: string
+          store_name: string
+          whatsapp_number: string
+        }[]
+      }
       get_whatsapp_number: { Args: never; Returns: string }
       has_role: {
         Args: {

@@ -401,7 +401,7 @@ function ProductForm({ initial, onClose }: { initial: Product; onClose: () => vo
             <Switch checked={p.featured} onCheckedChange={(v) => setP({ ...p, featured: v })} /> Destaque
           </label>
           <label className="flex items-center gap-2">
-            <Switch checked={p.requires_vehicle_config} onCheckedChange={(v) => setP({ ...p, requires_vehicle_config: v })} /> Exige configurador de veículo
+            <Switch checked={p.requires_vehicle_config} onCheckedChange={(v) => setP({ ...p, requires_vehicle_config: v })} /> Exige buscador de veículo
           </label>
         </div>
 
@@ -665,7 +665,7 @@ function SettingsTab() {
   const [uploadingHero, setUploadingHero] = useState(false);
   useEffect(() => {
     supabase.from("store_settings").select("*").eq("id", 1).maybeSingle()
-      .then(({ data }) => setS(data ?? { id: 1, store_name: "Alpine", whatsapp_number: "", origin_cep: "", hero_image_url: null }));
+      .then(({ data }) => setS(data ?? { id: 1, store_name: "Alpine", whatsapp_number: "", origin_cep: "", cnpj: "", hero_image_url: null }));
   }, []);
   if (!s) return <p className="mt-4">Carregando…</p>;
   const cepDigits = (s.origin_cep || "").replace(/\D/g, "");
@@ -707,6 +707,17 @@ function SettingsTab() {
         <Input value={s.whatsapp_number} onChange={(e) => setS({ ...s, whatsapp_number: e.target.value })} />
       </div>
       <div>
+        <Label>CNPJ da loja</Label>
+        <Input
+          placeholder="00.000.000/0000-00"
+          value={s.cnpj ?? ""}
+          onChange={(e) => setS({ ...s, cnpj: e.target.value })}
+        />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Exibido no rodapé do site. Pode ser alterado a qualquer momento.
+        </p>
+      </div>
+      <div>
         <Label>CEP de origem da loja (interno — não exibido ao cliente)</Label>
         <Input
           placeholder="00000-000"
@@ -740,6 +751,7 @@ function SettingsTab() {
       <Button onClick={async () => {
         const { error } = await supabase.from("store_settings").update({
           store_name: s.store_name, whatsapp_number: s.whatsapp_number, origin_cep: s.origin_cep,
+          cnpj: (s.cnpj || "").trim() || null,
           hero_image_url: s.hero_image_url || null,
         } as any).eq("id", 1);
         if (error) return toast.error(error.message);

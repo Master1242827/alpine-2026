@@ -57,7 +57,7 @@ export function SiteHeader() {
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
           <Link to="/" className="hover:text-primary transition-colors">Início</Link>
           <Link to="/produtos" className="hover:text-primary transition-colors">Produtos</Link>
-          <Link to="/configurador" className="hover:text-primary transition-colors">Configurador</Link>
+          <Link to="/configurador" className="hover:text-primary transition-colors">Buscador</Link>
         </nav>
         <form onSubmit={submitSearch} className="hidden lg:flex relative w-64">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -120,7 +120,7 @@ export function SiteHeader() {
           <nav className="container mx-auto flex flex-col px-4 py-2 text-sm font-medium">
             <Link to="/" className="py-3 border-b border-border/50" onClick={() => setOpen(false)}>Início</Link>
             <Link to="/produtos" className="py-3 border-b border-border/50" onClick={() => setOpen(false)}>Produtos</Link>
-            <Link to="/configurador" className="py-3 border-b border-border/50" onClick={() => setOpen(false)}>Configurador</Link>
+            <Link to="/configurador" className="py-3 border-b border-border/50" onClick={() => setOpen(false)}>Buscador</Link>
             <Link to={accountHref} className="py-3 border-b border-border/50" onClick={() => setOpen(false)}>
               {user ? "Minha conta" : "Entrar / Criar conta"}
             </Link>

@@ -315,7 +315,7 @@ function Configurator() {
   return (
     <div className="container mx-auto max-w-5xl px-4 py-8 md:py-12">
       <div className="mb-6 md:mb-10">
-        <h1 className="text-2xl font-bold md:text-4xl">Configurador de veículo</h1>
+        <h1 className="text-2xl font-bold md:text-4xl">Buscador de veículo</h1>
         <p className="mt-2 text-sm text-muted-foreground md:text-base">
           Responda algumas perguntas e encontramos a peça certa para a sua picape.
         </p>

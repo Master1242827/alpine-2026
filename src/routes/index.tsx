@@ -109,7 +109,7 @@ function Index() {
             Responda algumas perguntas rápidas com imagens e veja exatamente o produto compatível com seu veículo.
           </p>
           <Button asChild size="lg" className="mt-6">
-            <Link to="/configurador">Iniciar configurador</Link>
+            <Link to="/configurador">Iniciar buscador</Link>
           </Button>
         </div>
       </section>
