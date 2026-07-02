@@ -707,6 +707,17 @@ function SettingsTab() {
         <Input value={s.whatsapp_number} onChange={(e) => setS({ ...s, whatsapp_number: e.target.value })} />
       </div>
       <div>
+        <Label>CNPJ da loja</Label>
+        <Input
+          placeholder="00.000.000/0000-00"
+          value={s.cnpj ?? ""}
+          onChange={(e) => setS({ ...s, cnpj: e.target.value })}
+        />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Exibido no rodapé do site. Pode ser alterado a qualquer momento.
+        </p>
+      </div>
+      <div>
         <Label>CEP de origem da loja (interno — não exibido ao cliente)</Label>
         <Input
           placeholder="00000-000"
