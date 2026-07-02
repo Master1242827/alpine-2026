@@ -84,6 +84,29 @@ function CheckoutPage() {
     }
   }, [user]);
 
+  const handleNoteImagesUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const remaining = 6 - notesImages.length;
+    if (remaining <= 0) { toast.error("Máximo de 6 imagens"); return; }
+    const arr = Array.from(files).slice(0, remaining);
+    setUploadingNote(true);
+    try {
+      const uploaded: string[] = [];
+      for (const file of arr) {
+        if (file.size > 6 * 1024 * 1024) { toast.error(`${file.name}: máximo 6MB`); continue; }
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+        const path = `checkout-notes/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+        const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: false, contentType: file.type });
+        if (error) { toast.error(error.message); continue; }
+        const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+        uploaded.push(data.publicUrl);
+      }
+      if (uploaded.length) setNotesImages((prev) => [...prev, ...uploaded]);
+    } finally {
+      setUploadingNote(false);
+    }
+  };
+
   // Auto address lookup + auto quote when CEP becomes valid.
   // IMPORTANT: declared BEFORE any conditional early-return below so hook order stays stable.
   useEffect(() => {
