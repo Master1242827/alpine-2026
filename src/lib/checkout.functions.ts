@@ -401,6 +401,7 @@ export const createPixPayment = createServerFn({ method: "POST" })
         discount_cents: discountCents,
         total_cents: total,
         notes: data.notes,
+        notes_images: data.notesImages ?? [],
         status: "pending",
         payment_method: "pix",
       })
