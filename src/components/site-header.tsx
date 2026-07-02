@@ -57,7 +57,7 @@ export function SiteHeader() {
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
           <Link to="/" className="hover:text-primary transition-colors">Início</Link>
           <Link to="/produtos" className="hover:text-primary transition-colors">Produtos</Link>
-          <Link to="/configurador" className="hover:text-primary transition-colors">Configurador</Link>
+          <Link to="/configurador" className="hover:text-primary transition-colors">Buscador</Link>
         </nav>
         <form onSubmit={submitSearch} className="hidden lg:flex relative w-64">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
