@@ -452,7 +452,43 @@ function CheckoutPage() {
 
           <Section icon={<CheckCircle2 className="h-4 w-4" />} title="Observações" step={5}>
             <Textarea rows={3} value={form.notes} onChange={set("notes")} placeholder="Modelo do veículo, ano, cor da capota, etc. (opcional)" />
+            <div className="mt-3 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3">
+              <p className="text-sm font-medium">📸 Envie fotos do seu veículo (opcional)</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Envie imagens do veículo para conferência. Caso o produto escolhido não seja o ideal,
+                nosso time técnico entrará em contato pelo WhatsApp. Até 6 imagens, 6MB cada.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {notesImages.map((url) => (
+                  <div key={url} className="relative">
+                    <img src={url} alt="" className="h-16 w-16 rounded object-cover border" />
+                    <button
+                      type="button"
+                      onClick={() => setNotesImages((p) => p.filter((u) => u !== url))}
+                      className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs text-destructive-foreground"
+                      aria-label="Remover"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                {notesImages.length < 6 && (
+                  <label className="flex h-16 w-16 cursor-pointer items-center justify-center rounded border-2 border-dashed border-muted-foreground/40 text-xs text-muted-foreground hover:border-primary hover:text-primary">
+                    {uploadingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : "+ foto"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      disabled={uploadingNote}
+                      onChange={(e) => { handleNoteImagesUpload(e.target.files); e.target.value = ""; }}
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
           </Section>
+
 
           <Button type="submit" className="hidden h-12 w-full md:flex" disabled={loading || !selectedShip} size="lg">
             {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando…</> : <><Lock className="mr-2 h-4 w-4" /> Pagar {formatCents(total)}</>}
