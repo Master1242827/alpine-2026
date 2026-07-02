@@ -52,6 +52,8 @@ function CheckoutPage() {
     cep: cartCep ? formatCep(cartCep) : "", street: "", number: "", complement: "",
     district: "", city: "", state: "", notes: "",
   });
+  const [notesImages, setNotesImages] = useState<string[]>([]);
+  const [uploadingNote, setUploadingNote] = useState(false);
   const numberRef = useRef<HTMLInputElement>(null);
   const shippingCostCents = selectedShip?.priceCents ?? 0;
   const baseTotal = subtotalCents + shippingCostCents;
