@@ -401,7 +401,7 @@ function ProductForm({ initial, onClose }: { initial: Product; onClose: () => vo
             <Switch checked={p.featured} onCheckedChange={(v) => setP({ ...p, featured: v })} /> Destaque
           </label>
           <label className="flex items-center gap-2">
-            <Switch checked={p.requires_vehicle_config} onCheckedChange={(v) => setP({ ...p, requires_vehicle_config: v })} /> Exige configurador de veículo
+            <Switch checked={p.requires_vehicle_config} onCheckedChange={(v) => setP({ ...p, requires_vehicle_config: v })} /> Exige buscador de veículo
           </label>
         </div>
 
