@@ -120,7 +120,7 @@ export function SiteHeader() {
           <nav className="container mx-auto flex flex-col px-4 py-2 text-sm font-medium">
             <Link to="/" className="py-3 border-b border-border/50" onClick={() => setOpen(false)}>Início</Link>
             <Link to="/produtos" className="py-3 border-b border-border/50" onClick={() => setOpen(false)}>Produtos</Link>
-            <Link to="/configurador" className="py-3 border-b border-border/50" onClick={() => setOpen(false)}>Configurador</Link>
+            <Link to="/configurador" className="py-3 border-b border-border/50" onClick={() => setOpen(false)}>Buscador</Link>
             <Link to={accountHref} className="py-3 border-b border-border/50" onClick={() => setOpen(false)}>
               {user ? "Minha conta" : "Entrar / Criar conta"}
             </Link>
