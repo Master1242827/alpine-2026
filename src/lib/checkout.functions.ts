@@ -81,6 +81,7 @@ const InputSchema = z.object({
   shippingCostCents: z.number().int().min(0).default(0),
   shippingService: z.string().max(60).optional().default("A combinar"),
   notes: z.string().max(500).optional().default(""),
+  notesImages: z.array(z.string().url().max(500)).max(6).optional().default([]),
   items: z.array(ItemSchema).min(1).max(50),
   paymentMethod: z.enum(["mercadopago", "pix"]).optional().default("mercadopago"),
   discountCents: z.number().int().min(0).optional().default(0),
