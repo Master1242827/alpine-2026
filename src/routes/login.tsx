@@ -32,10 +32,12 @@ function LoginPage() {
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
           email, password,
-          options: { emailRedirectTo: window.location.origin },
+          options: { emailRedirectTo: `${window.location.origin}/login` },
         });
         if (error) throw error;
-        toast.success("Conta criada! Verifique seu e-mail.");
+        toast.success("Cadastro realizado com sucesso! Enviamos um e-mail de confirmação. Faça login para continuar.");
+        setMode("signin");
+        setPassword("");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -93,36 +95,76 @@ function LoginPage() {
     );
   }
 
+  const isSignup = mode === "signup";
+
   return (
     <div className="container mx-auto max-w-md px-4 py-12">
-      <h1 className="text-2xl font-bold">{mode === "signin" ? "Entrar" : "Criar conta"}</h1>
-      <form onSubmit={customerSubmit} className="mt-6 space-y-4">
-        <div>
-          <Label>E-mail</Label>
-          <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-        </div>
-        <div>
-          <Label>Senha</Label>
-          <Input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
-        </div>
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Aguarde…" : mode === "signin" ? "Entrar" : "Criar conta"}
-        </Button>
-      </form>
-      <div className="mt-4 flex flex-col gap-2 text-sm">
+      {/* Toggle de modo bem destacado */}
+      <div className="mb-6 grid grid-cols-2 gap-2 rounded-lg bg-muted p-1">
         <button
-          onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-          className="text-primary hover:underline self-start"
+          type="button"
+          onClick={() => setMode("signin")}
+          className={`rounded-md px-3 py-2 text-sm font-semibold transition ${!isSignup ? "bg-background shadow" : "text-muted-foreground"}`}
         >
-          {mode === "signin" ? "Não tem conta? Cadastre-se" : "Já tem conta? Entrar"}
+          Entrar
         </button>
         <button
-          onClick={() => setView("admin")}
-          className="text-muted-foreground hover:underline self-start"
+          type="button"
+          onClick={() => setMode("signup")}
+          className={`rounded-md px-3 py-2 text-sm font-semibold transition ${isSignup ? "bg-background shadow" : "text-muted-foreground"}`}
         >
-          Acesso administrativo
+          Criar conta
         </button>
       </div>
+
+      <div className={isSignup ? "rounded-xl border-2 border-primary/40 bg-primary/5 p-6" : ""}>
+        <h1 className="text-2xl font-bold">
+          {isSignup ? "Crie sua conta grátis" : "Bem-vindo de volta"}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {isSignup
+            ? "Preencha os dados abaixo para acompanhar seus pedidos e agilizar suas compras."
+            : "Entre com seu e-mail e senha para continuar."}
+        </p>
+
+        <form onSubmit={customerSubmit} className="mt-6 space-y-4">
+          <div>
+            <Label>E-mail</Label>
+            <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@exemplo.com" />
+          </div>
+          <div>
+            <Label>Senha</Label>
+            <Input
+              type="password" required minLength={6}
+              value={password} onChange={(e) => setPassword(e.target.value)}
+              placeholder={isSignup ? "Crie uma senha (mín. 6 caracteres)" : "Sua senha"}
+            />
+            {isSignup && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Use pelo menos 6 caracteres. Você receberá um e-mail de confirmação.
+              </p>
+            )}
+          </div>
+          <Button type="submit" className="w-full" disabled={loading} size="lg">
+            {loading ? "Aguarde…" : isSignup ? "Cadastrar" : "Entrar"}
+          </Button>
+        </form>
+
+        <div className="mt-4 text-center text-sm text-muted-foreground">
+          {isSignup ? (
+            <>Já tem conta? <button type="button" onClick={() => setMode("signin")} className="font-semibold text-primary hover:underline">Faça login</button></>
+          ) : (
+            <>Ainda não tem conta? <button type="button" onClick={() => setMode("signup")} className="font-semibold text-primary hover:underline">Cadastre-se grátis</button></>
+          )}
+        </div>
+      </div>
+
+      <button
+        onClick={() => setView("admin")}
+        className="mt-6 block w-full text-center text-xs text-muted-foreground hover:underline"
+      >
+        Acesso administrativo
+      </button>
     </div>
   );
 }
