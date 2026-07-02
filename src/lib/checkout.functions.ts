@@ -428,7 +428,8 @@ export const createPixPayment = createServerFn({ method: "POST" })
 
     const origin = getRuntimeOrigin();
     const [firstName, ...rest] = data.customer.name.split(" ");
-    const expiration = new Date(Date.now() + 30 * 60 * 1000).toISOString().replace("Z", "-00:00");
+    // MP requires ISO 8601 with explicit offset (e.g. .000+00:00 or -03:00)
+    const expiration = new Date(Date.now() + 30 * 60 * 1000).toISOString().replace("Z", "+00:00");
     const rawEmail = (data.customer.email || "").trim().toLowerCase();
     const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)
       && !/@(test|example)\.(com|org|net)$/.test(rawEmail);
