@@ -665,7 +665,7 @@ function SettingsTab() {
   const [uploadingHero, setUploadingHero] = useState(false);
   useEffect(() => {
     supabase.from("store_settings").select("*").eq("id", 1).maybeSingle()
-      .then(({ data }) => setS(data ?? { id: 1, store_name: "Alpine", whatsapp_number: "", origin_cep: "", cnpj: "", hero_image_url: null }));
+      .then(({ data }) => setS(data ?? { id: 1, store_name: "Alpine", whatsapp_number: "", origin_cep: "", cnpj: "", hero_image_url: null, pix_enabled: true, pix_discount_percent: 5 }));
   }, []);
   if (!s) return <p className="mt-4">Carregando…</p>;
   const cepDigits = (s.origin_cep || "").replace(/\D/g, "");
@@ -748,11 +748,41 @@ function SettingsTab() {
         </div>
         {uploadingHero && <p className="text-xs text-muted-foreground">Enviando imagem…</p>}
       </div>
+      <div className="space-y-2 border-t pt-4">
+        <Label>Pagamento via PIX</Label>
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={!!s.pix_enabled}
+            onCheckedChange={(v) => setS({ ...s, pix_enabled: v })}
+          />
+          <span className="text-sm text-muted-foreground">
+            {s.pix_enabled ? "PIX ativo no checkout" : "PIX desativado"}
+          </span>
+        </div>
+        <div>
+          <Label>Desconto no PIX (%)</Label>
+          <Input
+            type="number"
+            min={0}
+            max={100}
+            step="0.01"
+            value={s.pix_discount_percent ?? 0}
+            onChange={(e) => setS({ ...s, pix_discount_percent: e.target.value })}
+            disabled={!s.pix_enabled}
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Aplicado automaticamente sobre o subtotal quando o cliente escolhe PIX. Use 0 para desabilitar o desconto.
+          </p>
+        </div>
+      </div>
       <Button onClick={async () => {
+        const pct = Math.max(0, Math.min(100, Number(s.pix_discount_percent) || 0));
         const { error } = await supabase.from("store_settings").update({
           store_name: s.store_name, whatsapp_number: s.whatsapp_number, origin_cep: s.origin_cep,
           cnpj: (s.cnpj || "").trim() || null,
           hero_image_url: s.hero_image_url || null,
+          pix_enabled: !!s.pix_enabled,
+          pix_discount_percent: pct,
         } as any).eq("id", 1);
         if (error) return toast.error(error.message);
         toast.success("Configurações salvas");
