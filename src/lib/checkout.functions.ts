@@ -431,9 +431,11 @@ export const createPixPayment = createServerFn({ method: "POST" })
     // MP requires ISO 8601 with explicit offset (e.g. .000+00:00 or -03:00)
     const expiration = new Date(Date.now() + 30 * 60 * 1000).toISOString().replace("Z", "+00:00");
     const rawEmail = (data.customer.email || "").trim().toLowerCase();
-    const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)
-      && !/@(test|example)\.(com|org|net)$/.test(rawEmail);
-    const payerEmail = emailValid ? rawEmail : `pedido+${String(order.id).slice(0, 8)}@alpine.com.br`;
+    const strictEmail = /^[a-z0-9._-]+@[a-z0-9-]+(\.[a-z0-9-]+)+$/i;
+    const emailValid = strictEmail.test(rawEmail)
+      && !/@(test|example|localhost)\.(com|org|net|local)$/.test(rawEmail);
+    const fallbackEmail = `pedido${String(order.id).replace(/-/g, "").slice(0, 12)}@alpinecapotas.com.br`;
+    const payerEmail = emailValid ? rawEmail : fallbackEmail;
     const pixBody = {
       transaction_amount: Number((total / 100).toFixed(2)),
       description: `Pedido Alpine #${String(order.id).slice(0, 8)}`,
