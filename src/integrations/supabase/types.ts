@@ -736,6 +736,13 @@ export type Database = {
     }
     Functions: {
       get_hero_image_url: { Args: never; Returns: string }
+      get_public_pix_settings: {
+        Args: never
+        Returns: {
+          pix_discount_percent: number
+          pix_enabled: boolean
+        }[]
+      }
       get_public_store_info: {
         Args: never
         Returns: {
