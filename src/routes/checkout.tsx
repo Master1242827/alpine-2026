@@ -9,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatCents } from "@/lib/format";
 import { formatCep, lookupCep } from "@/lib/cep";
 import { createCheckoutPreference, createPixPayment } from "@/lib/checkout.functions";
-import { supabase } from "@/integrations/supabase/client";
 import { quoteShipping } from "@/lib/shipping.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
