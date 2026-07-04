@@ -63,15 +63,19 @@ function CheckoutPage() {
   const total = baseTotal - discountCents;
   const lastQuotedCep = useRef<string>("");
 
-  const fetchPublicSettings = useServerFn(getPublicStoreSettings);
   useEffect(() => {
-    fetchPublicSettings()
-      .then((data) => setPixSettings({
-        pix_enabled: !!data?.pix_enabled,
-        pix_discount_percent: Number(data?.pix_discount_percent ?? 0),
-      }))
-      .catch((err) => console.error("[Checkout] erro ao carregar configurações PIX", err));
-  }, [fetchPublicSettings]);
+    (supabase as any)
+      .rpc("get_public_pix_settings")
+      .then(({ data, error }: { data: any; error: any }) => {
+        if (error) throw error;
+        const row = Array.isArray(data) ? data[0] : data;
+        setPixSettings({
+          pix_enabled: !!row?.pix_enabled,
+          pix_discount_percent: Number(row?.pix_discount_percent ?? 0),
+        });
+      })
+      .catch((err: any) => console.error("[Checkout] erro ao carregar configurações PIX", err));
+  }, []);
 
   // Pré-preenche e-mail/nome a partir da conta autenticada
   useEffect(() => {
