@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Copy, CheckCircle2, Loader2, QrCode, Clock } from "lucide-react";
+import { QRCodeCanvas } from "qrcode.react";
 import { formatCents } from "@/lib/format";
 import { toast } from "sonner";
 import { getOrderPaymentStatus } from "@/lib/checkout.functions";
