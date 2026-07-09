@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Copy, CheckCircle2, Loader2, QrCode, Clock } from "lucide-react";
+import { QRCodeCanvas } from "qrcode.react";
 import { formatCents } from "@/lib/format";
 import { toast } from "sonner";
 import { getOrderPaymentStatus } from "@/lib/checkout.functions";
@@ -127,15 +128,21 @@ function PixPage() {
 
         {!isPaid && !isCancelled && pix && (
           <>
-            {pix.qrCodeBase64 && (
-              <div className="flex justify-center">
+            <div className="flex justify-center">
+              {pix.qrCodeBase64 ? (
                 <img
                   src={`data:image/png;base64,${pix.qrCodeBase64}`}
                   alt="QR Code PIX"
                   className="h-64 w-64 rounded-lg border bg-white object-contain p-2"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                 />
-              </div>
-            )}
+              ) : (
+                <div className="rounded-lg border bg-white p-3">
+                  <QRCodeCanvas value={pix.qrCode} size={240} includeMargin={false} level="M" />
+                </div>
+              )}
+            </div>
+
 
             <div>
               <p className="mb-1 text-xs font-medium text-muted-foreground">PIX Copia e Cola</p>
