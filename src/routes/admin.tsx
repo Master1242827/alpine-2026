@@ -405,6 +405,49 @@ function ProductForm({ initial, onClose }: { initial: Product; onClose: () => vo
           </label>
         </div>
 
+        <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+          <h4 className="text-sm font-semibold">Vídeo do produto (opcional)</h4>
+          <div>
+            <Label className="text-xs">URL (YouTube / Vimeo)</Label>
+            <Input
+              placeholder="https://www.youtube.com/watch?v=…"
+              value={p.video_url ?? ""}
+              onChange={(e) => setP({ ...p, video_url: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Arquivo MP4</Label>
+            <input
+              type="file"
+              accept="video/mp4,video/webm,video/quicktime"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (file.size > 50 * 1024 * 1024) return toast.error("Máx 50MB");
+                const path = `videos/${Date.now()}-${file.name.replace(/[^\w.-]/g, "_")}`;
+                const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: true, contentType: file.type });
+                if (error) return toast.error(error.message);
+                const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+                setP({ ...p, video_file_url: data.publicUrl });
+                toast.success("Vídeo enviado");
+              }}
+              className="text-sm"
+            />
+            {p.video_file_url && (
+              <div className="mt-2 flex items-center gap-2">
+                <a href={p.video_file_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline truncate">
+                  Ver vídeo atual
+                </a>
+                <Button type="button" size="sm" variant="outline" onClick={() => setP({ ...p, video_file_url: null })}>
+                  Remover
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+
+
+
         <div className="rounded-lg border border-border bg-muted/30 p-4">
           <h4 className="text-sm font-semibold">Dimensões e peso</h4>
           <p className="mt-1 text-xs text-muted-foreground">
