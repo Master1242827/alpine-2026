@@ -264,6 +264,7 @@ export type Database = {
       orders: {
         Row: {
           created_at: string
+          customer_cpf: string | null
           customer_email: string
           customer_name: string
           customer_phone: string | null
@@ -286,6 +287,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          customer_cpf?: string | null
           customer_email: string
           customer_name: string
           customer_phone?: string | null
@@ -308,6 +310,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          customer_cpf?: string | null
           customer_email?: string
           customer_name?: string
           customer_phone?: string | null
@@ -355,6 +358,8 @@ export type Database = {
           slug: string
           stock: number
           updated_at: string
+          video_file_url: string | null
+          video_url: string | null
           weight_kg: number
           width_cm: number
         }
@@ -382,6 +387,8 @@ export type Database = {
           slug: string
           stock?: number
           updated_at?: string
+          video_file_url?: string | null
+          video_url?: string | null
           weight_kg?: number
           width_cm?: number
         }
@@ -409,6 +416,8 @@ export type Database = {
           slug?: string
           stock?: number
           updated_at?: string
+          video_file_url?: string | null
+          video_url?: string | null
           weight_kg?: number
           width_cm?: number
         }
@@ -448,9 +457,13 @@ export type Database = {
       }
       store_settings: {
         Row: {
+          card_discount_percent: number
           cnpj: string | null
           hero_image_url: string | null
           id: number
+          installments_interest_free: number
+          installments_max: number
+          installments_monthly_rate: number
           origin_cep: string
           pix_bank: string
           pix_copy_paste: string | null
@@ -465,9 +478,13 @@ export type Database = {
           whatsapp_number: string
         }
         Insert: {
+          card_discount_percent?: number
           cnpj?: string | null
           hero_image_url?: string | null
           id?: number
+          installments_interest_free?: number
+          installments_max?: number
+          installments_monthly_rate?: number
           origin_cep?: string
           pix_bank?: string
           pix_copy_paste?: string | null
@@ -482,9 +499,13 @@ export type Database = {
           whatsapp_number?: string
         }
         Update: {
+          card_discount_percent?: number
           cnpj?: string | null
           hero_image_url?: string | null
           id?: number
+          installments_interest_free?: number
+          installments_max?: number
+          installments_monthly_rate?: number
           origin_cep?: string
           pix_bank?: string
           pix_copy_paste?: string | null
@@ -736,6 +757,17 @@ export type Database = {
     }
     Functions: {
       get_hero_image_url: { Args: never; Returns: string }
+      get_public_payment_settings: {
+        Args: never
+        Returns: {
+          card_discount_percent: number
+          installments_interest_free: number
+          installments_max: number
+          installments_monthly_rate: number
+          pix_discount_percent: number
+          pix_enabled: boolean
+        }[]
+      }
       get_public_pix_settings: {
         Args: never
         Returns: {
