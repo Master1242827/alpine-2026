@@ -355,8 +355,18 @@ function CheckoutPage() {
               <Field label="Nome completo" required value={form.name} onChange={set("name")} className="sm:col-span-2" placeholder="Como aparece no documento" />
               <Field label="E-mail" type="email" required value={form.email} onChange={set("email")} placeholder="voce@email.com" />
               <Field label="WhatsApp" required value={form.phone} onChange={set("phone")} placeholder="(00) 00000-0000" inputMode="tel" />
+              <Field
+                label="CPF (para emissão de NF)"
+                value={form.cpf}
+                onChange={(e) => setForm((p) => ({ ...p, cpf: formatCpf(e.target.value) }))}
+                placeholder="000.000.000-00"
+                inputMode="numeric"
+                maxLength={14}
+                className="sm:col-span-2"
+              />
             </div>
           </Section>
+
 
           <Section icon={<MapPin className="h-4 w-4" />} title="Endereço de entrega" step={2}>
             <div className="grid gap-3 sm:grid-cols-6">
