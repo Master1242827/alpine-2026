@@ -356,7 +356,7 @@ export const getOrderPaymentStatus = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: order, error } = await supabaseAdmin
       .from("orders")
-      .select("id,user_id,total_cents,status,payment_method,mp_payment_id,mp_preference_id,created_at")
+      .select("id,user_id,total_cents,status,payment_method,mp_payment_id,mp_preference_id,created_at, order_items(product_id, product_name, quantity, unit_price_cents)")
       .eq("id", data.orderId)
       .maybeSingle();
 
@@ -365,6 +365,39 @@ export const getOrderPaymentStatus = createServerFn({ method: "POST" })
       throw new Error("Erro ao buscar pedido. Tente novamente.");
     }
     if (!order || order.user_id !== context.userId) throw new Error("Pedido não encontrado");
+
+    // Buscar imagem de capa de cada produto para exibir na tela de confirmação
+    const productIds = (order.order_items ?? []).map((i: any) => i.product_id).filter(Boolean);
+    let imagesByProduct: Record<string, string | null> = {};
+    if (productIds.length > 0) {
+      const { data: prods } = await supabaseAdmin
+        .from("products")
+        .select("id, images")
+        .in("id", productIds);
+      imagesByProduct = Object.fromEntries(
+        (prods ?? []).map((p: any) => [p.id, Array.isArray(p.images) && p.images[0] ? p.images[0] : null]),
+      );
+    }
+    const items = (order.order_items ?? []).map((i: any) => ({
+      productId: i.product_id,
+      name: i.product_name,
+      quantity: i.quantity,
+      unitPriceCents: i.unit_price_cents,
+      image: imagesByProduct[i.product_id] ?? null,
+    }));
+
+    const buildResult = (status: OrderStatus, paymentId?: string, paymentStatus?: string, statusDetail?: string) => ({
+      id: order.id,
+      shortId: String(order.id).slice(0, 8).toUpperCase(),
+      totalCents: order.total_cents,
+      status,
+      paymentMethod: order.payment_method,
+      paymentId: paymentId ?? order.mp_payment_id,
+      preferenceId: order.mp_preference_id,
+      paymentStatus: paymentStatus ?? status,
+      statusDetail,
+      items,
+    });
 
     const token = process.env.MERCADO_PAGO_ACCESS_TOKEN;
     if (token && order.status === "pending") {
@@ -386,17 +419,7 @@ export const getOrderPaymentStatus = createServerFn({ method: "POST" })
               .update({ status: nextStatus, mp_payment_id: String(payment.id) })
               .eq("id", order.id);
             if (updateErr) console.error("[MercadoPago] status update error", { orderId: order.id, message: updateErr.message });
-            return {
-              id: order.id,
-              shortId: String(order.id).slice(0, 8).toUpperCase(),
-              totalCents: order.total_cents,
-              status: nextStatus,
-              paymentMethod: order.payment_method,
-              paymentId: String(payment.id),
-              preferenceId: order.mp_preference_id,
-              paymentStatus: payment.status as string,
-              statusDetail: payment.status_detail as string | undefined,
-            };
+            return buildResult(nextStatus, String(payment.id), payment.status as string, payment.status_detail as string | undefined);
           }
         }
       } catch (err) {
@@ -404,18 +427,9 @@ export const getOrderPaymentStatus = createServerFn({ method: "POST" })
       }
     }
 
-    return {
-      id: order.id,
-      shortId: String(order.id).slice(0, 8).toUpperCase(),
-      totalCents: order.total_cents,
-      status: order.status,
-      paymentMethod: order.payment_method,
-      paymentId: order.mp_payment_id,
-      preferenceId: order.mp_preference_id,
-      paymentStatus: order.status,
-      statusDetail: undefined,
-    };
+    return buildResult(order.status as OrderStatus);
   });
+
 
 export const createPixPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
