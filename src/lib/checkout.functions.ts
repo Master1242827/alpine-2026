@@ -434,6 +434,7 @@ export const createPixPayment = createServerFn({ method: "POST" })
         customer_name: data.customer.name,
         customer_email: data.customer.email,
         customer_phone: data.customer.phone,
+        customer_cpf: (data.customer.cpf || "").replace(/\D/g, "") || null,
         shipping_address: data.shipping,
         shipping_cost_cents: shippingCostCents,
         shipping_service: data.shippingService,
@@ -447,6 +448,7 @@ export const createPixPayment = createServerFn({ method: "POST" })
       })
       .select("id")
       .single();
+
     if (orderErr || !order) {
       console.error("[pix] create order error", orderErr);
       throw new Error("Falha ao criar pedido. Tente novamente.");
