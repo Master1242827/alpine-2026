@@ -167,22 +167,25 @@ async function resolveCheckoutAmounts(input: z.infer<typeof InputSchema>) {
   // When quote is unavailable (no token / origin CEP missing) we fall back to
   // the client-supplied value, matching the existing "A combinar" behaviour.
 
-  // Recompute discount from server-side store_settings (PIX only).
+  // Recompute discount from server-side store_settings.
+  // PIX and card à vista both may have discounts; store settings drives the values.
   let discountCents = 0;
-  if (input.paymentMethod === "pix") {
-    const { data: settings } = await supabaseAdmin
-      .from("store_settings")
-      .select("pix_enabled,pix_discount_percent")
-      .eq("id", 1)
-      .maybeSingle();
-    if (settings?.pix_enabled && settings.pix_discount_percent) {
-      discountCents = Math.floor((subtotal * Number(settings.pix_discount_percent)) / 100);
-    }
+  const { data: settings } = await supabaseAdmin
+    .from("store_settings")
+    .select("pix_enabled,pix_discount_percent,card_discount_percent")
+    .eq("id", 1)
+    .maybeSingle();
+  if (input.paymentMethod === "pix" && settings?.pix_enabled && settings?.pix_discount_percent) {
+    discountCents = Math.floor((subtotal * Number(settings.pix_discount_percent)) / 100);
+  } else if ((input.paymentMethod === "card" || input.paymentMethod === "boleto") && settings?.card_discount_percent) {
+    // Card à vista / boleto: aplica desconto configurado sobre subtotal.
+    discountCents = Math.floor((subtotal * Number(settings.card_discount_percent)) / 100);
   }
 
   const total = Math.max(0, subtotal + shippingCostCents - discountCents);
   return { resolvedItems, subtotal, shippingCostCents, discountCents, total };
 }
+
 
 
 export const createCheckoutPreference = createServerFn({ method: "POST" })
