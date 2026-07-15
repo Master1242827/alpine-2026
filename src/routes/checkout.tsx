@@ -42,13 +42,17 @@ function CheckoutPage() {
       : null,
   );
   const [showSummary, setShowSummary] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"mercadopago" | "pix">("mercadopago");
-  const [pixSettings, setPixSettings] = useState<{
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "boleto" | "pix">("card");
+  const [paySettings, setPaySettings] = useState<{
     pix_enabled: boolean;
     pix_discount_percent: number;
+    card_discount_percent: number;
+    installments_max: number;
+    installments_interest_free: number;
+    installments_monthly_rate: number;
   } | null>(null);
   const [form, setForm] = useState({
-    name: "", email: "", phone: "",
+    name: "", email: "", phone: "", cpf: "",
     cep: cartCep ? formatCep(cartCep) : "", street: "", number: "", complement: "",
     district: "", city: "", state: "", notes: "",
   });
@@ -57,25 +61,32 @@ function CheckoutPage() {
   const numberRef = useRef<HTMLInputElement>(null);
   const shippingCostCents = selectedShip?.priceCents ?? 0;
   const baseTotal = subtotalCents + shippingCostCents;
-  const pixDiscountPercent = pixSettings?.pix_enabled ? Number(pixSettings.pix_discount_percent) || 0 : 0;
-  const discountCents =
-    paymentMethod === "pix" ? Math.round((baseTotal * pixDiscountPercent) / 100) : 0;
+  const pixDiscountPercent = paySettings?.pix_enabled ? Number(paySettings.pix_discount_percent) || 0 : 0;
+  const cardDiscountPercent = Number(paySettings?.card_discount_percent ?? 0) || 0;
+  const activeDiscountPercent =
+    paymentMethod === "pix" ? pixDiscountPercent : cardDiscountPercent;
+  const discountCents = Math.round((subtotalCents * activeDiscountPercent) / 100);
   const total = baseTotal - discountCents;
   const lastQuotedCep = useRef<string>("");
 
   useEffect(() => {
     (supabase as any)
-      .rpc("get_public_pix_settings")
+      .rpc("get_public_payment_settings")
       .then(({ data, error }: { data: any; error: any }) => {
         if (error) throw error;
         const row = Array.isArray(data) ? data[0] : data;
-        setPixSettings({
+        setPaySettings({
           pix_enabled: !!row?.pix_enabled,
           pix_discount_percent: Number(row?.pix_discount_percent ?? 0),
+          card_discount_percent: Number(row?.card_discount_percent ?? 0),
+          installments_max: Number(row?.installments_max ?? 10),
+          installments_interest_free: Number(row?.installments_interest_free ?? 1),
+          installments_monthly_rate: Number(row?.installments_monthly_rate ?? 0),
         });
       })
-      .catch((err: any) => console.error("[Checkout] erro ao carregar configurações PIX", err));
+      .catch((err: any) => console.error("[Checkout] erro ao carregar configurações de pagamento", err));
   }, []);
+
 
   // Pré-preenche e-mail/nome a partir da conta autenticada
   useEffect(() => {
