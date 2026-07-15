@@ -89,6 +89,31 @@ export function CheckoutStatusCard({ orderId, variant }: { orderId: string; vari
           </div>
         )}
 
+        {data?.items?.length > 0 && (
+          <div className="mt-4 rounded-lg border border-border bg-background p-3 text-left">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Confira seu pedido
+            </p>
+            <ul className="space-y-2">
+              {data.items.map((it: any, idx: number) => (
+                <li key={idx} className="flex items-center gap-3">
+                  {it.image ? (
+                    <img src={it.image} alt={it.name} className="h-14 w-14 shrink-0 rounded object-cover border" />
+                  ) : (
+                    <div className="grid h-14 w-14 shrink-0 place-items-center rounded border bg-muted text-lg">🖼️</div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{it.name}</p>
+                    <p className="text-xs text-muted-foreground">Qtd: {it.quantity}</p>
+                  </div>
+                  <span className="text-sm font-semibold">{formatCents(it.unitPriceCents * it.quantity)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+
         <div className="mt-6 flex flex-col gap-2">
           <Button asChild className="w-full">
             <Link to="/pedido/$id" params={{ id: orderId }}>Acompanhar status em tempo real</Link>
