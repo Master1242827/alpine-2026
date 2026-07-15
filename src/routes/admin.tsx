@@ -597,12 +597,23 @@ function OrdersTab() {
       {orders.map((o) => {
         const isOpen = expanded === o.id;
         const addr = o.shipping_address || {};
+        const statusStyle =
+          o.status === "paid"
+            ? "border-emerald-500/40 bg-emerald-500/5"
+            : o.status === "shipped"
+              ? "border-blue-500/40 bg-blue-500/5"
+              : o.status === "delivered"
+                ? "border-emerald-600/50 bg-emerald-500/10"
+                : o.status === "cancelled"
+                  ? "border-zinc-400/40 bg-zinc-400/5 opacity-70"
+                  : "border-red-500/40 bg-red-500/5"; // pending
         return (
-          <Card key={o.id} className="p-4">
+          <Card key={o.id} className={`border-l-4 p-4 ${statusStyle}`}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <p className="font-medium truncate">#{o.id.slice(0, 8)} • {o.customer_name}</p>
                 <p className="text-xs text-muted-foreground truncate">{o.customer_email} • {o.customer_phone}</p>
+                {o.customer_cpf && <p className="text-xs text-muted-foreground">CPF: {o.customer_cpf}</p>}
                 <p className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString("pt-BR")}</p>
               </div>
               <div className="text-right">
@@ -613,7 +624,7 @@ function OrdersTab() {
                 className="rounded border bg-background px-2 py-1 text-sm">
                 <option value="pending">Pendente</option>
                 <option value="paid">Pago</option>
-                <option value="shipped">Enviado</option>
+                <option value="shipped">A enviar / Enviado</option>
                 <option value="delivered">Entregue</option>
                 <option value="cancelled">Cancelado</option>
               </select>
@@ -636,6 +647,9 @@ function OrdersTab() {
                   <div className="mt-3 space-y-0.5 border-t border-border pt-2 text-xs">
                     <div className="flex justify-between"><span>Subtotal</span><span>{formatCents(o.subtotal_cents)}</span></div>
                     <div className="flex justify-between"><span>Frete ({o.shipping_service || "—"})</span><span>{formatCents(o.shipping_cost_cents)}</span></div>
+                    {o.discount_cents > 0 && (
+                      <div className="flex justify-between text-primary"><span>Desconto</span><span>- {formatCents(o.discount_cents)}</span></div>
+                    )}
                     <div className="flex justify-between font-bold"><span>Total</span><span>{formatCents(o.total_cents)}</span></div>
                   </div>
                 </div>
@@ -654,6 +668,7 @@ function OrdersTab() {
           </Card>
         );
       })}
+
     </div>
   );
 }
