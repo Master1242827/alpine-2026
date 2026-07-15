@@ -92,9 +92,16 @@ function ProductDetail() {
             Adicionar ao carrinho
           </Button>
         )}
+        {(product.video_url || product.video_file_url) && (
+          <div className="mt-8">
+            <h2 className="mb-3 text-lg font-bold">Vídeo do produto</h2>
+            <ProductVideo url={product.video_url} file={product.video_file_url} />
+          </div>
+        )}
         {product.description && (
           <div className="mt-8 whitespace-pre-line text-sm leading-relaxed">{product.description}</div>
         )}
+
         <Link to="/carrinho" className="mt-6 inline-block text-sm font-semibold text-primary hover:underline">Ver carrinho →</Link>
       </div>
     </div>
