@@ -141,7 +141,10 @@ type Product = {
   shipping_length_cm: number | null;
   shipping_width_cm: number | null;
   shipping_height_cm: number | null;
+  video_url: string | null;
+  video_file_url: string | null;
 };
+
 
 const emptyProduct: Product = {
   id: "",
