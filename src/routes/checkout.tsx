@@ -588,8 +588,12 @@ function CheckoutPage() {
             <Row label="Subtotal" value={formatCents(subtotalCents)} />
             <Row label="Frete" value={selectedShip ? formatCents(shippingCostCents) : <span className="text-muted-foreground">A calcular</span>} />
             {discountCents > 0 && (
-              <Row label={`Desconto PIX (${pixDiscountPercent}%)`} value={<span className="text-primary">- {formatCents(discountCents)}</span>} />
+              <Row
+                label={`Desconto ${paymentMethod === "pix" ? "PIX" : paymentMethod === "boleto" ? "Boleto" : "Cartão à vista"} (${activeDiscountPercent}%)`}
+                value={<span className="text-primary">- {formatCents(discountCents)}</span>}
+              />
             )}
+
             <div className="flex justify-between pt-2 text-base font-bold">
               <span>Total</span><span className="text-primary">{formatCents(total)}</span>
             </div>
