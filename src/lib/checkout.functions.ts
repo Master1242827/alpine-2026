@@ -206,6 +206,7 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
         customer_name: data.customer.name,
         customer_email: data.customer.email,
         customer_phone: data.customer.phone,
+        customer_cpf: (data.customer.cpf || "").replace(/\D/g, "") || null,
         shipping_address: data.shipping,
         shipping_cost_cents: shippingCostCents,
         shipping_service: data.shippingService,
@@ -223,6 +224,7 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
       console.error("[checkout] create order error", orderErr);
       throw new Error("Falha ao criar pedido. Tente novamente.");
     }
+
 
     const itemsRows = resolvedItems.map((i) => ({
       order_id: order.id,
