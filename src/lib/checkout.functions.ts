@@ -241,10 +241,12 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
     }
 
     const origin = getRuntimeOrigin();
-    const mpItems = data.paymentMethod === "pix" && discountCents > 0
+    // Sempre usa 1 linha consolidada quando há desconto, para o total bater com o MP.
+    const consolidated = discountCents > 0;
+    const mpItems = consolidated
       ? [{
           id: order.id,
-          title: `Pedido Alpine #${String(order.id).slice(0, 8)} com frete e desconto PIX`,
+          title: `Pedido Alpine #${String(order.id).slice(0, 8)}`,
           quantity: 1,
           currency_id: "BRL",
           unit_price: Number((total / 100).toFixed(2)),
@@ -256,7 +258,7 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
           currency_id: "BRL",
           unit_price: Number((i.priceCents / 100).toFixed(2)),
         }));
-    if (!(data.paymentMethod === "pix" && discountCents > 0) && shippingCostCents > 0) {
+    if (!consolidated && shippingCostCents > 0) {
       mpItems.push({
         id: "shipping",
         title: `Frete (${data.shippingService})`,
@@ -266,18 +268,43 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
       });
     }
 
+    // Configurações de parcelamento (via store_settings)
+    const { data: paySettings } = await supabaseAdmin
+      .from("store_settings")
+      .select("installments_max,installments_interest_free")
+      .eq("id", 1)
+      .maybeSingle();
+    const maxInstallments = Math.max(1, Math.min(12, Number(paySettings?.installments_max ?? 10)));
 
     const [firstName, ...rest] = data.customer.name.split(" ");
-    const paymentMethods = data.paymentMethod === "pix"
-      ? { excluded_payment_types: [{ id: "credit_card" }, { id: "debit_card" }, { id: "ticket" }, { id: "atm" }] }
-      : { excluded_payment_types: [{ id: "bank_transfer" }] };
-    const preferenceBody = {
+    let paymentMethods: any;
+    if (data.paymentMethod === "pix") {
+      paymentMethods = {
+        excluded_payment_types: [{ id: "credit_card" }, { id: "debit_card" }, { id: "ticket" }, { id: "atm" }],
+      };
+    } else if (data.paymentMethod === "boleto") {
+      paymentMethods = {
+        excluded_payment_types: [{ id: "credit_card" }, { id: "debit_card" }, { id: "bank_transfer" }, { id: "atm" }],
+      };
+    } else {
+      // card (padrão) — permite crédito/débito, exclui boleto e PIX
+      paymentMethods = {
+        excluded_payment_types: [{ id: "ticket" }, { id: "bank_transfer" }, { id: "atm" }],
+        installments: maxInstallments,
+      };
+    }
+
+    const cpfDigits = (data.customer.cpf || "").replace(/\D/g, "");
+    const preferenceBody: any = {
       items: mpItems,
       payer: {
         name: firstName,
         surname: rest.join(" ") || firstName,
         email: data.customer.email,
         phone: { number: data.customer.phone },
+        ...(cpfDigits.length === 11 && {
+          identification: { type: "CPF", number: cpfDigits },
+        }),
         address: {
           zip_code: data.shipping.cep.replace(/\D/g, ""),
           street_name: data.shipping.street,
@@ -295,6 +322,7 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
       payment_methods: paymentMethods,
       statement_descriptor: "ALPINE",
     };
+
 
     console.info("[MercadoPago] create preference", { endpoint: MP_PREFERENCES_ENDPOINT, orderId: order.id, paymentMethod: data.paymentMethod, totalCents: total });
     const res = await fetch(MP_PREFERENCES_ENDPOINT, {
