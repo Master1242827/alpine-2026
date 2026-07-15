@@ -42,16 +42,21 @@ export const getPublicStoreSettings = createServerFn({ method: "GET" })
   .handler(async () => {
     const { data } = await supabaseAdmin
       .from("store_settings")
-      .select("pix_enabled, pix_discount_percent, whatsapp_number, store_name")
+      .select("pix_enabled, pix_discount_percent, card_discount_percent, installments_max, installments_interest_free, installments_monthly_rate, whatsapp_number, store_name")
       .eq("id", 1)
       .maybeSingle();
     return {
       pix_enabled: !!data?.pix_enabled,
       pix_discount_percent: Number(data?.pix_discount_percent ?? 0),
+      card_discount_percent: Number(data?.card_discount_percent ?? 0),
+      installments_max: Number(data?.installments_max ?? 10),
+      installments_interest_free: Number(data?.installments_interest_free ?? 1),
+      installments_monthly_rate: Number(data?.installments_monthly_rate ?? 0),
       whatsapp_number: data?.whatsapp_number ?? "",
       store_name: data?.store_name ?? "",
     };
   });
+
 
 const ItemSchema = z.object({
   productId: z.string().uuid(),
@@ -68,6 +73,7 @@ const InputSchema = z.object({
     name: z.string().min(1).max(120),
     email: z.string().email().max(180),
     phone: z.string().min(8).max(20),
+    cpf: z.string().max(20).optional().default(""),
   }),
   shipping: z.object({
     cep: z.string().min(8).max(9),
@@ -83,9 +89,10 @@ const InputSchema = z.object({
   notes: z.string().max(500).optional().default(""),
   notesImages: z.array(z.string().url().max(500)).max(6).optional().default([]),
   items: z.array(ItemSchema).min(1).max(50),
-  paymentMethod: z.enum(["mercadopago", "pix"]).optional().default("mercadopago"),
+  paymentMethod: z.enum(["mercadopago", "card", "boleto", "pix"]).optional().default("card"),
   discountCents: z.number().int().min(0).optional().default(0),
 });
+
 
 const OrderLookupSchema = z.object({ orderId: z.string().uuid() });
 
@@ -160,22 +167,25 @@ async function resolveCheckoutAmounts(input: z.infer<typeof InputSchema>) {
   // When quote is unavailable (no token / origin CEP missing) we fall back to
   // the client-supplied value, matching the existing "A combinar" behaviour.
 
-  // Recompute discount from server-side store_settings (PIX only).
+  // Recompute discount from server-side store_settings.
+  // PIX and card à vista both may have discounts; store settings drives the values.
   let discountCents = 0;
-  if (input.paymentMethod === "pix") {
-    const { data: settings } = await supabaseAdmin
-      .from("store_settings")
-      .select("pix_enabled,pix_discount_percent")
-      .eq("id", 1)
-      .maybeSingle();
-    if (settings?.pix_enabled && settings.pix_discount_percent) {
-      discountCents = Math.floor((subtotal * Number(settings.pix_discount_percent)) / 100);
-    }
+  const { data: settings } = await supabaseAdmin
+    .from("store_settings")
+    .select("pix_enabled,pix_discount_percent,card_discount_percent")
+    .eq("id", 1)
+    .maybeSingle();
+  if (input.paymentMethod === "pix" && settings?.pix_enabled && settings?.pix_discount_percent) {
+    discountCents = Math.floor((subtotal * Number(settings.pix_discount_percent)) / 100);
+  } else if ((input.paymentMethod === "card" || input.paymentMethod === "boleto") && settings?.card_discount_percent) {
+    // Card à vista / boleto: aplica desconto configurado sobre subtotal.
+    discountCents = Math.floor((subtotal * Number(settings.card_discount_percent)) / 100);
   }
 
   const total = Math.max(0, subtotal + shippingCostCents - discountCents);
   return { resolvedItems, subtotal, shippingCostCents, discountCents, total };
 }
+
 
 
 export const createCheckoutPreference = createServerFn({ method: "POST" })
@@ -196,6 +206,7 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
         customer_name: data.customer.name,
         customer_email: data.customer.email,
         customer_phone: data.customer.phone,
+        customer_cpf: (data.customer.cpf || "").replace(/\D/g, "") || null,
         shipping_address: data.shipping,
         shipping_cost_cents: shippingCostCents,
         shipping_service: data.shippingService,
@@ -214,6 +225,7 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
       throw new Error("Falha ao criar pedido. Tente novamente.");
     }
 
+
     const itemsRows = resolvedItems.map((i) => ({
       order_id: order.id,
       product_id: i.productId,
@@ -229,10 +241,12 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
     }
 
     const origin = getRuntimeOrigin();
-    const mpItems = data.paymentMethod === "pix" && discountCents > 0
+    // Sempre usa 1 linha consolidada quando há desconto, para o total bater com o MP.
+    const consolidated = discountCents > 0;
+    const mpItems = consolidated
       ? [{
           id: order.id,
-          title: `Pedido Alpine #${String(order.id).slice(0, 8)} com frete e desconto PIX`,
+          title: `Pedido Alpine #${String(order.id).slice(0, 8)}`,
           quantity: 1,
           currency_id: "BRL",
           unit_price: Number((total / 100).toFixed(2)),
@@ -244,7 +258,7 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
           currency_id: "BRL",
           unit_price: Number((i.priceCents / 100).toFixed(2)),
         }));
-    if (!(data.paymentMethod === "pix" && discountCents > 0) && shippingCostCents > 0) {
+    if (!consolidated && shippingCostCents > 0) {
       mpItems.push({
         id: "shipping",
         title: `Frete (${data.shippingService})`,
@@ -254,18 +268,43 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
       });
     }
 
+    // Configurações de parcelamento (via store_settings)
+    const { data: paySettings } = await supabaseAdmin
+      .from("store_settings")
+      .select("installments_max,installments_interest_free")
+      .eq("id", 1)
+      .maybeSingle();
+    const maxInstallments = Math.max(1, Math.min(12, Number(paySettings?.installments_max ?? 10)));
 
     const [firstName, ...rest] = data.customer.name.split(" ");
-    const paymentMethods = data.paymentMethod === "pix"
-      ? { excluded_payment_types: [{ id: "credit_card" }, { id: "debit_card" }, { id: "ticket" }, { id: "atm" }] }
-      : { excluded_payment_types: [{ id: "bank_transfer" }] };
-    const preferenceBody = {
+    let paymentMethods: any;
+    if (data.paymentMethod === "pix") {
+      paymentMethods = {
+        excluded_payment_types: [{ id: "credit_card" }, { id: "debit_card" }, { id: "ticket" }, { id: "atm" }],
+      };
+    } else if (data.paymentMethod === "boleto") {
+      paymentMethods = {
+        excluded_payment_types: [{ id: "credit_card" }, { id: "debit_card" }, { id: "bank_transfer" }, { id: "atm" }],
+      };
+    } else {
+      // card (padrão) — permite crédito/débito, exclui boleto e PIX
+      paymentMethods = {
+        excluded_payment_types: [{ id: "ticket" }, { id: "bank_transfer" }, { id: "atm" }],
+        installments: maxInstallments,
+      };
+    }
+
+    const cpfDigits = (data.customer.cpf || "").replace(/\D/g, "");
+    const preferenceBody: any = {
       items: mpItems,
       payer: {
         name: firstName,
         surname: rest.join(" ") || firstName,
         email: data.customer.email,
         phone: { number: data.customer.phone },
+        ...(cpfDigits.length === 11 && {
+          identification: { type: "CPF", number: cpfDigits },
+        }),
         address: {
           zip_code: data.shipping.cep.replace(/\D/g, ""),
           street_name: data.shipping.street,
@@ -283,6 +322,7 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
       payment_methods: paymentMethods,
       statement_descriptor: "ALPINE",
     };
+
 
     console.info("[MercadoPago] create preference", { endpoint: MP_PREFERENCES_ENDPOINT, orderId: order.id, paymentMethod: data.paymentMethod, totalCents: total });
     const res = await fetch(MP_PREFERENCES_ENDPOINT, {
@@ -316,7 +356,7 @@ export const getOrderPaymentStatus = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: order, error } = await supabaseAdmin
       .from("orders")
-      .select("id,user_id,total_cents,status,payment_method,mp_payment_id,mp_preference_id,created_at")
+      .select("id,user_id,total_cents,status,payment_method,mp_payment_id,mp_preference_id,created_at, order_items(product_id, product_name, quantity, unit_price_cents)")
       .eq("id", data.orderId)
       .maybeSingle();
 
@@ -325,6 +365,39 @@ export const getOrderPaymentStatus = createServerFn({ method: "POST" })
       throw new Error("Erro ao buscar pedido. Tente novamente.");
     }
     if (!order || order.user_id !== context.userId) throw new Error("Pedido não encontrado");
+
+    // Buscar imagem de capa de cada produto para exibir na tela de confirmação
+    const productIds = (order.order_items ?? []).map((i: any) => i.product_id).filter(Boolean);
+    let imagesByProduct: Record<string, string | null> = {};
+    if (productIds.length > 0) {
+      const { data: prods } = await supabaseAdmin
+        .from("products")
+        .select("id, images")
+        .in("id", productIds);
+      imagesByProduct = Object.fromEntries(
+        (prods ?? []).map((p: any) => [p.id, Array.isArray(p.images) && p.images[0] ? p.images[0] : null]),
+      );
+    }
+    const items = (order.order_items ?? []).map((i: any) => ({
+      productId: i.product_id,
+      name: i.product_name,
+      quantity: i.quantity,
+      unitPriceCents: i.unit_price_cents,
+      image: imagesByProduct[i.product_id] ?? null,
+    }));
+
+    const buildResult = (status: OrderStatus, paymentId?: string, paymentStatus?: string, statusDetail?: string) => ({
+      id: order.id,
+      shortId: String(order.id).slice(0, 8).toUpperCase(),
+      totalCents: order.total_cents,
+      status,
+      paymentMethod: order.payment_method,
+      paymentId: paymentId ?? order.mp_payment_id,
+      preferenceId: order.mp_preference_id,
+      paymentStatus: paymentStatus ?? status,
+      statusDetail,
+      items,
+    });
 
     const token = process.env.MERCADO_PAGO_ACCESS_TOKEN;
     if (token && order.status === "pending") {
@@ -346,17 +419,7 @@ export const getOrderPaymentStatus = createServerFn({ method: "POST" })
               .update({ status: nextStatus, mp_payment_id: String(payment.id) })
               .eq("id", order.id);
             if (updateErr) console.error("[MercadoPago] status update error", { orderId: order.id, message: updateErr.message });
-            return {
-              id: order.id,
-              shortId: String(order.id).slice(0, 8).toUpperCase(),
-              totalCents: order.total_cents,
-              status: nextStatus,
-              paymentMethod: order.payment_method,
-              paymentId: String(payment.id),
-              preferenceId: order.mp_preference_id,
-              paymentStatus: payment.status as string,
-              statusDetail: payment.status_detail as string | undefined,
-            };
+            return buildResult(nextStatus, String(payment.id), payment.status as string, payment.status_detail as string | undefined);
           }
         }
       } catch (err) {
@@ -364,18 +427,9 @@ export const getOrderPaymentStatus = createServerFn({ method: "POST" })
       }
     }
 
-    return {
-      id: order.id,
-      shortId: String(order.id).slice(0, 8).toUpperCase(),
-      totalCents: order.total_cents,
-      status: order.status,
-      paymentMethod: order.payment_method,
-      paymentId: order.mp_payment_id,
-      preferenceId: order.mp_preference_id,
-      paymentStatus: order.status,
-      statusDetail: undefined,
-    };
+    return buildResult(order.status as OrderStatus);
   });
+
 
 export const createPixPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -394,6 +448,7 @@ export const createPixPayment = createServerFn({ method: "POST" })
         customer_name: data.customer.name,
         customer_email: data.customer.email,
         customer_phone: data.customer.phone,
+        customer_cpf: (data.customer.cpf || "").replace(/\D/g, "") || null,
         shipping_address: data.shipping,
         shipping_cost_cents: shippingCostCents,
         shipping_service: data.shippingService,
@@ -407,6 +462,7 @@ export const createPixPayment = createServerFn({ method: "POST" })
       })
       .select("id")
       .single();
+
     if (orderErr || !order) {
       console.error("[pix] create order error", orderErr);
       throw new Error("Falha ao criar pedido. Tente novamente.");

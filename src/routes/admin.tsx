@@ -141,7 +141,10 @@ type Product = {
   shipping_length_cm: number | null;
   shipping_width_cm: number | null;
   shipping_height_cm: number | null;
+  video_url: string | null;
+  video_file_url: string | null;
 };
+
 
 const emptyProduct: Product = {
   id: "",
@@ -167,7 +170,10 @@ const emptyProduct: Product = {
   shipping_length_cm: null,
   shipping_width_cm: null,
   shipping_height_cm: null,
+  video_url: null,
+  video_file_url: null,
 };
+
 
 
 
@@ -405,6 +411,49 @@ function ProductForm({ initial, onClose }: { initial: Product; onClose: () => vo
           </label>
         </div>
 
+        <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+          <h4 className="text-sm font-semibold">Vídeo do produto (opcional)</h4>
+          <div>
+            <Label className="text-xs">URL (YouTube / Vimeo)</Label>
+            <Input
+              placeholder="https://www.youtube.com/watch?v=…"
+              value={p.video_url ?? ""}
+              onChange={(e) => setP({ ...p, video_url: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Arquivo MP4</Label>
+            <input
+              type="file"
+              accept="video/mp4,video/webm,video/quicktime"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (file.size > 50 * 1024 * 1024) return toast.error("Máx 50MB");
+                const path = `videos/${Date.now()}-${file.name.replace(/[^\w.-]/g, "_")}`;
+                const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: true, contentType: file.type });
+                if (error) return toast.error(error.message);
+                const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+                setP({ ...p, video_file_url: data.publicUrl });
+                toast.success("Vídeo enviado");
+              }}
+              className="text-sm"
+            />
+            {p.video_file_url && (
+              <div className="mt-2 flex items-center gap-2">
+                <a href={p.video_file_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline truncate">
+                  Ver vídeo atual
+                </a>
+                <Button type="button" size="sm" variant="outline" onClick={() => setP({ ...p, video_file_url: null })}>
+                  Remover
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+
+
+
         <div className="rounded-lg border border-border bg-muted/30 p-4">
           <h4 className="text-sm font-semibold">Dimensões e peso</h4>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -597,12 +646,23 @@ function OrdersTab() {
       {orders.map((o) => {
         const isOpen = expanded === o.id;
         const addr = o.shipping_address || {};
+        const statusStyle =
+          o.status === "paid"
+            ? "border-emerald-500/40 bg-emerald-500/5"
+            : o.status === "shipped"
+              ? "border-blue-500/40 bg-blue-500/5"
+              : o.status === "delivered"
+                ? "border-emerald-600/50 bg-emerald-500/10"
+                : o.status === "cancelled"
+                  ? "border-zinc-400/40 bg-zinc-400/5 opacity-70"
+                  : "border-red-500/40 bg-red-500/5"; // pending
         return (
-          <Card key={o.id} className="p-4">
+          <Card key={o.id} className={`border-l-4 p-4 ${statusStyle}`}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <p className="font-medium truncate">#{o.id.slice(0, 8)} • {o.customer_name}</p>
                 <p className="text-xs text-muted-foreground truncate">{o.customer_email} • {o.customer_phone}</p>
+                {o.customer_cpf && <p className="text-xs text-muted-foreground">CPF: {o.customer_cpf}</p>}
                 <p className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString("pt-BR")}</p>
               </div>
               <div className="text-right">
@@ -613,7 +673,7 @@ function OrdersTab() {
                 className="rounded border bg-background px-2 py-1 text-sm">
                 <option value="pending">Pendente</option>
                 <option value="paid">Pago</option>
-                <option value="shipped">Enviado</option>
+                <option value="shipped">A enviar / Enviado</option>
                 <option value="delivered">Entregue</option>
                 <option value="cancelled">Cancelado</option>
               </select>
@@ -636,6 +696,9 @@ function OrdersTab() {
                   <div className="mt-3 space-y-0.5 border-t border-border pt-2 text-xs">
                     <div className="flex justify-between"><span>Subtotal</span><span>{formatCents(o.subtotal_cents)}</span></div>
                     <div className="flex justify-between"><span>Frete ({o.shipping_service || "—"})</span><span>{formatCents(o.shipping_cost_cents)}</span></div>
+                    {o.discount_cents > 0 && (
+                      <div className="flex justify-between text-primary"><span>Desconto</span><span>- {formatCents(o.discount_cents)}</span></div>
+                    )}
                     <div className="flex justify-between font-bold"><span>Total</span><span>{formatCents(o.total_cents)}</span></div>
                   </div>
                 </div>
@@ -654,6 +717,7 @@ function OrdersTab() {
           </Card>
         );
       })}
+
     </div>
   );
 }
@@ -775,14 +839,70 @@ function SettingsTab() {
           </p>
         </div>
       </div>
+      <div className="space-y-2 border-t pt-4">
+        <Label>Descontos em Cartão / Boleto</Label>
+        <div>
+          <Label className="text-xs">Desconto Cartão à vista / Boleto (%)</Label>
+          <Input
+            type="number" min={0} max={100} step="0.01"
+            value={s.card_discount_percent ?? 0}
+            onChange={(e) => setS({ ...s, card_discount_percent: e.target.value })}
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Aplicado apenas em pagamentos à vista no cartão e em boleto. 0 = sem desconto.
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-2 border-t pt-4">
+        <Label>Parcelamento (Cartão)</Label>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div>
+            <Label className="text-xs">Máx. parcelas</Label>
+            <Input
+              type="number" min={1} max={12}
+              value={s.installments_max ?? 10}
+              onChange={(e) => setS({ ...s, installments_max: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Parcelas sem juros</Label>
+            <Input
+              type="number" min={1} max={12}
+              value={s.installments_interest_free ?? 1}
+              onChange={(e) => setS({ ...s, installments_interest_free: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Juros a partir de X parcelas (% a.m.)</Label>
+            <Input
+              type="number" min={0} max={20} step="0.01"
+              value={s.installments_monthly_rate ?? 0}
+              onChange={(e) => setS({ ...s, installments_monthly_rate: e.target.value })}
+            />
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Ex: máx 10x, 3 sem juros, 2% a.m. → parcelas de 4x a 10x sofrem juros repassados ao cliente.
+        </p>
+      </div>
+
       <Button onClick={async () => {
         const pct = Math.max(0, Math.min(100, Number(s.pix_discount_percent) || 0));
+        const cardPct = Math.max(0, Math.min(100, Number(s.card_discount_percent) || 0));
+        const insMax = Math.max(1, Math.min(12, Number(s.installments_max) || 10));
+        const insFree = Math.max(1, Math.min(insMax, Number(s.installments_interest_free) || 1));
+        const rate = Math.max(0, Math.min(20, Number(s.installments_monthly_rate) || 0));
         const { error } = await supabase.from("store_settings").update({
           store_name: s.store_name, whatsapp_number: s.whatsapp_number, origin_cep: s.origin_cep,
           cnpj: (s.cnpj || "").trim() || null,
           hero_image_url: s.hero_image_url || null,
           pix_enabled: !!s.pix_enabled,
           pix_discount_percent: pct,
+          card_discount_percent: cardPct,
+          installments_max: insMax,
+          installments_interest_free: insFree,
+          installments_monthly_rate: rate,
         } as any).eq("id", 1);
         if (error) return toast.error(error.message);
         toast.success("Configurações salvas");
@@ -790,6 +910,7 @@ function SettingsTab() {
     </Card>
   );
 }
+
 
 
 // ============ Payments (PIX) ============

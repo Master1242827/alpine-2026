@@ -42,13 +42,17 @@ function CheckoutPage() {
       : null,
   );
   const [showSummary, setShowSummary] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"mercadopago" | "pix">("mercadopago");
-  const [pixSettings, setPixSettings] = useState<{
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "boleto" | "pix">("card");
+  const [paySettings, setPaySettings] = useState<{
     pix_enabled: boolean;
     pix_discount_percent: number;
+    card_discount_percent: number;
+    installments_max: number;
+    installments_interest_free: number;
+    installments_monthly_rate: number;
   } | null>(null);
   const [form, setForm] = useState({
-    name: "", email: "", phone: "",
+    name: "", email: "", phone: "", cpf: "",
     cep: cartCep ? formatCep(cartCep) : "", street: "", number: "", complement: "",
     district: "", city: "", state: "", notes: "",
   });
@@ -57,25 +61,32 @@ function CheckoutPage() {
   const numberRef = useRef<HTMLInputElement>(null);
   const shippingCostCents = selectedShip?.priceCents ?? 0;
   const baseTotal = subtotalCents + shippingCostCents;
-  const pixDiscountPercent = pixSettings?.pix_enabled ? Number(pixSettings.pix_discount_percent) || 0 : 0;
-  const discountCents =
-    paymentMethod === "pix" ? Math.round((baseTotal * pixDiscountPercent) / 100) : 0;
+  const pixDiscountPercent = paySettings?.pix_enabled ? Number(paySettings.pix_discount_percent) || 0 : 0;
+  const cardDiscountPercent = Number(paySettings?.card_discount_percent ?? 0) || 0;
+  const activeDiscountPercent =
+    paymentMethod === "pix" ? pixDiscountPercent : cardDiscountPercent;
+  const discountCents = Math.round((subtotalCents * activeDiscountPercent) / 100);
   const total = baseTotal - discountCents;
   const lastQuotedCep = useRef<string>("");
 
   useEffect(() => {
     (supabase as any)
-      .rpc("get_public_pix_settings")
+      .rpc("get_public_payment_settings")
       .then(({ data, error }: { data: any; error: any }) => {
         if (error) throw error;
         const row = Array.isArray(data) ? data[0] : data;
-        setPixSettings({
+        setPaySettings({
           pix_enabled: !!row?.pix_enabled,
           pix_discount_percent: Number(row?.pix_discount_percent ?? 0),
+          card_discount_percent: Number(row?.card_discount_percent ?? 0),
+          installments_max: Number(row?.installments_max ?? 10),
+          installments_interest_free: Number(row?.installments_interest_free ?? 1),
+          installments_monthly_rate: Number(row?.installments_monthly_rate ?? 0),
         });
       })
-      .catch((err: any) => console.error("[Checkout] erro ao carregar configurações PIX", err));
+      .catch((err: any) => console.error("[Checkout] erro ao carregar configurações de pagamento", err));
   }, []);
+
 
   // Pré-preenche e-mail/nome a partir da conta autenticada
   useEffect(() => {
@@ -234,6 +245,8 @@ function CheckoutPage() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return "Informe um e-mail válido";
     const phoneDigits = form.phone.replace(/\D/g, "");
     if (phoneDigits.length < 10 || phoneDigits.length > 13) return "WhatsApp inválido. Use DDD + número (ex: 11 91234-5678)";
+    const cpfDigits = form.cpf.replace(/\D/g, "");
+    if (cpfDigits && cpfDigits.length !== 11) return "CPF inválido — informe os 11 dígitos ou deixe em branco";
     const cepDigits = form.cep.replace(/\D/g, "");
     if (cepDigits.length !== 8) return "CEP inválido";
     if (!form.street.trim()) return "Informe a rua";
@@ -252,7 +265,13 @@ function CheckoutPage() {
     setLoading(true);
     const ship = selectedShip!;
     const payload = {
-      customer: { name: form.name.trim(), email: form.email.trim(), phone: form.phone.replace(/\D/g, "") },
+      customer: {
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.replace(/\D/g, ""),
+        cpf: form.cpf.replace(/\D/g, ""),
+      },
+
       shipping: {
         cep: form.cep, street: form.street, number: form.number,
         complement: form.complement, district: form.district,
@@ -336,8 +355,18 @@ function CheckoutPage() {
               <Field label="Nome completo" required value={form.name} onChange={set("name")} className="sm:col-span-2" placeholder="Como aparece no documento" />
               <Field label="E-mail" type="email" required value={form.email} onChange={set("email")} placeholder="voce@email.com" />
               <Field label="WhatsApp" required value={form.phone} onChange={set("phone")} placeholder="(00) 00000-0000" inputMode="tel" />
+              <Field
+                label="CPF (para emissão de NF)"
+                value={form.cpf}
+                onChange={(e) => setForm((p) => ({ ...p, cpf: formatCpf(e.target.value) }))}
+                placeholder="000.000.000-00"
+                inputMode="numeric"
+                maxLength={14}
+                className="sm:col-span-2"
+              />
             </div>
           </Section>
+
 
           <Section icon={<MapPin className="h-4 w-4" />} title="Endereço de entrega" step={2}>
             <div className="grid gap-3 sm:grid-cols-6">
@@ -415,20 +444,59 @@ function CheckoutPage() {
           </Section>
 
           <Section icon={<CreditCard className="h-4 w-4" />} title="Forma de pagamento" step={4}>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid gap-2 sm:grid-cols-3">
               <button
                 type="button"
-                onClick={() => setPaymentMethod("mercadopago")}
-                className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left transition ${paymentMethod === "mercadopago" ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
+                onClick={() => setPaymentMethod("card")}
+                className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left transition ${paymentMethod === "card" ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
               >
                 <CreditCard className="mt-0.5 h-5 w-5 text-primary" />
                 <div className="flex-1">
-                  <p className="text-sm font-semibold">Cartão / Boleto</p>
-                  <p className="text-xs text-muted-foreground">Mercado Pago — até 10x</p>
-                  <p className="mt-1 text-sm font-bold">{formatCents(baseTotal)}</p>
+                  <p className="text-sm font-semibold">
+                    Cartão{" "}
+                    {cardDiscountPercent > 0 && (
+                      <span className="rounded bg-primary/15 px-1.5 py-0.5 text-xs text-primary">
+                        -{cardDiscountPercent}% à vista
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Até {paySettings?.installments_max ?? 10}x
+                    {paySettings && paySettings.installments_interest_free > 1
+                      ? ` (${paySettings.installments_interest_free}x sem juros)`
+                      : paySettings?.installments_monthly_rate
+                        ? ` (juros ${paySettings.installments_monthly_rate}% a.m.)`
+                        : ""}
+                  </p>
+                  <p className="mt-1 text-sm font-bold">
+                    {formatCents(paymentMethod === "card" ? total : baseTotal - Math.round((subtotalCents * cardDiscountPercent) / 100))}
+                  </p>
                 </div>
               </button>
-              {pixSettings?.pix_enabled && (
+
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("boleto")}
+                className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left transition ${paymentMethod === "boleto" ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
+              >
+                <CreditCard className="mt-0.5 h-5 w-5 text-primary" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold">
+                    Boleto{" "}
+                    {cardDiscountPercent > 0 && (
+                      <span className="rounded bg-primary/15 px-1.5 py-0.5 text-xs text-primary">
+                        -{cardDiscountPercent}%
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Compensa em 1-3 dias úteis</p>
+                  <p className="mt-1 text-sm font-bold">
+                    {formatCents(baseTotal - Math.round((subtotalCents * cardDiscountPercent) / 100))}
+                  </p>
+                </div>
+              </button>
+
+              {paySettings?.pix_enabled && (
                 <button
                   type="button"
                   onClick={() => setPaymentMethod("pix")}
@@ -444,15 +512,17 @@ function CheckoutPage() {
                         </span>
                       )}
                     </p>
-                    <p className="text-xs text-muted-foreground">Aprovação rápida</p>
+                    <p className="text-xs text-muted-foreground">Aprovação automática</p>
                     <p className="mt-1 text-sm font-bold text-primary">
-                      {formatCents(baseTotal - Math.round((baseTotal * pixDiscountPercent) / 100))}
+                      {formatCents(baseTotal - Math.round((subtotalCents * pixDiscountPercent) / 100))}
                     </p>
                   </div>
                 </button>
               )}
             </div>
           </Section>
+
+
 
           <Section icon={<CheckCircle2 className="h-4 w-4" />} title="Observações" step={5}>
             <Textarea rows={3} value={form.notes} onChange={set("notes")} placeholder="Modelo do veículo, ano, cor da capota, etc. (opcional)" />
@@ -518,8 +588,12 @@ function CheckoutPage() {
             <Row label="Subtotal" value={formatCents(subtotalCents)} />
             <Row label="Frete" value={selectedShip ? formatCents(shippingCostCents) : <span className="text-muted-foreground">A calcular</span>} />
             {discountCents > 0 && (
-              <Row label={`Desconto PIX (${pixDiscountPercent}%)`} value={<span className="text-primary">- {formatCents(discountCents)}</span>} />
+              <Row
+                label={`Desconto ${paymentMethod === "pix" ? "PIX" : paymentMethod === "boleto" ? "Boleto" : "Cartão à vista"} (${activeDiscountPercent}%)`}
+                value={<span className="text-primary">- {formatCents(discountCents)}</span>}
+              />
             )}
+
             <div className="flex justify-between pt-2 text-base font-bold">
               <span>Total</span><span className="text-primary">{formatCents(total)}</span>
             </div>
@@ -557,6 +631,15 @@ function Section({ icon, title, step, children }: { icon: React.ReactNode; title
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return <div className="flex justify-between"><span className="text-muted-foreground">{label}</span><span>{value}</span></div>;
 }
+
+function formatCpf(v: string) {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
 
 const Field = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { label: string; className?: string }>(
   ({ label, className, required, ...props }, ref) => (

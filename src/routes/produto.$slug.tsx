@@ -92,11 +92,52 @@ function ProductDetail() {
             Adicionar ao carrinho
           </Button>
         )}
+        {(product.video_url || product.video_file_url) && (
+          <div className="mt-8">
+            <h2 className="mb-3 text-lg font-bold">Vídeo do produto</h2>
+            <ProductVideo url={product.video_url} file={product.video_file_url} />
+          </div>
+        )}
         {product.description && (
           <div className="mt-8 whitespace-pre-line text-sm leading-relaxed">{product.description}</div>
         )}
+
         <Link to="/carrinho" className="mt-6 inline-block text-sm font-semibold text-primary hover:underline">Ver carrinho →</Link>
       </div>
     </div>
   );
 }
+
+function ProductVideo({ url, file }: { url?: string | null; file?: string | null }) {
+  const embed = url ? toEmbedUrl(url) : null;
+  if (embed) {
+    return (
+      <div className="aspect-video overflow-hidden rounded-lg border">
+        <iframe src={embed} className="h-full w-full" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowFullScreen title="Vídeo do produto" />
+      </div>
+    );
+  }
+  if (file) {
+    return <video src={file} controls preload="metadata" className="aspect-video w-full rounded-lg border bg-black" />;
+  }
+  return null;
+}
+
+function toEmbedUrl(raw: string): string | null {
+  try {
+    const u = new URL(raw);
+    if (u.hostname.includes("youtu.be")) return `https://www.youtube.com/embed/${u.pathname.slice(1)}`;
+    if (u.hostname.includes("youtube.com")) {
+      const v = u.searchParams.get("v");
+      if (v) return `https://www.youtube.com/embed/${v}`;
+    }
+    if (u.hostname.includes("vimeo.com")) {
+      const id = u.pathname.split("/").filter(Boolean).pop();
+      if (id) return `https://player.vimeo.com/video/${id}`;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
