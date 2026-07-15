@@ -245,6 +245,8 @@ function CheckoutPage() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return "Informe um e-mail válido";
     const phoneDigits = form.phone.replace(/\D/g, "");
     if (phoneDigits.length < 10 || phoneDigits.length > 13) return "WhatsApp inválido. Use DDD + número (ex: 11 91234-5678)";
+    const cpfDigits = form.cpf.replace(/\D/g, "");
+    if (cpfDigits && cpfDigits.length !== 11) return "CPF inválido — informe os 11 dígitos ou deixe em branco";
     const cepDigits = form.cep.replace(/\D/g, "");
     if (cepDigits.length !== 8) return "CEP inválido";
     if (!form.street.trim()) return "Informe a rua";
@@ -263,7 +265,13 @@ function CheckoutPage() {
     setLoading(true);
     const ship = selectedShip!;
     const payload = {
-      customer: { name: form.name.trim(), email: form.email.trim(), phone: form.phone.replace(/\D/g, "") },
+      customer: {
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.replace(/\D/g, ""),
+        cpf: form.cpf.replace(/\D/g, ""),
+      },
+
       shipping: {
         cep: form.cep, street: form.street, number: form.number,
         complement: form.complement, district: form.district,
