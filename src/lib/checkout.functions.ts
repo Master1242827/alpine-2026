@@ -73,6 +73,7 @@ const InputSchema = z.object({
     name: z.string().min(1).max(120),
     email: z.string().email().max(180),
     phone: z.string().min(8).max(20),
+    cpf: z.string().max(20).optional().default(""),
   }),
   shipping: z.object({
     cep: z.string().min(8).max(9),
@@ -88,9 +89,10 @@ const InputSchema = z.object({
   notes: z.string().max(500).optional().default(""),
   notesImages: z.array(z.string().url().max(500)).max(6).optional().default([]),
   items: z.array(ItemSchema).min(1).max(50),
-  paymentMethod: z.enum(["mercadopago", "pix"]).optional().default("mercadopago"),
+  paymentMethod: z.enum(["mercadopago", "card", "boleto", "pix"]).optional().default("card"),
   discountCents: z.number().int().min(0).optional().default(0),
 });
+
 
 const OrderLookupSchema = z.object({ orderId: z.string().uuid() });
 
