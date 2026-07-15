@@ -42,16 +42,21 @@ export const getPublicStoreSettings = createServerFn({ method: "GET" })
   .handler(async () => {
     const { data } = await supabaseAdmin
       .from("store_settings")
-      .select("pix_enabled, pix_discount_percent, whatsapp_number, store_name")
+      .select("pix_enabled, pix_discount_percent, card_discount_percent, installments_max, installments_interest_free, installments_monthly_rate, whatsapp_number, store_name")
       .eq("id", 1)
       .maybeSingle();
     return {
       pix_enabled: !!data?.pix_enabled,
       pix_discount_percent: Number(data?.pix_discount_percent ?? 0),
+      card_discount_percent: Number(data?.card_discount_percent ?? 0),
+      installments_max: Number(data?.installments_max ?? 10),
+      installments_interest_free: Number(data?.installments_interest_free ?? 1),
+      installments_monthly_rate: Number(data?.installments_monthly_rate ?? 0),
       whatsapp_number: data?.whatsapp_number ?? "",
       store_name: data?.store_name ?? "",
     };
   });
+
 
 const ItemSchema = z.object({
   productId: z.string().uuid(),
