@@ -790,14 +790,70 @@ function SettingsTab() {
           </p>
         </div>
       </div>
+      <div className="space-y-2 border-t pt-4">
+        <Label>Descontos em Cartão / Boleto</Label>
+        <div>
+          <Label className="text-xs">Desconto Cartão à vista / Boleto (%)</Label>
+          <Input
+            type="number" min={0} max={100} step="0.01"
+            value={s.card_discount_percent ?? 0}
+            onChange={(e) => setS({ ...s, card_discount_percent: e.target.value })}
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Aplicado apenas em pagamentos à vista no cartão e em boleto. 0 = sem desconto.
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-2 border-t pt-4">
+        <Label>Parcelamento (Cartão)</Label>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div>
+            <Label className="text-xs">Máx. parcelas</Label>
+            <Input
+              type="number" min={1} max={12}
+              value={s.installments_max ?? 10}
+              onChange={(e) => setS({ ...s, installments_max: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Parcelas sem juros</Label>
+            <Input
+              type="number" min={1} max={12}
+              value={s.installments_interest_free ?? 1}
+              onChange={(e) => setS({ ...s, installments_interest_free: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Juros a partir de X parcelas (% a.m.)</Label>
+            <Input
+              type="number" min={0} max={20} step="0.01"
+              value={s.installments_monthly_rate ?? 0}
+              onChange={(e) => setS({ ...s, installments_monthly_rate: e.target.value })}
+            />
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Ex: máx 10x, 3 sem juros, 2% a.m. → parcelas de 4x a 10x sofrem juros repassados ao cliente.
+        </p>
+      </div>
+
       <Button onClick={async () => {
         const pct = Math.max(0, Math.min(100, Number(s.pix_discount_percent) || 0));
+        const cardPct = Math.max(0, Math.min(100, Number(s.card_discount_percent) || 0));
+        const insMax = Math.max(1, Math.min(12, Number(s.installments_max) || 10));
+        const insFree = Math.max(1, Math.min(insMax, Number(s.installments_interest_free) || 1));
+        const rate = Math.max(0, Math.min(20, Number(s.installments_monthly_rate) || 0));
         const { error } = await supabase.from("store_settings").update({
           store_name: s.store_name, whatsapp_number: s.whatsapp_number, origin_cep: s.origin_cep,
           cnpj: (s.cnpj || "").trim() || null,
           hero_image_url: s.hero_image_url || null,
           pix_enabled: !!s.pix_enabled,
           pix_discount_percent: pct,
+          card_discount_percent: cardPct,
+          installments_max: insMax,
+          installments_interest_free: insFree,
+          installments_monthly_rate: rate,
         } as any).eq("id", 1);
         if (error) return toast.error(error.message);
         toast.success("Configurações salvas");
@@ -805,6 +861,7 @@ function SettingsTab() {
     </Card>
   );
 }
+
 
 
 // ============ Payments (PIX) ============
