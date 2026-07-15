@@ -170,7 +170,10 @@ const emptyProduct: Product = {
   shipping_length_cm: null,
   shipping_width_cm: null,
   shipping_height_cm: null,
+  video_url: null,
+  video_file_url: null,
 };
+
 
 
 
