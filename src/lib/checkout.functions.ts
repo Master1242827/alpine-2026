@@ -486,12 +486,21 @@ export const createPixPayment = createServerFn({ method: "POST" })
     const [firstName, ...rest] = data.customer.name.split(" ");
     // MP requires ISO 8601 with explicit offset (e.g. .000+00:00 or -03:00)
     const expiration = new Date(Date.now() + 30 * 60 * 1000).toISOString().replace("Z", "+00:00");
-    const rawEmail = (data.customer.email || "").trim().toLowerCase();
-    const strictEmail = /^[a-z0-9._-]+@[a-z0-9-]+(\.[a-z0-9-]+)+$/i;
-    const emailValid = strictEmail.test(rawEmail)
-      && !/@(test|example|localhost)\.(com|org|net|local)$/.test(rawEmail);
+    // MP payer.email é sensível: usa fallback determinístico sempre que houver
+    // qualquer suspeita de formato inválido (espaços, +tags, TLD curto, domínios de teste).
+    const rawEmail = (data.customer.email || "").trim().toLowerCase().replace(/\s+/g, "");
+    const strictEmail = /^[a-z0-9._-]+@[a-z0-9-]+(\.[a-z0-9-]+)+$/;
+    const hasBadChars = /[^a-z0-9._@+-]/.test(rawEmail) || rawEmail.includes("+");
+    const domain = rawEmail.split("@")[1] || "";
+    const tld = domain.split(".").pop() || "";
+    const emailValid =
+      strictEmail.test(rawEmail) &&
+      !hasBadChars &&
+      tld.length >= 2 &&
+      !/@(test|example|localhost|invalid)\.(com|org|net|local|test)$/.test(rawEmail);
     const fallbackEmail = `pedido${String(order.id).replace(/-/g, "").slice(0, 12)}@alpinecapotas.com.br`;
     const payerEmail = emailValid ? rawEmail : fallbackEmail;
+    console.info("[MercadoPago] pix payer email", { orderId: order.id, usedFallback: !emailValid });
     const pixBody = {
       transaction_amount: Number((total / 100).toFixed(2)),
       description: `Pedido Alpine #${String(order.id).slice(0, 8)}`,
