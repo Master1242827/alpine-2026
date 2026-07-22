@@ -284,6 +284,7 @@ function CheckoutPage() {
       shippingService: ship.name,
       notes: form.notes,
       notesImages,
+      notesVideoUrl,
       paymentMethod,
       discountCents,
       items: items.map((i) => ({
