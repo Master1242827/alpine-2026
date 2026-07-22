@@ -124,6 +124,25 @@ function CheckoutPage() {
     }
   };
 
+  const handleNoteVideoUpload = async (file: File | null | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("video/")) { toast.error("Envie um arquivo de vídeo (mp4/webm/mov)"); return; }
+    if (file.size > 50 * 1024 * 1024) { toast.error("Vídeo máximo de 50MB"); return; }
+    setUploadingNoteVideo(true);
+    try {
+      const ext = (file.name.split(".").pop() || "mp4").toLowerCase();
+      const path = `checkout-notes/video-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: false, contentType: file.type });
+      if (error) { toast.error(error.message); return; }
+      const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+      setNotesVideoUrl(data.publicUrl);
+      toast.success("Vídeo anexado");
+    } finally {
+      setUploadingNoteVideo(false);
+    }
+  };
+
+
   // Auto address lookup + auto quote when CEP becomes valid.
   // IMPORTANT: declared BEFORE any conditional early-return below so hook order stays stable.
   useEffect(() => {
