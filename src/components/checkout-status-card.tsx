@@ -30,6 +30,8 @@ const COPY: Record<Variant, { title: string; description: string; statusLabel: s
 
 export function CheckoutStatusCard({ orderId, variant }: { orderId: string; variant: Variant }) {
   const getStatus = useServerFn(getOrderPaymentStatus);
+  const { clear } = useCart();
+  const clearedRef = useRef(false);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
