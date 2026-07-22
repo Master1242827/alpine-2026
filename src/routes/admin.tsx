@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { formatCents } from "@/lib/format";
-import { checkIsAdmin } from "@/lib/admin.functions";
+import { checkIsAdmin, updateOrderStatus } from "@/lib/admin.functions";
 import { VehiclesAdmin } from "@/components/admin/vehicles-admin";
 import { ShippingAdmin } from "@/components/admin/shipping-admin";
 import { classifyProductSize, SIZE_LABEL } from "@/lib/shipping-classify";
@@ -341,6 +341,8 @@ function ProductForm({ initial, onClose }: { initial: Product; onClose: () => vo
         shipping_length_cm: p.shipping_length_cm,
         shipping_width_cm: p.shipping_width_cm,
         shipping_height_cm: p.shipping_height_cm,
+        video_url: p.video_url,
+        video_file_url: p.video_file_url,
       };
 
       const res = p.id
@@ -615,11 +617,16 @@ function OrdersTab() {
   };
   useEffect(() => { load(); }, []);
 
+  const updateStatusFn = useServerFn(updateOrderStatus);
   const updateStatus = async (id: string, status: string) => {
-    const { error } = await (supabase.from("orders") as any).update({ status }).eq("id", id);
-    if (error) return toast.error(error.message);
-    setOrders((o) => o.map((x) => (x.id === id ? { ...x, status } : x)));
-    toast.success("Status atualizado");
+    try {
+      await updateStatusFn({ data: { orderId: id, status: status as any } });
+      setOrders((o) => o.map((x) => (x.id === id ? { ...x, status } : x)));
+      toast.success("Status atualizado");
+    } catch (err: any) {
+      console.error("[admin] update status", err);
+      toast.error(err?.message ?? "Falha ao atualizar status do pedido");
+    }
   };
 
   const totals = orders.reduce(
