@@ -2,6 +2,45 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+// Verifica se o usuário atual tem role admin (usa supabaseAdmin para não depender de RLS)
+async function assertAdmin(userId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
+  if (error) throw new Error("Falha ao verificar permissões.");
+  if (!data) throw new Error("Acesso negado: você não é administrador.");
+}
+
+const ORDER_STATUSES = ["pending", "paid", "shipped", "delivered", "cancelled"] as const;
+
+export const updateOrderStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({
+      orderId: z.string().uuid(),
+      status: z.enum(ORDER_STATUSES),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("orders")
+      .update({ status: data.status })
+      .eq("id", data.orderId);
+    if (error) {
+      console.error("[admin] update order status error", error);
+      throw new Error(`Falha ao atualizar status: ${error.message}`);
+    }
+    return { ok: true };
+  });
+
+
+
 const ADMIN_EMAIL = "admin@autopremium.local";
 
 function normalize(code: string) {

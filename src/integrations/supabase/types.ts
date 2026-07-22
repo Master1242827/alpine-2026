@@ -180,6 +180,27 @@ export type Database = {
           },
         ]
       }
+      installment_fees: {
+        Row: {
+          active: boolean
+          fee_percent: number
+          installments: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          fee_percent?: number
+          installments: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          fee_percent?: number
+          installments?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       mp_webhook_events: {
         Row: {
           id: string
@@ -274,6 +295,7 @@ export type Database = {
           mp_preference_id: string | null
           notes: string | null
           notes_images: string[]
+          notes_video_url: string | null
           payment_method: string
           shipping_address: Json | null
           shipping_cost_cents: number
@@ -297,6 +319,7 @@ export type Database = {
           mp_preference_id?: string | null
           notes?: string | null
           notes_images?: string[]
+          notes_video_url?: string | null
           payment_method?: string
           shipping_address?: Json | null
           shipping_cost_cents?: number
@@ -320,6 +343,7 @@ export type Database = {
           mp_preference_id?: string | null
           notes?: string | null
           notes_images?: string[]
+          notes_video_url?: string | null
           payment_method?: string
           shipping_address?: Json | null
           shipping_cost_cents?: number

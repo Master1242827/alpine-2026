@@ -57,7 +57,9 @@ function CheckoutPage() {
     district: "", city: "", state: "", notes: "",
   });
   const [notesImages, setNotesImages] = useState<string[]>([]);
+  const [notesVideoUrl, setNotesVideoUrl] = useState<string | null>(null);
   const [uploadingNote, setUploadingNote] = useState(false);
+  const [uploadingNoteVideo, setUploadingNoteVideo] = useState(false);
   const numberRef = useRef<HTMLInputElement>(null);
   const shippingCostCents = selectedShip?.priceCents ?? 0;
   const baseTotal = subtotalCents + shippingCostCents;
@@ -121,6 +123,25 @@ function CheckoutPage() {
       setUploadingNote(false);
     }
   };
+
+  const handleNoteVideoUpload = async (file: File | null | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("video/")) { toast.error("Envie um arquivo de vídeo (mp4/webm/mov)"); return; }
+    if (file.size > 50 * 1024 * 1024) { toast.error("Vídeo máximo de 50MB"); return; }
+    setUploadingNoteVideo(true);
+    try {
+      const ext = (file.name.split(".").pop() || "mp4").toLowerCase();
+      const path = `checkout-notes/video-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: false, contentType: file.type });
+      if (error) { toast.error(error.message); return; }
+      const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+      setNotesVideoUrl(data.publicUrl);
+      toast.success("Vídeo anexado");
+    } finally {
+      setUploadingNoteVideo(false);
+    }
+  };
+
 
   // Auto address lookup + auto quote when CEP becomes valid.
   // IMPORTANT: declared BEFORE any conditional early-return below so hook order stays stable.
@@ -246,7 +267,8 @@ function CheckoutPage() {
     const phoneDigits = form.phone.replace(/\D/g, "");
     if (phoneDigits.length < 10 || phoneDigits.length > 13) return "WhatsApp inválido. Use DDD + número (ex: 11 91234-5678)";
     const cpfDigits = form.cpf.replace(/\D/g, "");
-    if (cpfDigits && cpfDigits.length !== 11) return "CPF inválido — informe os 11 dígitos ou deixe em branco";
+    if (cpfDigits.length !== 11) return "CPF obrigatório para emissão da Nota Fiscal — informe os 11 dígitos";
+    if (!isValidCpf(cpfDigits)) return "CPF inválido — confira os dígitos";
     const cepDigits = form.cep.replace(/\D/g, "");
     if (cepDigits.length !== 8) return "CEP inválido";
     if (!form.street.trim()) return "Informe a rua";
@@ -281,6 +303,7 @@ function CheckoutPage() {
       shippingService: ship.name,
       notes: form.notes,
       notesImages,
+      notesVideoUrl,
       paymentMethod,
       discountCents,
       items: items.map((i) => ({
@@ -299,13 +322,14 @@ function CheckoutPage() {
           ticketUrl: res.ticketUrl,
           expiresAt: res.expiresAt,
         }));
-        clear();
+        // NÃO limpa o carrinho aqui — só é limpo quando o pagamento for confirmado
+        // (na tela /checkout/aprovado). Assim o cliente pode voltar sem perder itens.
         window.location.assign(`/checkout/pix?order=${res.orderId}`);
         return;
       }
       const res = await createPref({ data: payload });
       if (!res?.initPoint) throw new Error("Mercado Pago não retornou link de pagamento");
-      clear();
+      // Carrinho preservado até confirmação (ponto 7)
       window.location.assign(res.initPoint);
     } catch (err: any) {
       console.error("[Checkout] erro ao iniciar Mercado Pago", err);
@@ -356,7 +380,8 @@ function CheckoutPage() {
               <Field label="E-mail" type="email" required value={form.email} onChange={set("email")} placeholder="voce@email.com" />
               <Field label="WhatsApp" required value={form.phone} onChange={set("phone")} placeholder="(00) 00000-0000" inputMode="tel" />
               <Field
-                label="CPF (para emissão de NF)"
+                label="CPF (obrigatório para NF)"
+                required
                 value={form.cpf}
                 onChange={(e) => setForm((p) => ({ ...p, cpf: formatCpf(e.target.value) }))}
                 placeholder="000.000.000-00"
@@ -561,7 +586,35 @@ function CheckoutPage() {
                 )}
               </div>
             </div>
+
+            <div className="mt-3 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3">
+              <p className="text-sm font-medium">🎥 Vídeo do veículo (opcional)</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Um vídeo curto ajuda a confirmar a compatibilidade do produto. MP4/WEBM/MOV, até 50MB.
+              </p>
+              {notesVideoUrl ? (
+                <div className="mt-2 flex flex-col gap-2">
+                  <video src={notesVideoUrl} controls className="max-h-48 w-full rounded border bg-black" />
+                  <Button type="button" variant="outline" size="sm" onClick={() => setNotesVideoUrl(null)}>
+                    Remover vídeo
+                  </Button>
+                </div>
+              ) : (
+                <label className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded border-2 border-dashed border-muted-foreground/40 px-3 py-2 text-xs text-muted-foreground hover:border-primary hover:text-primary">
+                  {uploadingNoteVideo ? <Loader2 className="h-4 w-4 animate-spin" /> : "+ enviar vídeo"}
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm,video/quicktime"
+                    className="hidden"
+                    disabled={uploadingNoteVideo}
+                    onChange={(e) => { handleNoteVideoUpload(e.target.files?.[0]); e.target.value = ""; }}
+                  />
+                </label>
+              )}
+            </div>
           </Section>
+
+
 
 
           <Button type="submit" className="hidden h-12 w-full md:flex" disabled={loading || !selectedShip} size="lg">
@@ -639,6 +692,23 @@ function formatCpf(v: string) {
   if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
   return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 }
+
+// Valida CPF pelos dígitos verificadores (Módulo 11)
+function isValidCpf(cpf: string): boolean {
+  const d = cpf.replace(/\D/g, "");
+  if (d.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(d)) return false;
+  const calc = (base: string, factor: number) => {
+    let sum = 0;
+    for (let i = 0; i < base.length; i++) sum += parseInt(base[i], 10) * (factor - i);
+    const r = (sum * 10) % 11;
+    return r === 10 ? 0 : r;
+  };
+  const d1 = calc(d.slice(0, 9), 10);
+  const d2 = calc(d.slice(0, 10), 11);
+  return d1 === parseInt(d[9], 10) && d2 === parseInt(d[10], 10);
+}
+
 
 
 const Field = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { label: string; className?: string }>(

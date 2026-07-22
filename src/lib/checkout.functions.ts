@@ -88,6 +88,7 @@ const InputSchema = z.object({
   shippingService: z.string().max(60).optional().default("A combinar"),
   notes: z.string().max(500).optional().default(""),
   notesImages: z.array(z.string().url().max(500)).max(6).optional().default([]),
+  notesVideoUrl: z.string().url().max(500).optional().nullable(),
   items: z.array(ItemSchema).min(1).max(50),
   paymentMethod: z.enum(["mercadopago", "card", "boleto", "pix"]).optional().default("card"),
   discountCents: z.number().int().min(0).optional().default(0),
@@ -215,6 +216,7 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
         total_cents: total,
         notes: data.notes,
         notes_images: data.notesImages ?? [],
+        notes_video_url: data.notesVideoUrl ?? null,
         status: "pending",
         payment_method: data.paymentMethod,
       })
@@ -457,6 +459,7 @@ export const createPixPayment = createServerFn({ method: "POST" })
         total_cents: total,
         notes: data.notes,
         notes_images: data.notesImages ?? [],
+        notes_video_url: data.notesVideoUrl ?? null,
         status: "pending",
         payment_method: "pix",
       })

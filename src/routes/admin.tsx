@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { formatCents } from "@/lib/format";
-import { checkIsAdmin } from "@/lib/admin.functions";
+import { checkIsAdmin, updateOrderStatus } from "@/lib/admin.functions";
 import { VehiclesAdmin } from "@/components/admin/vehicles-admin";
 import { ShippingAdmin } from "@/components/admin/shipping-admin";
 import { classifyProductSize, SIZE_LABEL } from "@/lib/shipping-classify";
@@ -341,6 +341,8 @@ function ProductForm({ initial, onClose }: { initial: Product; onClose: () => vo
         shipping_length_cm: p.shipping_length_cm,
         shipping_width_cm: p.shipping_width_cm,
         shipping_height_cm: p.shipping_height_cm,
+        video_url: p.video_url,
+        video_file_url: p.video_file_url,
       };
 
       const res = p.id
@@ -615,11 +617,16 @@ function OrdersTab() {
   };
   useEffect(() => { load(); }, []);
 
+  const updateStatusFn = useServerFn(updateOrderStatus);
   const updateStatus = async (id: string, status: string) => {
-    const { error } = await (supabase.from("orders") as any).update({ status }).eq("id", id);
-    if (error) return toast.error(error.message);
-    setOrders((o) => o.map((x) => (x.id === id ? { ...x, status } : x)));
-    toast.success("Status atualizado");
+    try {
+      await updateStatusFn({ data: { orderId: id, status: status as any } });
+      setOrders((o) => o.map((x) => (x.id === id ? { ...x, status } : x)));
+      toast.success("Status atualizado");
+    } catch (err: any) {
+      console.error("[admin] update status", err);
+      toast.error(err?.message ?? "Falha ao atualizar status do pedido");
+    }
   };
 
   const totals = orders.reduce(
@@ -906,10 +913,92 @@ function SettingsTab() {
         } as any).eq("id", 1);
         if (error) return toast.error(error.message);
         toast.success("Configurações salvas");
-      }}>Salvar</Button>
+      }}>Salvar configurações gerais</Button>
+
+      <InstallmentFeesEditor />
     </Card>
   );
 }
+
+// ============ Installment fees per parcel ============
+function InstallmentFeesEditor() {
+  const [rows, setRows] = useState<{ installments: number; fee_percent: number; active: boolean }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await (supabase as any)
+        .from("installment_fees")
+        .select("installments, fee_percent, active")
+        .order("installments");
+      if (error) toast.error(error.message);
+      setRows((data ?? []) as any);
+      setLoading(false);
+    })();
+  }, []);
+
+  const setRow = (n: number, patch: Partial<{ fee_percent: number; active: boolean }>) => {
+    setRows((prev) => prev.map((r) => (r.installments === n ? { ...r, ...patch } : r)));
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const payload = rows.map((r) => ({
+        installments: r.installments,
+        fee_percent: Math.max(0, Math.min(100, Number(r.fee_percent) || 0)),
+        active: !!r.active,
+      }));
+      const { error } = await (supabase as any).from("installment_fees").upsert(payload, { onConflict: "installments" });
+      if (error) throw error;
+      toast.success("Taxas por parcela salvas");
+    } catch (err: any) {
+      toast.error(err.message ?? "Falha ao salvar taxas");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-6 rounded-lg border border-border bg-muted/20 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-bold">Taxas por parcela (Cartão)</h3>
+          <p className="text-xs text-muted-foreground">
+            Defina o percentual que você repassa ao cliente em cada faixa. 0% = você absorve a taxa (parcela sem juros para o cliente).
+          </p>
+        </div>
+        <Button size="sm" onClick={save} disabled={saving || loading}>
+          {saving ? "Salvando…" : "Salvar taxas"}
+        </Button>
+      </div>
+      {loading ? (
+        <p className="mt-3 text-sm text-muted-foreground">Carregando…</p>
+      ) : (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {rows.map((r) => (
+            <div key={r.installments} className="flex items-center gap-2 rounded-md border bg-background p-2">
+              <span className="w-10 text-sm font-semibold">{r.installments}x</span>
+              <Input
+                type="number" min={0} max={100} step="0.01"
+                value={r.fee_percent}
+                onChange={(e) => setRow(r.installments, { fee_percent: Number(e.target.value) })}
+                className="h-9"
+              />
+              <span className="text-xs text-muted-foreground">%</span>
+              <label className="ml-2 flex items-center gap-1 text-xs">
+                <Switch checked={r.active} onCheckedChange={(v) => setRow(r.installments, { active: v })} />
+                <span>{r.active ? "on" : "off"}</span>
+              </label>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { CheckCircle2, Clock, Loader2, XCircle } from "lucide-react";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatCents } from "@/lib/format";
 import { getOrderPaymentStatus } from "@/lib/checkout.functions";
+import { useCart } from "@/lib/cart";
 
 type Variant = "approved" | "pending" | "rejected";
 
@@ -29,6 +30,8 @@ const COPY: Record<Variant, { title: string; description: string; statusLabel: s
 
 export function CheckoutStatusCard({ orderId, variant }: { orderId: string; variant: Variant }) {
   const getStatus = useServerFn(getOrderPaymentStatus);
+  const { clear } = useCart();
+  const clearedRef = useRef(false);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -63,6 +66,15 @@ export function CheckoutStatusCard({ orderId, variant }: { orderId: string; vari
   const copy = COPY[liveStatus];
   const isRejected = liveStatus === "rejected";
   const isApproved = liveStatus === "approved";
+
+  // Ponto 7: só limpa o carrinho quando o pagamento foi realmente aprovado.
+  useEffect(() => {
+    if (isApproved && !clearedRef.current) {
+      clearedRef.current = true;
+      clear();
+    }
+  }, [isApproved, clear]);
+
 
   return (
     <div className="container mx-auto max-w-lg px-4 py-12">
