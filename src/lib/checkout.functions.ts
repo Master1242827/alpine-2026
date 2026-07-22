@@ -216,6 +216,7 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
         total_cents: total,
         notes: data.notes,
         notes_images: data.notesImages ?? [],
+        notes_video_url: data.notesVideoUrl ?? null,
         status: "pending",
         payment_method: data.paymentMethod,
       })
