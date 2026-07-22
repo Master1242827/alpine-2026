@@ -67,6 +67,15 @@ export function CheckoutStatusCard({ orderId, variant }: { orderId: string; vari
   const isRejected = liveStatus === "rejected";
   const isApproved = liveStatus === "approved";
 
+  // Ponto 7: só limpa o carrinho quando o pagamento foi realmente aprovado.
+  useEffect(() => {
+    if (isApproved && !clearedRef.current) {
+      clearedRef.current = true;
+      clear();
+    }
+  }, [isApproved, clear]);
+
+
   return (
     <div className="container mx-auto max-w-lg px-4 py-12">
       <Card className="p-6 text-center">
