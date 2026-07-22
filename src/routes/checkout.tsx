@@ -358,7 +358,8 @@ function CheckoutPage() {
               <Field label="E-mail" type="email" required value={form.email} onChange={set("email")} placeholder="voce@email.com" />
               <Field label="WhatsApp" required value={form.phone} onChange={set("phone")} placeholder="(00) 00000-0000" inputMode="tel" />
               <Field
-                label="CPF (para emissão de NF)"
+                label="CPF (obrigatório para NF)"
+                required
                 value={form.cpf}
                 onChange={(e) => setForm((p) => ({ ...p, cpf: formatCpf(e.target.value) }))}
                 placeholder="000.000.000-00"
