@@ -586,7 +586,35 @@ function CheckoutPage() {
                 )}
               </div>
             </div>
+
+            <div className="mt-3 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3">
+              <p className="text-sm font-medium">🎥 Vídeo do veículo (opcional)</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Um vídeo curto ajuda a confirmar a compatibilidade do produto. MP4/WEBM/MOV, até 50MB.
+              </p>
+              {notesVideoUrl ? (
+                <div className="mt-2 flex flex-col gap-2">
+                  <video src={notesVideoUrl} controls className="max-h-48 w-full rounded border bg-black" />
+                  <Button type="button" variant="outline" size="sm" onClick={() => setNotesVideoUrl(null)}>
+                    Remover vídeo
+                  </Button>
+                </div>
+              ) : (
+                <label className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded border-2 border-dashed border-muted-foreground/40 px-3 py-2 text-xs text-muted-foreground hover:border-primary hover:text-primary">
+                  {uploadingNoteVideo ? <Loader2 className="h-4 w-4 animate-spin" /> : "+ enviar vídeo"}
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm,video/quicktime"
+                    className="hidden"
+                    disabled={uploadingNoteVideo}
+                    onChange={(e) => { handleNoteVideoUpload(e.target.files?.[0]); e.target.value = ""; }}
+                  />
+                </label>
+              )}
+            </div>
           </Section>
+
+
 
 
           <Button type="submit" className="hidden h-12 w-full md:flex" disabled={loading || !selectedShip} size="lg">
