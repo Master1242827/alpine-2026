@@ -246,7 +246,8 @@ function CheckoutPage() {
     const phoneDigits = form.phone.replace(/\D/g, "");
     if (phoneDigits.length < 10 || phoneDigits.length > 13) return "WhatsApp inválido. Use DDD + número (ex: 11 91234-5678)";
     const cpfDigits = form.cpf.replace(/\D/g, "");
-    if (cpfDigits && cpfDigits.length !== 11) return "CPF inválido — informe os 11 dígitos ou deixe em branco";
+    if (cpfDigits.length !== 11) return "CPF obrigatório para emissão da Nota Fiscal — informe os 11 dígitos";
+    if (!isValidCpf(cpfDigits)) return "CPF inválido — confira os dígitos";
     const cepDigits = form.cep.replace(/\D/g, "");
     if (cepDigits.length !== 8) return "CEP inválido";
     if (!form.street.trim()) return "Informe a rua";
@@ -299,13 +300,14 @@ function CheckoutPage() {
           ticketUrl: res.ticketUrl,
           expiresAt: res.expiresAt,
         }));
-        clear();
+        // NÃO limpa o carrinho aqui — só é limpo quando o pagamento for confirmado
+        // (na tela /checkout/aprovado). Assim o cliente pode voltar sem perder itens.
         window.location.assign(`/checkout/pix?order=${res.orderId}`);
         return;
       }
       const res = await createPref({ data: payload });
       if (!res?.initPoint) throw new Error("Mercado Pago não retornou link de pagamento");
-      clear();
+      // Carrinho preservado até confirmação (ponto 7)
       window.location.assign(res.initPoint);
     } catch (err: any) {
       console.error("[Checkout] erro ao iniciar Mercado Pago", err);
