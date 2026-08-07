@@ -15,7 +15,7 @@ async function assertAdmin(userId: string) {
   if (!data) throw new Error("Acesso negado: você não é administrador.");
 }
 
-const ORDER_STATUSES = ["pending", "paid", "shipped", "delivered", "cancelled"] as const;
+const ORDER_STATUSES = ["pending", "paid", "shipped", "delivered", "returned", "completed", "cancelled"] as const;
 
 export const updateOrderStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
