@@ -599,10 +599,22 @@ function ProductForm({ initial, onClose }: { initial: Product; onClose: () => vo
 }
 
 // ============ Orders ============
+const STATUS_LABELS: Record<string, string> = {
+  pending: "Pendente",
+  paid: "Pago",
+  shipped: "Enviado",
+  delivered: "Entregue",
+  returned: "Devolução",
+  completed: "Concluído",
+  cancelled: "Cancelado",
+};
+const STATUS_ORDER = ["pending", "paid", "shipped", "delivered", "returned", "completed", "cancelled"];
+
 function OrdersTab() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const load = async () => {
     setLoading(true);
@@ -629,11 +641,17 @@ function OrdersTab() {
     }
   };
 
-  const totals = orders.reduce(
+  const counts = orders.reduce<Record<string, number>>((acc, o) => {
+    acc[o.status] = (acc[o.status] ?? 0) + 1;
+    return acc;
+  }, {});
+  const visibleOrders = statusFilter === "all" ? orders : orders.filter((o) => o.status === statusFilter);
+
+  const totals = visibleOrders.reduce(
     (acc, o) => {
       acc.count += 1;
       acc.gross += o.total_cents || 0;
-      if (["paid", "shipped", "delivered"].includes(o.status)) acc.paid += o.total_cents || 0;
+      if (["paid", "shipped", "delivered", "completed"].includes(o.status)) acc.paid += o.total_cents || 0;
       return acc;
     },
     { count: 0, gross: 0, paid: 0 },
@@ -649,8 +667,19 @@ function OrdersTab() {
         <Card className="p-4"><p className="text-xs text-muted-foreground">Confirmado</p><p className="text-2xl font-bold text-primary">{formatCents(totals.paid)}</p></Card>
       </div>
 
-      {orders.length === 0 && <p className="text-sm text-muted-foreground">Nenhum pedido ainda.</p>}
-      {orders.map((o) => {
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant={statusFilter === "all" ? "default" : "outline"} onClick={() => setStatusFilter("all")}>
+          Todos ({orders.length})
+        </Button>
+        {STATUS_ORDER.map((s) => (
+          <Button key={s} size="sm" variant={statusFilter === s ? "default" : "outline"} onClick={() => setStatusFilter(s)}>
+            {STATUS_LABELS[s]} ({counts[s] ?? 0})
+          </Button>
+        ))}
+      </div>
+
+      {visibleOrders.length === 0 && <p className="text-sm text-muted-foreground">Nenhum pedido neste filtro.</p>}
+      {visibleOrders.map((o) => {
         const isOpen = expanded === o.id;
         const addr = o.shipping_address || {};
         const statusStyle =
@@ -660,9 +689,13 @@ function OrdersTab() {
               ? "border-blue-500/40 bg-blue-500/5"
               : o.status === "delivered"
                 ? "border-emerald-600/50 bg-emerald-500/10"
-                : o.status === "cancelled"
-                  ? "border-zinc-400/40 bg-zinc-400/5 opacity-70"
-                  : "border-red-500/40 bg-red-500/5"; // pending
+                : o.status === "completed"
+                  ? "border-emerald-700/60 bg-emerald-600/10"
+                  : o.status === "returned"
+                    ? "border-amber-500/50 bg-amber-500/10"
+                    : o.status === "cancelled"
+                      ? "border-zinc-400/40 bg-zinc-400/5 opacity-70"
+                      : "border-red-500/40 bg-red-500/5"; // pending
         return (
           <Card key={o.id} className={`border-l-4 p-4 ${statusStyle}`}>
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -678,11 +711,9 @@ function OrdersTab() {
               </div>
               <select value={o.status} onChange={(e) => updateStatus(o.id, e.target.value)}
                 className="rounded border bg-background px-2 py-1 text-sm">
-                <option value="pending">Pendente</option>
-                <option value="paid">Pago</option>
-                <option value="shipped">A enviar / Enviado</option>
-                <option value="delivered">Entregue</option>
-                <option value="cancelled">Cancelado</option>
+                {STATUS_ORDER.map((s) => (
+                  <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+                ))}
               </select>
               <Button variant="ghost" size="sm" onClick={() => setExpanded(isOpen ? null : o.id)}>
                 {isOpen ? "Ocultar" : "Detalhes"}
@@ -922,7 +953,7 @@ function SettingsTab() {
 
 // ============ Installment fees per parcel ============
 function InstallmentFeesEditor() {
-  const [rows, setRows] = useState<{ installments: number; fee_percent: number; active: boolean }[]>([]);
+  const [rows, setRows] = useState<{ installments: number; fee_percent: string; active: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -933,12 +964,24 @@ function InstallmentFeesEditor() {
         .select("installments, fee_percent, active")
         .order("installments");
       if (error) toast.error(error.message);
-      setRows((data ?? []) as any);
+      const byN = new Map<number, any>((data ?? []).map((r: any) => [Number(r.installments), r]));
+      // sempre renderiza 1x..12x, mesmo que a tabela esteja vazia
+      setRows(
+        Array.from({ length: 12 }, (_, i) => {
+          const n = i + 1;
+          const found = byN.get(n);
+          return {
+            installments: n,
+            fee_percent: found ? String(found.fee_percent ?? 0) : "0",
+            active: found ? !!found.active : n <= 12,
+          };
+        }),
+      );
       setLoading(false);
     })();
   }, []);
 
-  const setRow = (n: number, patch: Partial<{ fee_percent: number; active: boolean }>) => {
+  const setRow = (n: number, patch: Partial<{ fee_percent: string; active: boolean }>) => {
     setRows((prev) => prev.map((r) => (r.installments === n ? { ...r, ...patch } : r)));
   };
 
@@ -947,7 +990,7 @@ function InstallmentFeesEditor() {
     try {
       const payload = rows.map((r) => ({
         installments: r.installments,
-        fee_percent: Math.max(0, Math.min(100, Number(r.fee_percent) || 0)),
+        fee_percent: Math.max(0, Math.min(100, Number(String(r.fee_percent).replace(",", ".")) || 0)),
         active: !!r.active,
       }));
       const { error } = await (supabase as any).from("installment_fees").upsert(payload, { onConflict: "installments" });
@@ -981,9 +1024,10 @@ function InstallmentFeesEditor() {
             <div key={r.installments} className="flex items-center gap-2 rounded-md border bg-background p-2">
               <span className="w-10 text-sm font-semibold">{r.installments}x</span>
               <Input
-                type="number" min={0} max={100} step="0.01"
+                type="text" inputMode="decimal"
                 value={r.fee_percent}
-                onChange={(e) => setRow(r.installments, { fee_percent: Number(e.target.value) })}
+                onChange={(e) => setRow(r.installments, { fee_percent: e.target.value.replace(/[^0-9.,]/g, "") })}
+                onFocus={(e) => e.currentTarget.select()}
                 className="h-9"
               />
               <span className="text-xs text-muted-foreground">%</span>
@@ -995,6 +1039,7 @@ function InstallmentFeesEditor() {
           ))}
         </div>
       )}
+
     </div>
   );
 }
