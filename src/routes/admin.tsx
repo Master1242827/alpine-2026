@@ -953,7 +953,7 @@ function SettingsTab() {
 
 // ============ Installment fees per parcel ============
 function InstallmentFeesEditor() {
-  const [rows, setRows] = useState<{ installments: number; fee_percent: number; active: boolean }[]>([]);
+  const [rows, setRows] = useState<{ installments: number; fee_percent: string; active: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -964,12 +964,24 @@ function InstallmentFeesEditor() {
         .select("installments, fee_percent, active")
         .order("installments");
       if (error) toast.error(error.message);
-      setRows((data ?? []) as any);
+      const byN = new Map<number, any>((data ?? []).map((r: any) => [Number(r.installments), r]));
+      // sempre renderiza 1x..12x, mesmo que a tabela esteja vazia
+      setRows(
+        Array.from({ length: 12 }, (_, i) => {
+          const n = i + 1;
+          const found = byN.get(n);
+          return {
+            installments: n,
+            fee_percent: found ? String(found.fee_percent ?? 0) : "0",
+            active: found ? !!found.active : n <= 12,
+          };
+        }),
+      );
       setLoading(false);
     })();
   }, []);
 
-  const setRow = (n: number, patch: Partial<{ fee_percent: number; active: boolean }>) => {
+  const setRow = (n: number, patch: Partial<{ fee_percent: string; active: boolean }>) => {
     setRows((prev) => prev.map((r) => (r.installments === n ? { ...r, ...patch } : r)));
   };
 
@@ -978,7 +990,7 @@ function InstallmentFeesEditor() {
     try {
       const payload = rows.map((r) => ({
         installments: r.installments,
-        fee_percent: Math.max(0, Math.min(100, Number(r.fee_percent) || 0)),
+        fee_percent: Math.max(0, Math.min(100, Number(String(r.fee_percent).replace(",", ".")) || 0)),
         active: !!r.active,
       }));
       const { error } = await (supabase as any).from("installment_fees").upsert(payload, { onConflict: "installments" });
@@ -1012,9 +1024,10 @@ function InstallmentFeesEditor() {
             <div key={r.installments} className="flex items-center gap-2 rounded-md border bg-background p-2">
               <span className="w-10 text-sm font-semibold">{r.installments}x</span>
               <Input
-                type="number" min={0} max={100} step="0.01"
+                type="text" inputMode="decimal"
                 value={r.fee_percent}
-                onChange={(e) => setRow(r.installments, { fee_percent: Number(e.target.value) })}
+                onChange={(e) => setRow(r.installments, { fee_percent: e.target.value.replace(/[^0-9.,]/g, "") })}
+                onFocus={(e) => e.currentTarget.select()}
                 className="h-9"
               />
               <span className="text-xs text-muted-foreground">%</span>
@@ -1026,6 +1039,7 @@ function InstallmentFeesEditor() {
           ))}
         </div>
       )}
+
     </div>
   );
 }
