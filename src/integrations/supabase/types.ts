@@ -282,6 +282,44 @@ export type Database = {
           },
         ]
       }
+      order_status_history: {
+        Row: {
+          created_at: string
+          from_status: Database["public"]["Enums"]["order_status"] | null
+          id: string
+          note: string | null
+          order_id: string
+          source: string
+          to_status: Database["public"]["Enums"]["order_status"]
+        }
+        Insert: {
+          created_at?: string
+          from_status?: Database["public"]["Enums"]["order_status"] | null
+          id?: string
+          note?: string | null
+          order_id: string
+          source?: string
+          to_status: Database["public"]["Enums"]["order_status"]
+        }
+        Update: {
+          created_at?: string
+          from_status?: Database["public"]["Enums"]["order_status"] | null
+          id?: string
+          note?: string | null
+          order_id?: string
+          source?: string
+          to_status?: Database["public"]["Enums"]["order_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_status_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           created_at: string
@@ -289,6 +327,7 @@ export type Database = {
           customer_email: string
           customer_name: string
           customer_phone: string | null
+          delivered_at: string | null
           discount_cents: number
           id: string
           mp_payment_id: string | null
@@ -297,6 +336,7 @@ export type Database = {
           notes_images: string[]
           notes_video_url: string | null
           payment_method: string
+          shipped_at: string | null
           shipping_address: Json | null
           shipping_cost_cents: number
           shipping_service: string | null
@@ -304,6 +344,8 @@ export type Database = {
           stock_decremented: boolean
           subtotal_cents: number
           total_cents: number
+          tracking_carrier: string | null
+          tracking_code: string | null
           updated_at: string
           user_id: string
         }
@@ -313,6 +355,7 @@ export type Database = {
           customer_email: string
           customer_name: string
           customer_phone?: string | null
+          delivered_at?: string | null
           discount_cents?: number
           id?: string
           mp_payment_id?: string | null
@@ -321,6 +364,7 @@ export type Database = {
           notes_images?: string[]
           notes_video_url?: string | null
           payment_method?: string
+          shipped_at?: string | null
           shipping_address?: Json | null
           shipping_cost_cents?: number
           shipping_service?: string | null
@@ -328,6 +372,8 @@ export type Database = {
           stock_decremented?: boolean
           subtotal_cents: number
           total_cents: number
+          tracking_carrier?: string | null
+          tracking_code?: string | null
           updated_at?: string
           user_id: string
         }
@@ -337,6 +383,7 @@ export type Database = {
           customer_email?: string
           customer_name?: string
           customer_phone?: string | null
+          delivered_at?: string | null
           discount_cents?: number
           id?: string
           mp_payment_id?: string | null
@@ -345,6 +392,7 @@ export type Database = {
           notes_images?: string[]
           notes_video_url?: string | null
           payment_method?: string
+          shipped_at?: string | null
           shipping_address?: Json | null
           shipping_cost_cents?: number
           shipping_service?: string | null
@@ -352,6 +400,8 @@ export type Database = {
           stock_decremented?: boolean
           subtotal_cents?: number
           total_cents?: number
+          tracking_carrier?: string | null
+          tracking_code?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -478,6 +528,44 @@ export type Database = {
           phone?: string | null
         }
         Relationships: []
+      }
+      return_requests: {
+        Row: {
+          created_at: string
+          id: string
+          order_id: string
+          reason: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_id: string
+          reason?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_id?: string
+          reason?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "return_requests_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       store_settings: {
         Row: {
@@ -780,6 +868,7 @@ export type Database = {
       }
     }
     Functions: {
+      complete_delivered_orders: { Args: never; Returns: number }
       get_hero_image_url: { Args: never; Returns: string }
       get_public_payment_settings: {
         Args: never
