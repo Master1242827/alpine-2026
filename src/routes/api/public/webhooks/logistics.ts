@@ -137,13 +137,15 @@ export const Route = createFileRoute("/api/public/webhooks/logistics")({
           return new Response("no regression", { status: 200 });
         }
 
-        const patch: Record<string, unknown> = { status: mapped };
-        if (trackingCode) patch.tracking_code = trackingCode;
-        if (carrier) patch.tracking_carrier = carrier;
         const when = occurredAt ? new Date(occurredAt) : null;
         const whenIso = when && !Number.isNaN(when.getTime()) ? when.toISOString() : new Date().toISOString();
-        if (mapped === "shipped") patch.shipped_at = whenIso;
-        if (mapped === "delivered") patch.delivered_at = whenIso;
+        const patch = {
+          status: mapped,
+          ...(trackingCode ? { tracking_code: trackingCode } : {}),
+          ...(carrier ? { tracking_carrier: carrier } : {}),
+          ...(mapped === "shipped" ? { shipped_at: whenIso } : {}),
+          ...(mapped === "delivered" ? { delivered_at: whenIso } : {}),
+        };
 
         const { error: updErr } = await supabaseAdmin.from("orders").update(patch).eq("id", order.id);
         if (updErr) {
