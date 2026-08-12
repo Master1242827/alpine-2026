@@ -27,6 +27,7 @@ import { Route as CheckoutFalhaRouteImport } from './routes/checkout.falha'
 import { Route as CheckoutAprovadoRouteImport } from './routes/checkout.aprovado'
 import { Route as ApiPublicWebhooksMercadopagoRouteImport } from './routes/api/public/webhooks/mercadopago'
 import { Route as ApiPublicWebhooksLogisticsRouteImport } from './routes/api/public/webhooks/logistics'
+import { Route as ApiPublicHooksCheckOrderCompletionRouteImport } from './routes/api/public/hooks/check-order-completion'
 
 const ProdutosRoute = ProdutosRouteImport.update({
   id: '/produtos',
@@ -120,6 +121,12 @@ const ApiPublicWebhooksLogisticsRoute =
     path: '/api/public/webhooks/logistics',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksCheckOrderCompletionRoute =
+  ApiPublicHooksCheckOrderCompletionRouteImport.update({
+    id: '/api/public/hooks/check-order-completion',
+    path: '/api/public/hooks/check-order-completion',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -138,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/checkout/sucesso': typeof CheckoutSucessoRoute
   '/pedido/$id': typeof PedidoIdRoute
   '/produto/$slug': typeof ProdutoSlugRoute
+  '/api/public/hooks/check-order-completion': typeof ApiPublicHooksCheckOrderCompletionRoute
   '/api/public/webhooks/logistics': typeof ApiPublicWebhooksLogisticsRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
 }
@@ -158,6 +166,7 @@ export interface FileRoutesByTo {
   '/checkout/sucesso': typeof CheckoutSucessoRoute
   '/pedido/$id': typeof PedidoIdRoute
   '/produto/$slug': typeof ProdutoSlugRoute
+  '/api/public/hooks/check-order-completion': typeof ApiPublicHooksCheckOrderCompletionRoute
   '/api/public/webhooks/logistics': typeof ApiPublicWebhooksLogisticsRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
 }
@@ -179,6 +188,7 @@ export interface FileRoutesById {
   '/checkout/sucesso': typeof CheckoutSucessoRoute
   '/pedido/$id': typeof PedidoIdRoute
   '/produto/$slug': typeof ProdutoSlugRoute
+  '/api/public/hooks/check-order-completion': typeof ApiPublicHooksCheckOrderCompletionRoute
   '/api/public/webhooks/logistics': typeof ApiPublicWebhooksLogisticsRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
 }
@@ -201,6 +211,7 @@ export interface FileRouteTypes {
     | '/checkout/sucesso'
     | '/pedido/$id'
     | '/produto/$slug'
+    | '/api/public/hooks/check-order-completion'
     | '/api/public/webhooks/logistics'
     | '/api/public/webhooks/mercadopago'
   fileRoutesByTo: FileRoutesByTo
@@ -221,6 +232,7 @@ export interface FileRouteTypes {
     | '/checkout/sucesso'
     | '/pedido/$id'
     | '/produto/$slug'
+    | '/api/public/hooks/check-order-completion'
     | '/api/public/webhooks/logistics'
     | '/api/public/webhooks/mercadopago'
   id:
@@ -241,6 +253,7 @@ export interface FileRouteTypes {
     | '/checkout/sucesso'
     | '/pedido/$id'
     | '/produto/$slug'
+    | '/api/public/hooks/check-order-completion'
     | '/api/public/webhooks/logistics'
     | '/api/public/webhooks/mercadopago'
   fileRoutesById: FileRoutesById
@@ -256,6 +269,7 @@ export interface RootRouteChildren {
   ProdutosRoute: typeof ProdutosRoute
   PedidoIdRoute: typeof PedidoIdRoute
   ProdutoSlugRoute: typeof ProdutoSlugRoute
+  ApiPublicHooksCheckOrderCompletionRoute: typeof ApiPublicHooksCheckOrderCompletionRoute
   ApiPublicWebhooksLogisticsRoute: typeof ApiPublicWebhooksLogisticsRoute
   ApiPublicWebhooksMercadopagoRoute: typeof ApiPublicWebhooksMercadopagoRoute
 }
@@ -388,6 +402,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWebhooksLogisticsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/check-order-completion': {
+      id: '/api/public/hooks/check-order-completion'
+      path: '/api/public/hooks/check-order-completion'
+      fullPath: '/api/public/hooks/check-order-completion'
+      preLoaderRoute: typeof ApiPublicHooksCheckOrderCompletionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -424,6 +445,8 @@ const rootRouteChildren: RootRouteChildren = {
   ProdutosRoute: ProdutosRoute,
   PedidoIdRoute: PedidoIdRoute,
   ProdutoSlugRoute: ProdutoSlugRoute,
+  ApiPublicHooksCheckOrderCompletionRoute:
+    ApiPublicHooksCheckOrderCompletionRoute,
   ApiPublicWebhooksLogisticsRoute: ApiPublicWebhooksLogisticsRoute,
   ApiPublicWebhooksMercadopagoRoute: ApiPublicWebhooksMercadopagoRoute,
 }
