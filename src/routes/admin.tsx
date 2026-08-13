@@ -1028,7 +1028,7 @@ function InstallmentFeesEditor() {
                 value={r.fee_percent}
                 onChange={(e) => setRow(r.installments, { fee_percent: e.target.value.replace(/[^0-9.,]/g, "") })}
                 onFocus={(e) => e.currentTarget.select()}
-                className="h-9"
+                className="h-9 w-14 min-w-14 flex-none px-2 text-center"
               />
               <span className="text-xs text-muted-foreground">%</span>
               <label className="ml-2 flex items-center gap-1 text-xs">
