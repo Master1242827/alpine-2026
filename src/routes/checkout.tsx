@@ -560,6 +560,39 @@ function CheckoutPage() {
                 </button>
               )}
             </div>
+
+            {paymentMethod === "card" && (
+              <div className="mt-4">
+                <Label className="mb-2 block text-xs font-medium">Em quantas vezes?</Label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {Array.from({ length: Math.max(1, paySettings?.installments_max ?? 10) }, (_, idx) => idx + 1).map((n) => {
+                    const pct = feeFor(n);
+                    const nTotal = baseTotal - Math.round((subtotalCents * pct) / 100);
+                    const selected = installments === n;
+                    return (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setInstallments(n)}
+                        className={`flex items-center justify-between gap-2 rounded-lg border-2 px-3 py-2 text-left text-sm transition ${selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
+                      >
+                        <span className="font-medium">
+                          {n}x de {formatCents(Math.round(nTotal / n))}
+                        </span>
+                        <span className="flex items-center gap-2">
+                          {pct > 0 && (
+                            <span className="rounded bg-primary/15 px-1.5 py-0.5 text-xs font-semibold text-primary">
+                              -{pct}%
+                            </span>
+                          )}
+                          <span className="text-xs text-muted-foreground">{formatCents(nTotal)}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </Section>
 
 
