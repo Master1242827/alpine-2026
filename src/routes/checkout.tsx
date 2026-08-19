@@ -328,6 +328,7 @@ function CheckoutPage() {
       notesVideoUrl,
       paymentMethod,
       discountCents,
+      installments: paymentMethod === "card" ? installments : 1,
       items: items.map((i) => ({
         productId: i.productId, name: i.name,
         priceCents: i.priceCents, quantity: i.quantity,
