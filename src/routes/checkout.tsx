@@ -64,9 +64,15 @@ function CheckoutPage() {
   const shippingCostCents = selectedShip?.priceCents ?? 0;
   const baseTotal = subtotalCents + shippingCostCents;
   const pixDiscountPercent = paySettings?.pix_enabled ? Number(paySettings.pix_discount_percent) || 0 : 0;
-  const cardDiscountPercent = Number(paySettings?.card_discount_percent ?? 0) || 0;
+  // Desconto por parcela (tabela installment_fees) tem prioridade sobre o desconto único do cartão.
+  const feeFor = (n: number) =>
+    installmentDiscounts[n] != null
+      ? Number(installmentDiscounts[n])
+      : Number(paySettings?.card_discount_percent ?? 0) || 0;
+  const cardDiscountPercent = feeFor(installments);
+  const boletoDiscountPercent = feeFor(1);
   const activeDiscountPercent =
-    paymentMethod === "pix" ? pixDiscountPercent : cardDiscountPercent;
+    paymentMethod === "pix" ? pixDiscountPercent : paymentMethod === "boleto" ? boletoDiscountPercent : cardDiscountPercent;
   const discountCents = Math.round((subtotalCents * activeDiscountPercent) / 100);
   const total = baseTotal - discountCents;
   const lastQuotedCep = useRef<string>("");
