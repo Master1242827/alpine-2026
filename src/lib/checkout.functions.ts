@@ -92,6 +92,7 @@ const InputSchema = z.object({
   items: z.array(ItemSchema).min(1).max(50),
   paymentMethod: z.enum(["mercadopago", "card", "boleto", "pix"]).optional().default("card"),
   discountCents: z.number().int().min(0).optional().default(0),
+  installments: z.number().int().min(1).max(12).optional().default(1),
 });
 
 
