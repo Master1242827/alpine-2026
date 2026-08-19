@@ -51,6 +51,8 @@ function CheckoutPage() {
     installments_interest_free: number;
     installments_monthly_rate: number;
   } | null>(null);
+  const [installmentDiscounts, setInstallmentDiscounts] = useState<Record<number, number>>({});
+  const [installments, setInstallments] = useState(1);
   const [form, setForm] = useState({
     name: "", email: "", phone: "", cpf: "",
     cep: cartCep ? formatCep(cartCep) : "", street: "", number: "", complement: "",
