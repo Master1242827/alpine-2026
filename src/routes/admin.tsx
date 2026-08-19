@@ -1007,7 +1007,7 @@ function InstallmentFeesEditor() {
     <div className="mt-6 rounded-lg border border-border bg-muted/20 p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-base font-bold">Taxas por parcela (Cartão)</h3>
+          <h3 className="text-base font-bold">Desconto por parcela (Cartão)</h3>
           <p className="text-xs text-muted-foreground">
             Defina o percentual que você repassa ao cliente em cada faixa. 0% = você absorve a taxa (parcela sem juros para o cliente).
           </p>
