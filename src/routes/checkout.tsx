@@ -503,20 +503,13 @@ function CheckoutPage() {
                     Cartão{" "}
                     {cardDiscountPercent > 0 && (
                       <span className="rounded bg-primary/15 px-1.5 py-0.5 text-xs text-primary">
-                        -{cardDiscountPercent}% à vista
+                        -{cardDiscountPercent}% em {installments}x
                       </span>
                     )}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Até {paySettings?.installments_max ?? 10}x
-                    {paySettings && paySettings.installments_interest_free > 1
-                      ? ` (${paySettings.installments_interest_free}x sem juros)`
-                      : paySettings?.installments_monthly_rate
-                        ? ` (juros ${paySettings.installments_monthly_rate}% a.m.)`
-                        : ""}
-                  </p>
+                  <p className="text-xs text-muted-foreground">Até {paySettings?.installments_max ?? 10}x</p>
                   <p className="mt-1 text-sm font-bold">
-                    {formatCents(paymentMethod === "card" ? total : baseTotal - Math.round((subtotalCents * cardDiscountPercent) / 100))}
+                    {formatCents(baseTotal - Math.round((subtotalCents * cardDiscountPercent) / 100))}
                   </p>
                 </div>
               </button>
