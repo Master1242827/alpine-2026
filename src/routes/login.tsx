@@ -54,9 +54,13 @@ function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { email: adminEmail, password: adminPass } = await bootstrap({ data: { password: adminPassword } });
+      const res = await bootstrap({ data: { password: adminPassword } });
+      if (!res.ok) {
+        toast.error(res.error ?? "Senha administrativa incorreta");
+        return;
+      }
       const { error } = await supabase.auth.signInWithPassword({
-        email: adminEmail, password: adminPass,
+        email: res.email, password: res.password,
       });
       if (error) throw error;
       window.location.href = "/admin";
