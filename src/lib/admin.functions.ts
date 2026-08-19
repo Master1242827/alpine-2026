@@ -101,7 +101,7 @@ export const adminBootstrap = createServerFn({ method: "POST" })
     await supabaseAdmin
       .from("user_roles")
       .upsert({ user_id: user.id, role: "admin" }, { onConflict: "user_id,role" });
-    return { email: ADMIN_EMAIL, password };
+    return { ok: true as const, email: ADMIN_EMAIL, password };
   });
 
 export const claimAdminRole = createServerFn({ method: "POST" })
