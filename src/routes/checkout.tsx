@@ -51,6 +51,8 @@ function CheckoutPage() {
     installments_interest_free: number;
     installments_monthly_rate: number;
   } | null>(null);
+  const [installmentDiscounts, setInstallmentDiscounts] = useState<Record<number, number>>({});
+  const [installments, setInstallments] = useState(1);
   const [form, setForm] = useState({
     name: "", email: "", phone: "", cpf: "",
     cep: cartCep ? formatCep(cartCep) : "", street: "", number: "", complement: "",
@@ -64,9 +66,15 @@ function CheckoutPage() {
   const shippingCostCents = selectedShip?.priceCents ?? 0;
   const baseTotal = subtotalCents + shippingCostCents;
   const pixDiscountPercent = paySettings?.pix_enabled ? Number(paySettings.pix_discount_percent) || 0 : 0;
-  const cardDiscountPercent = Number(paySettings?.card_discount_percent ?? 0) || 0;
+  // Desconto por parcela (tabela installment_fees) tem prioridade sobre o desconto único do cartão.
+  const feeFor = (n: number) =>
+    installmentDiscounts[n] != null
+      ? Number(installmentDiscounts[n])
+      : Number(paySettings?.card_discount_percent ?? 0) || 0;
+  const cardDiscountPercent = feeFor(installments);
+  const boletoDiscountPercent = feeFor(1);
   const activeDiscountPercent =
-    paymentMethod === "pix" ? pixDiscountPercent : cardDiscountPercent;
+    paymentMethod === "pix" ? pixDiscountPercent : paymentMethod === "boleto" ? boletoDiscountPercent : cardDiscountPercent;
   const discountCents = Math.round((subtotalCents * activeDiscountPercent) / 100);
   const total = baseTotal - discountCents;
   const lastQuotedCep = useRef<string>("");
@@ -87,6 +95,20 @@ function CheckoutPage() {
         });
       })
       .catch((err: any) => console.error("[Checkout] erro ao carregar configurações de pagamento", err));
+  }, []);
+
+  // Descontos por parcela definidos no painel (Configurações → Taxas por parcela)
+  useEffect(() => {
+    (supabase as any)
+      .from("installment_fees")
+      .select("installments,fee_percent,active")
+      .eq("active", true)
+      .then(({ data, error }: { data: any; error: any }) => {
+        if (error) { console.error("[Checkout] erro ao carregar taxas por parcela", error); return; }
+        const map: Record<number, number> = {};
+        for (const r of data ?? []) map[Number(r.installments)] = Number(r.fee_percent) || 0;
+        setInstallmentDiscounts(map);
+      });
   }, []);
 
 
@@ -306,6 +328,7 @@ function CheckoutPage() {
       notesVideoUrl,
       paymentMethod,
       discountCents,
+      installments: paymentMethod === "card" ? installments : 1,
       items: items.map((i) => ({
         productId: i.productId, name: i.name,
         priceCents: i.priceCents, quantity: i.quantity,
@@ -481,20 +504,13 @@ function CheckoutPage() {
                     Cartão{" "}
                     {cardDiscountPercent > 0 && (
                       <span className="rounded bg-primary/15 px-1.5 py-0.5 text-xs text-primary">
-                        -{cardDiscountPercent}% à vista
+                        -{cardDiscountPercent}% em {installments}x
                       </span>
                     )}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Até {paySettings?.installments_max ?? 10}x
-                    {paySettings && paySettings.installments_interest_free > 1
-                      ? ` (${paySettings.installments_interest_free}x sem juros)`
-                      : paySettings?.installments_monthly_rate
-                        ? ` (juros ${paySettings.installments_monthly_rate}% a.m.)`
-                        : ""}
-                  </p>
+                  <p className="text-xs text-muted-foreground">Até {paySettings?.installments_max ?? 10}x</p>
                   <p className="mt-1 text-sm font-bold">
-                    {formatCents(paymentMethod === "card" ? total : baseTotal - Math.round((subtotalCents * cardDiscountPercent) / 100))}
+                    {formatCents(baseTotal - Math.round((subtotalCents * cardDiscountPercent) / 100))}
                   </p>
                 </div>
               </button>
@@ -545,6 +561,39 @@ function CheckoutPage() {
                 </button>
               )}
             </div>
+
+            {paymentMethod === "card" && (
+              <div className="mt-4">
+                <Label className="mb-2 block text-xs font-medium">Em quantas vezes?</Label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {Array.from({ length: Math.max(1, paySettings?.installments_max ?? 10) }, (_, idx) => idx + 1).map((n) => {
+                    const pct = feeFor(n);
+                    const nTotal = baseTotal - Math.round((subtotalCents * pct) / 100);
+                    const selected = installments === n;
+                    return (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setInstallments(n)}
+                        className={`flex items-center justify-between gap-2 rounded-lg border-2 px-3 py-2 text-left text-sm transition ${selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
+                      >
+                        <span className="font-medium">
+                          {n}x de {formatCents(Math.round(nTotal / n))}
+                        </span>
+                        <span className="flex items-center gap-2">
+                          {pct > 0 && (
+                            <span className="rounded bg-primary/15 px-1.5 py-0.5 text-xs font-semibold text-primary">
+                              -{pct}%
+                            </span>
+                          )}
+                          <span className="text-xs text-muted-foreground">{formatCents(nTotal)}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </Section>
 
 
