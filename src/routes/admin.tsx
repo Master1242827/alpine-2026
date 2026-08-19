@@ -1009,7 +1009,7 @@ function InstallmentFeesEditor() {
         <div>
           <h3 className="text-base font-bold">Desconto por parcela (Cartão)</h3>
           <p className="text-xs text-muted-foreground">
-            Defina o percentual que você repassa ao cliente em cada faixa. 0% = você absorve a taxa (parcela sem juros para o cliente).
+            Percentual de desconto aplicado no total quando o cliente escolhe essa quantidade de parcelas no cartão. 0% = sem desconto.
           </p>
         </div>
         <Button size="sm" onClick={save} disabled={saving || loading}>
