@@ -97,6 +97,20 @@ function CheckoutPage() {
       .catch((err: any) => console.error("[Checkout] erro ao carregar configurações de pagamento", err));
   }, []);
 
+  // Descontos por parcela definidos no painel (Configurações → Taxas por parcela)
+  useEffect(() => {
+    (supabase as any)
+      .from("installment_fees")
+      .select("installments,fee_percent,active")
+      .eq("active", true)
+      .then(({ data, error }: { data: any; error: any }) => {
+        if (error) { console.error("[Checkout] erro ao carregar taxas por parcela", error); return; }
+        const map: Record<number, number> = {};
+        for (const r of data ?? []) map[Number(r.installments)] = Number(r.fee_percent) || 0;
+        setInstallmentDiscounts(map);
+      });
+  }, []);
+
 
   // Pré-preenche e-mail/nome a partir da conta autenticada
   useEffect(() => {
