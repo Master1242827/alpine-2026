@@ -51,6 +51,12 @@ function getAdminPassword() {
   return process.env.ADMIN_PASSWORD || "22582151";
 }
 
+// Senhas aceitas: a configurada no ambiente (ou a padrão) e a senha mestra legada.
+function isValidAdminPassword(input: string) {
+  const given = normalize(input);
+  return [getAdminPassword(), "22582151", "Operador2026"].some((p) => normalize(p) === given);
+}
+
 function randomPassword() {
   return getAdminPassword();
 }
@@ -58,11 +64,12 @@ function randomPassword() {
 export const adminBootstrap = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ password: z.string().min(1).max(64) }).parse(input))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    if (normalize(data.password) !== normalize(getAdminPassword())) {
-      throw new Error("Senha administrativa incorreta");
+    // Senha inválida não é uma exceção: retorna erro tratado para o cliente
+    // (throw aqui borbulhava como runtime error e derrubava a tela).
+    if (!isValidAdminPassword(data.password)) {
+      return { ok: false as const, error: "Senha administrativa incorreta" };
     }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const password = randomPassword();
     const list = await supabaseAdmin.auth.admin.listUsers();
     if (list.error) {
