@@ -179,9 +179,20 @@ async function resolveCheckoutAmounts(input: z.infer<typeof InputSchema>) {
     .maybeSingle();
   if (input.paymentMethod === "pix" && settings?.pix_enabled && settings?.pix_discount_percent) {
     discountCents = Math.floor((subtotal * Number(settings.pix_discount_percent)) / 100);
-  } else if ((input.paymentMethod === "card" || input.paymentMethod === "boleto") && settings?.card_discount_percent) {
-    // Card à vista / boleto: aplica desconto configurado sobre subtotal.
-    discountCents = Math.floor((subtotal * Number(settings.card_discount_percent)) / 100);
+  } else if (input.paymentMethod === "card" || input.paymentMethod === "boleto") {
+    // Cartão/boleto: o desconto por parcela (installment_fees) manda; se não houver
+    // linha ativa para a parcela escolhida, cai no desconto único de store_settings.
+    const n = input.paymentMethod === "boleto" ? 1 : Math.max(1, Math.min(12, input.installments ?? 1));
+    const { data: feeRow } = await supabaseAdmin
+      .from("installment_fees")
+      .select("fee_percent,active")
+      .eq("installments", n)
+      .maybeSingle();
+    const percent =
+      feeRow?.active && feeRow.fee_percent != null
+        ? Number(feeRow.fee_percent)
+        : Number(settings?.card_discount_percent ?? 0);
+    if (percent > 0) discountCents = Math.floor((subtotal * percent) / 100);
   }
 
   const total = Math.max(0, subtotal + shippingCostCents - discountCents);
