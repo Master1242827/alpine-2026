@@ -302,9 +302,13 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
       };
     } else {
       // card (padrão) — permite crédito/débito, exclui boleto e PIX
+      // O desconto já foi calculado para a parcela escolhida, então trava o
+      // parcelamento nesse número para o valor cobrado bater com o exibido.
+      const chosen = Math.max(1, Math.min(maxInstallments, data.installments ?? 1));
       paymentMethods = {
         excluded_payment_types: [{ id: "ticket" }, { id: "bank_transfer" }, { id: "atm" }],
-        installments: maxInstallments,
+        installments: chosen,
+        default_installments: chosen,
       };
     }
 
