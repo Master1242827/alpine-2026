@@ -65,11 +65,22 @@ function AccountPage() {
           .eq("user_id", user.id)
           .order("created_at", { ascending: false }),
       ]);
+      const meta = (user.user_metadata ?? {}) as { full_name?: string; phone?: string };
+      const resolvedName = p?.full_name || meta.full_name || "";
+      const resolvedPhone = p?.phone || meta.phone || "";
       setProfile(p);
-      setFullName(p?.full_name ?? "");
-      setPhone(p?.phone ?? "");
+      setFullName(resolvedName);
+      setPhone(resolvedPhone);
       setOrders(o ?? []);
       setBusy(false);
+      // Sincroniza dados do cadastro (nome/telefone) com o perfil, se ainda faltarem
+      if ((!p?.full_name && resolvedName) || (!p?.phone && resolvedPhone)) {
+        await supabase.from("profiles").upsert(
+          { id: user.id, email: user.email, full_name: resolvedName, phone: resolvedPhone || null },
+          { onConflict: "id" },
+        );
+      }
+
     })();
   }, [user, loading, navigate]);
 
