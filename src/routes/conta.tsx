@@ -195,7 +195,10 @@ function AccountPage() {
               </Button>
             </div>
           </Card>
+
+          <PasswordCard />
         </TabsContent>
+
       </Tabs>
     </div>
   );
