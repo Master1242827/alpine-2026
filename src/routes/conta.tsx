@@ -215,6 +215,72 @@ function AccountPage() {
   );
 }
 
+function PasswordCard() {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password.length < 6) return toast.error("A senha precisa ter ao menos 6 caracteres.");
+    if (password !== confirm) return toast.error("As senhas não coincidem.");
+    setSaving(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      setPassword("");
+      setConfirm("");
+      toast.success("Senha alterada com sucesso!");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Não foi possível alterar a senha.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card className="mt-4 p-6">
+      <h2 className="text-lg font-semibold">Alterar senha</h2>
+      <p className="text-sm text-muted-foreground">
+        Defina uma nova senha de acesso à sua conta.
+      </p>
+      <form onSubmit={submit} className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="newPassword">Nova senha</Label>
+          <Input
+            id="newPassword"
+            type="password"
+            minLength={6}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Mínimo 6 caracteres"
+            autoComplete="new-password"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="confirmPassword">Confirmar senha</Label>
+          <Input
+            id="confirmPassword"
+            type="password"
+            minLength={6}
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            placeholder="Repita a nova senha"
+            autoComplete="new-password"
+          />
+        </div>
+        <div className="sm:col-span-2 flex justify-end">
+          <Button type="submit" disabled={saving || !password}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Alterar senha
+          </Button>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
+
 function OrderCard({ order }: { order: any }) {
   const meta = STATUS_META[order.status] ?? {
     label: order.status,
