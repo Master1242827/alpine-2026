@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as ProdutosRouteImport } from './routes/produtos'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ContaRouteImport } from './routes/conta'
@@ -30,6 +31,11 @@ import { Route as ApiPublicWebhooksLogisticsRouteImport } from './routes/api/pub
 import { Route as ApiPublicHooksFrenetTrackingRouteImport } from './routes/api/public/hooks/frenet-tracking'
 import { Route as ApiPublicHooksCheckOrderCompletionRouteImport } from './routes/api/public/hooks/check-order-completion'
 
+const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
+  id: '/redefinir-senha',
+  path: '/redefinir-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProdutosRoute = ProdutosRouteImport.update({
   id: '/produtos',
   path: '/produtos',
@@ -144,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/conta': typeof ContaRoute
   '/login': typeof LoginRoute
   '/produtos': typeof ProdutosRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/checkout/aprovado': typeof CheckoutAprovadoRoute
   '/checkout/falha': typeof CheckoutFalhaRoute
   '/checkout/pendente': typeof CheckoutPendenteRoute
@@ -166,6 +173,7 @@ export interface FileRoutesByTo {
   '/conta': typeof ContaRoute
   '/login': typeof LoginRoute
   '/produtos': typeof ProdutosRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/checkout/aprovado': typeof CheckoutAprovadoRoute
   '/checkout/falha': typeof CheckoutFalhaRoute
   '/checkout/pendente': typeof CheckoutPendenteRoute
@@ -189,6 +197,7 @@ export interface FileRoutesById {
   '/conta': typeof ContaRoute
   '/login': typeof LoginRoute
   '/produtos': typeof ProdutosRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/checkout/aprovado': typeof CheckoutAprovadoRoute
   '/checkout/falha': typeof CheckoutFalhaRoute
   '/checkout/pendente': typeof CheckoutPendenteRoute
@@ -213,6 +222,7 @@ export interface FileRouteTypes {
     | '/conta'
     | '/login'
     | '/produtos'
+    | '/redefinir-senha'
     | '/checkout/aprovado'
     | '/checkout/falha'
     | '/checkout/pendente'
@@ -235,6 +245,7 @@ export interface FileRouteTypes {
     | '/conta'
     | '/login'
     | '/produtos'
+    | '/redefinir-senha'
     | '/checkout/aprovado'
     | '/checkout/falha'
     | '/checkout/pendente'
@@ -257,6 +268,7 @@ export interface FileRouteTypes {
     | '/conta'
     | '/login'
     | '/produtos'
+    | '/redefinir-senha'
     | '/checkout/aprovado'
     | '/checkout/falha'
     | '/checkout/pendente'
@@ -280,6 +292,7 @@ export interface RootRouteChildren {
   ContaRoute: typeof ContaRoute
   LoginRoute: typeof LoginRoute
   ProdutosRoute: typeof ProdutosRoute
+  RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   PedidoIdRoute: typeof PedidoIdRoute
   ProdutoSlugRoute: typeof ProdutoSlugRoute
   ApiPublicHooksCheckOrderCompletionRoute: typeof ApiPublicHooksCheckOrderCompletionRoute
@@ -290,6 +303,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/redefinir-senha': {
+      id: '/redefinir-senha'
+      path: '/redefinir-senha'
+      fullPath: '/redefinir-senha'
+      preLoaderRoute: typeof RedefinirSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/produtos': {
       id: '/produtos'
       path: '/produtos'
@@ -464,6 +484,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContaRoute: ContaRoute,
   LoginRoute: LoginRoute,
   ProdutosRoute: ProdutosRoute,
+  RedefinirSenhaRoute: RedefinirSenhaRoute,
   PedidoIdRoute: PedidoIdRoute,
   ProdutoSlugRoute: ProdutoSlugRoute,
   ApiPublicHooksCheckOrderCompletionRoute:
