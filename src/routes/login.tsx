@@ -7,47 +7,135 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { adminBootstrap } from "@/lib/admin.functions";
+import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
     redirect: typeof search.redirect === "string" ? search.redirect : undefined,
   }),
   component: LoginPage,
+  head: () => ({
+    meta: [
+      { title: "Entrar ou criar conta | Alpine Capotas" },
+      {
+        name: "description",
+        content:
+          "Acesse sua conta Alpine Capotas para acompanhar pedidos, salvar seus dados e comprar mais rápido.",
+      },
+      { property: "og:title", content: "Entrar ou criar conta | Alpine Capotas" },
+      {
+        property: "og:description",
+        content: "Acesse sua conta Alpine Capotas para acompanhar pedidos e comprar mais rápido.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
 });
+
+function maskPhone(v: string) {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 2) return d;
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
 
 function LoginPage() {
   const { redirect } = Route.useSearch();
   const [view, setView] = useState<"customer" | "admin">("customer");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [loading, setLoading] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const bootstrap = useServerFn(adminBootstrap);
+
+  const safeRedirect =
+    typeof redirect === "string" && redirect.startsWith("/") && !redirect.startsWith("//")
+      ? redirect
+      : "/";
 
   const customerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (mode === "signup") {
+      if (fullName.trim().length < 3) {
+        toast.error("Informe seu nome completo.");
+        return;
+      }
+      if (password.length < 6) {
+        toast.error("A senha precisa ter ao menos 6 caracteres.");
+        return;
+      }
+      if (password !== confirmPassword) {
+        toast.error("As senhas não coincidem.");
+        return;
+      }
+    }
     setLoading(true);
     try {
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
-          email, password,
-          options: { emailRedirectTo: `${window.location.origin}/login` },
+          email: email.trim().toLowerCase(),
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/login`,
+            data: { full_name: fullName.trim(), phone: phone.trim() },
+          },
         });
         if (error) throw error;
-        toast.success("Cadastro realizado com sucesso! Enviamos um e-mail de confirmação. Faça login para continuar.");
+        toast.success(
+          "Cadastro realizado! Enviamos um e-mail de confirmação. Confirme e faça login para continuar.",
+        );
         setMode("signin");
         setPassword("");
+        setConfirmPassword("");
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password,
+        });
+        if (error) {
+          if (/invalid login credentials/i.test(error.message)) {
+            throw new Error("E-mail ou senha incorretos.");
+          }
+          if (/email not confirmed/i.test(error.message)) {
+            throw new Error("Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada.");
+          }
+          throw error;
+        }
         toast.success("Login realizado");
-        const safe = typeof redirect === "string" && redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : "/";
-        window.location.href = safe;
+        window.location.href = safeRedirect;
       }
     } catch (err: any) {
       toast.error(err.message || "Erro");
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const forgotPassword = async () => {
+    const target = email.trim().toLowerCase();
+    if (!target || !target.includes("@")) {
+      toast.error("Digite seu e-mail no campo acima para receber o link de recuperação.");
+      return;
+    }
+    setResetting(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(target, {
+        redirectTo: `${window.location.origin}/redefinir-senha`,
+      });
+      if (error) throw error;
+      toast.success("Enviamos um link de recuperação para o seu e-mail.");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Não foi possível enviar o e-mail de recuperação.");
+    } finally {
+      setResetting(false);
+    }
   };
 
   const adminSubmit = async (e: React.FormEvent) => {
@@ -60,13 +148,16 @@ function LoginPage() {
         return;
       }
       const { error } = await supabase.auth.signInWithPassword({
-        email: res.email, password: res.password,
+        email: res.email,
+        password: res.password,
       });
       if (error) throw error;
       window.location.href = "/admin";
     } catch (err: any) {
       toast.error(err.message || "Senha administrativa incorreta");
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (view === "admin") {
@@ -132,16 +223,52 @@ function LoginPage() {
         </p>
 
         <form onSubmit={customerSubmit} className="mt-6 space-y-4">
+          {isSignup && (
+            <>
+              <div>
+                <Label>Nome completo</Label>
+                <Input
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Seu nome completo"
+                  maxLength={120}
+                  autoComplete="name"
+                />
+              </div>
+              <div>
+                <Label>Telefone / WhatsApp</Label>
+                <Input
+                  value={phone}
+                  onChange={(e) => setPhone(maskPhone(e.target.value))}
+                  placeholder="(00) 00000-0000"
+                  inputMode="tel"
+                  autoComplete="tel"
+                />
+              </div>
+            </>
+          )}
           <div>
             <Label>E-mail</Label>
-            <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@exemplo.com" />
+            <Input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="voce@exemplo.com"
+              autoComplete="email"
+            />
           </div>
           <div>
             <Label>Senha</Label>
             <Input
-              type="password" required minLength={6}
-              value={password} onChange={(e) => setPassword(e.target.value)}
+              type="password"
+              required
+              minLength={6}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               placeholder={isSignup ? "Crie uma senha (mín. 6 caracteres)" : "Sua senha"}
+              autoComplete={isSignup ? "new-password" : "current-password"}
             />
             {isSignup && (
               <p className="mt-1 text-xs text-muted-foreground">
@@ -149,16 +276,60 @@ function LoginPage() {
               </p>
             )}
           </div>
+          {isSignup && (
+            <div>
+              <Label>Confirmar senha</Label>
+              <Input
+                type="password"
+                required
+                minLength={6}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Repita a senha"
+                autoComplete="new-password"
+              />
+            </div>
+          )}
           <Button type="submit" className="w-full" disabled={loading} size="lg">
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {loading ? "Aguarde…" : isSignup ? "Cadastrar" : "Entrar"}
           </Button>
         </form>
 
+        {!isSignup && (
+          <button
+            type="button"
+            onClick={forgotPassword}
+            disabled={resetting}
+            className="mt-3 w-full text-center text-sm text-primary hover:underline disabled:opacity-60"
+          >
+            {resetting ? "Enviando…" : "Esqueci minha senha"}
+          </button>
+        )}
+
         <div className="mt-4 text-center text-sm text-muted-foreground">
           {isSignup ? (
-            <>Já tem conta? <button type="button" onClick={() => setMode("signin")} className="font-semibold text-primary hover:underline">Faça login</button></>
+            <>
+              Já tem conta?{" "}
+              <button
+                type="button"
+                onClick={() => setMode("signin")}
+                className="font-semibold text-primary hover:underline"
+              >
+                Faça login
+              </button>
+            </>
           ) : (
-            <>Ainda não tem conta? <button type="button" onClick={() => setMode("signup")} className="font-semibold text-primary hover:underline">Cadastre-se grátis</button></>
+            <>
+              Ainda não tem conta?{" "}
+              <button
+                type="button"
+                onClick={() => setMode("signup")}
+                className="font-semibold text-primary hover:underline"
+              >
+                Cadastre-se grátis
+              </button>
+            </>
           )}
         </div>
       </div>
