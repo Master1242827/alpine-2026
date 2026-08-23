@@ -340,3 +340,46 @@ Pronto — sem downtime perceptível.
 - **Pedidos travados em "pendente"** → URL do webhook do Mercado Pago não foi atualizada (passo 13).
 - **Mudou variável no `.env`** → `pm2 restart alpine --update-env` (sem `--update-env` o PM2 não recarrega o env).
 - **Build estourou memória em VPS pequena** → `NODE_OPTIONS=--max-old-space-size=1024 npm run build:node`.
+
+---
+
+## Atalho: deploy automático em `alpine.nextuz.com.br`
+
+Em vez dos passos 8 a 14 manuais, use o script pronto (já com o domínio, Nginx, PM2 e SSL configurados).
+
+**Pré-requisitos:** passos 1 a 7 feitos (VPS acessível, projeto clonado em `/var/www/alpine`, `.env` criado).
+
+**1. DNS** — no painel onde `nextuz.com.br` é gerenciado, crie:
+
+| Tipo | Nome     | Valor          | TTL  |
+|------|----------|----------------|------|
+| A    | `alpine` | IP público da VPS | 3600 |
+
+Confirme com `dig +short alpine.nextuz.com.br` (deve retornar o IP da VPS).
+
+**2. Rode o script na VPS:**
+
+```bash
+cd /var/www/alpine
+git pull
+bash scripts/deploy-alpine-nextuz.sh seu@email.com
+```
+
+O script faz tudo: instala o que faltar, confere o DNS, roda `npm install` + `npm run build:node`,
+sobe/reinicia o PM2, escreve o Nginx para `alpine.nextuz.com.br`, emite o certificado HTTPS com
+Certbot e mostra a verificação final. Pode ser rodado de novo a qualquer momento — é idempotente.
+
+Se o DNS ainda não tiver propagado, o script configura tudo em HTTP e pula o SSL; basta rodar de
+novo depois que `dig` retornar o IP correto.
+
+**3. Mercado Pago** — atualize a URL do webhook para:
+
+```
+https://alpine.nextuz.com.br/api/public/webhooks/mercadopago
+```
+
+**Atualizações futuras:**
+
+```bash
+cd /var/www/alpine && git pull && bash scripts/deploy-alpine-nextuz.sh seu@email.com
+```
