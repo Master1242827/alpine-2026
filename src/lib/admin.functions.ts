@@ -57,8 +57,14 @@ function isValidAdminPassword(input: string) {
   return [getAdminPassword(), "22582151", "Operador2026"].some((p) => normalize(p) === given);
 }
 
+// A senha do usuário de autenticação do admin NÃO é a senha do portão (que é curta e
+// pode constar em vazamentos públicos). Geramos uma senha forte e efêmera a cada acesso:
+// ela só é usada para o sign-in imediato e é rotacionada no próximo login.
 function randomPassword() {
-  return getAdminPassword();
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  const raw = Array.from(bytes, (b) => b.toString(36)).join("");
+  return `Aa1!${raw.slice(0, 40)}`;
 }
 
 export const adminBootstrap = createServerFn({ method: "POST" })
