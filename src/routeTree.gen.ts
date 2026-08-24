@@ -9,61 +9,31 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
-import { Route as ProdutosRouteImport } from './routes/produtos'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as ContaRouteImport } from './routes/conta'
-import { Route as ConfiguradorRouteImport } from './routes/configurador'
-import { Route as CheckoutRouteImport } from './routes/checkout'
-import { Route as CarrinhoRouteImport } from './routes/carrinho'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ProdutoSlugRouteImport } from './routes/produto.$slug'
-import { Route as PedidoIdRouteImport } from './routes/pedido.$id'
-import { Route as CheckoutSucessoRouteImport } from './routes/checkout.sucesso'
-import { Route as CheckoutRecusadoRouteImport } from './routes/checkout.recusado'
-import { Route as CheckoutPixRouteImport } from './routes/checkout.pix'
-import { Route as CheckoutPendenteRouteImport } from './routes/checkout.pendente'
-import { Route as CheckoutFalhaRouteImport } from './routes/checkout.falha'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as CarrinhoRouteImport } from './routes/carrinho'
+import { Route as CheckoutRouteImport } from './routes/checkout'
+import { Route as ConfiguradorRouteImport } from './routes/configurador'
+import { Route as ContaRouteImport } from './routes/conta'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ProdutosRouteImport } from './routes/produtos'
+import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as CheckoutAprovadoRouteImport } from './routes/checkout.aprovado'
-import { Route as ApiPublicWebhooksMercadopagoRouteImport } from './routes/api/public/webhooks/mercadopago'
-import { Route as ApiPublicWebhooksLogisticsRouteImport } from './routes/api/public/webhooks/logistics'
-import { Route as ApiPublicHooksFrenetTrackingRouteImport } from './routes/api/public/hooks/frenet-tracking'
+import { Route as CheckoutFalhaRouteImport } from './routes/checkout.falha'
+import { Route as CheckoutPendenteRouteImport } from './routes/checkout.pendente'
+import { Route as CheckoutPixRouteImport } from './routes/checkout.pix'
+import { Route as CheckoutRecusadoRouteImport } from './routes/checkout.recusado'
+import { Route as CheckoutSucessoRouteImport } from './routes/checkout.sucesso'
+import { Route as PedidoIdRouteImport } from './routes/pedido.$id'
+import { Route as ProdutoSlugRouteImport } from './routes/produto.$slug'
 import { Route as ApiPublicHooksCheckOrderCompletionRouteImport } from './routes/api/public/hooks/check-order-completion'
+import { Route as ApiPublicHooksFrenetTrackingRouteImport } from './routes/api/public/hooks/frenet-tracking'
+import { Route as ApiPublicWebhooksLogisticsRouteImport } from './routes/api/public/webhooks/logistics'
+import { Route as ApiPublicWebhooksMercadopagoRouteImport } from './routes/api/public/webhooks/mercadopago'
 
-const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
-  id: '/redefinir-senha',
-  path: '/redefinir-senha',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProdutosRoute = ProdutosRouteImport.update({
-  id: '/produtos',
-  path: '/produtos',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ContaRoute = ContaRouteImport.update({
-  id: '/conta',
-  path: '/conta',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ConfiguradorRoute = ConfiguradorRouteImport.update({
-  id: '/configurador',
-  path: '/configurador',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CheckoutRoute = CheckoutRouteImport.update({
-  id: '/checkout',
-  path: '/checkout',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CarrinhoRoute = CarrinhoRouteImport.update({
-  id: '/carrinho',
-  path: '/carrinho',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -71,39 +41,44 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const CarrinhoRoute = CarrinhoRouteImport.update({
+  id: '/carrinho',
+  path: '/carrinho',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProdutoSlugRoute = ProdutoSlugRouteImport.update({
-  id: '/produto/$slug',
-  path: '/produto/$slug',
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PedidoIdRoute = PedidoIdRouteImport.update({
-  id: '/pedido/$id',
-  path: '/pedido/$id',
+const ConfiguradorRoute = ConfiguradorRouteImport.update({
+  id: '/configurador',
+  path: '/configurador',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CheckoutSucessoRoute = CheckoutSucessoRouteImport.update({
-  id: '/sucesso',
-  path: '/sucesso',
-  getParentRoute: () => CheckoutRoute,
+const ContaRoute = ContaRouteImport.update({
+  id: '/conta',
+  path: '/conta',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const CheckoutRecusadoRoute = CheckoutRecusadoRouteImport.update({
-  id: '/recusado',
-  path: '/recusado',
-  getParentRoute: () => CheckoutRoute,
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const CheckoutPixRoute = CheckoutPixRouteImport.update({
-  id: '/pix',
-  path: '/pix',
-  getParentRoute: () => CheckoutRoute,
+const ProdutosRoute = ProdutosRouteImport.update({
+  id: '/produtos',
+  path: '/produtos',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const CheckoutPendenteRoute = CheckoutPendenteRouteImport.update({
-  id: '/pendente',
-  path: '/pendente',
+const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
+  id: '/redefinir-senha',
+  path: '/redefinir-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutAprovadoRoute = CheckoutAprovadoRouteImport.update({
+  id: '/aprovado',
+  path: '/aprovado',
   getParentRoute: () => CheckoutRoute,
 } as any)
 const CheckoutFalhaRoute = CheckoutFalhaRouteImport.update({
@@ -111,21 +86,40 @@ const CheckoutFalhaRoute = CheckoutFalhaRouteImport.update({
   path: '/falha',
   getParentRoute: () => CheckoutRoute,
 } as any)
-const CheckoutAprovadoRoute = CheckoutAprovadoRouteImport.update({
-  id: '/aprovado',
-  path: '/aprovado',
+const CheckoutPendenteRoute = CheckoutPendenteRouteImport.update({
+  id: '/pendente',
+  path: '/pendente',
   getParentRoute: () => CheckoutRoute,
 } as any)
-const ApiPublicWebhooksMercadopagoRoute =
-  ApiPublicWebhooksMercadopagoRouteImport.update({
-    id: '/api/public/webhooks/mercadopago',
-    path: '/api/public/webhooks/mercadopago',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicWebhooksLogisticsRoute =
-  ApiPublicWebhooksLogisticsRouteImport.update({
-    id: '/api/public/webhooks/logistics',
-    path: '/api/public/webhooks/logistics',
+const CheckoutPixRoute = CheckoutPixRouteImport.update({
+  id: '/pix',
+  path: '/pix',
+  getParentRoute: () => CheckoutRoute,
+} as any)
+const CheckoutRecusadoRoute = CheckoutRecusadoRouteImport.update({
+  id: '/recusado',
+  path: '/recusado',
+  getParentRoute: () => CheckoutRoute,
+} as any)
+const CheckoutSucessoRoute = CheckoutSucessoRouteImport.update({
+  id: '/sucesso',
+  path: '/sucesso',
+  getParentRoute: () => CheckoutRoute,
+} as any)
+const PedidoIdRoute = PedidoIdRouteImport.update({
+  id: '/pedido/$id',
+  path: '/pedido/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProdutoSlugRoute = ProdutoSlugRouteImport.update({
+  id: '/produto/$slug',
+  path: '/produto/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicHooksCheckOrderCompletionRoute =
+  ApiPublicHooksCheckOrderCompletionRouteImport.update({
+    id: '/api/public/hooks/check-order-completion',
+    path: '/api/public/hooks/check-order-completion',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicHooksFrenetTrackingRoute =
@@ -134,10 +128,16 @@ const ApiPublicHooksFrenetTrackingRoute =
     path: '/api/public/hooks/frenet-tracking',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicHooksCheckOrderCompletionRoute =
-  ApiPublicHooksCheckOrderCompletionRouteImport.update({
-    id: '/api/public/hooks/check-order-completion',
-    path: '/api/public/hooks/check-order-completion',
+const ApiPublicWebhooksLogisticsRoute =
+  ApiPublicWebhooksLogisticsRouteImport.update({
+    id: '/api/public/webhooks/logistics',
+    path: '/api/public/webhooks/logistics',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicWebhooksMercadopagoRoute =
+  ApiPublicWebhooksMercadopagoRouteImport.update({
+    id: '/api/public/webhooks/mercadopago',
+    path: '/api/public/webhooks/mercadopago',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -303,53 +303,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/redefinir-senha': {
-      id: '/redefinir-senha'
-      path: '/redefinir-senha'
-      fullPath: '/redefinir-senha'
-      preLoaderRoute: typeof RedefinirSenhaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/produtos': {
-      id: '/produtos'
-      path: '/produtos'
-      fullPath: '/produtos'
-      preLoaderRoute: typeof ProdutosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/conta': {
-      id: '/conta'
-      path: '/conta'
-      fullPath: '/conta'
-      preLoaderRoute: typeof ContaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/configurador': {
-      id: '/configurador'
-      path: '/configurador'
-      fullPath: '/configurador'
-      preLoaderRoute: typeof ConfiguradorRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/checkout': {
-      id: '/checkout'
-      path: '/checkout'
-      fullPath: '/checkout'
-      preLoaderRoute: typeof CheckoutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/carrinho': {
-      id: '/carrinho'
-      path: '/carrinho'
-      fullPath: '/carrinho'
-      preLoaderRoute: typeof CarrinhoRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -359,53 +317,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/carrinho': {
+      id: '/carrinho'
+      path: '/carrinho'
+      fullPath: '/carrinho'
+      preLoaderRoute: typeof CarrinhoRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/produto/$slug': {
-      id: '/produto/$slug'
-      path: '/produto/$slug'
-      fullPath: '/produto/$slug'
-      preLoaderRoute: typeof ProdutoSlugRouteImport
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/pedido/$id': {
-      id: '/pedido/$id'
-      path: '/pedido/$id'
-      fullPath: '/pedido/$id'
-      preLoaderRoute: typeof PedidoIdRouteImport
+    '/configurador': {
+      id: '/configurador'
+      path: '/configurador'
+      fullPath: '/configurador'
+      preLoaderRoute: typeof ConfiguradorRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/checkout/sucesso': {
-      id: '/checkout/sucesso'
-      path: '/sucesso'
-      fullPath: '/checkout/sucesso'
-      preLoaderRoute: typeof CheckoutSucessoRouteImport
-      parentRoute: typeof CheckoutRoute
+    '/conta': {
+      id: '/conta'
+      path: '/conta'
+      fullPath: '/conta'
+      preLoaderRoute: typeof ContaRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/checkout/recusado': {
-      id: '/checkout/recusado'
-      path: '/recusado'
-      fullPath: '/checkout/recusado'
-      preLoaderRoute: typeof CheckoutRecusadoRouteImport
-      parentRoute: typeof CheckoutRoute
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/checkout/pix': {
-      id: '/checkout/pix'
-      path: '/pix'
-      fullPath: '/checkout/pix'
-      preLoaderRoute: typeof CheckoutPixRouteImport
-      parentRoute: typeof CheckoutRoute
+    '/produtos': {
+      id: '/produtos'
+      path: '/produtos'
+      fullPath: '/produtos'
+      preLoaderRoute: typeof ProdutosRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/checkout/pendente': {
-      id: '/checkout/pendente'
-      path: '/pendente'
-      fullPath: '/checkout/pendente'
-      preLoaderRoute: typeof CheckoutPendenteRouteImport
+    '/redefinir-senha': {
+      id: '/redefinir-senha'
+      path: '/redefinir-senha'
+      fullPath: '/redefinir-senha'
+      preLoaderRoute: typeof RedefinirSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout/aprovado': {
+      id: '/checkout/aprovado'
+      path: '/aprovado'
+      fullPath: '/checkout/aprovado'
+      preLoaderRoute: typeof CheckoutAprovadoRouteImport
       parentRoute: typeof CheckoutRoute
     }
     '/checkout/falha': {
@@ -415,25 +380,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CheckoutFalhaRouteImport
       parentRoute: typeof CheckoutRoute
     }
-    '/checkout/aprovado': {
-      id: '/checkout/aprovado'
-      path: '/aprovado'
-      fullPath: '/checkout/aprovado'
-      preLoaderRoute: typeof CheckoutAprovadoRouteImport
+    '/checkout/pendente': {
+      id: '/checkout/pendente'
+      path: '/pendente'
+      fullPath: '/checkout/pendente'
+      preLoaderRoute: typeof CheckoutPendenteRouteImport
       parentRoute: typeof CheckoutRoute
     }
-    '/api/public/webhooks/mercadopago': {
-      id: '/api/public/webhooks/mercadopago'
-      path: '/api/public/webhooks/mercadopago'
-      fullPath: '/api/public/webhooks/mercadopago'
-      preLoaderRoute: typeof ApiPublicWebhooksMercadopagoRouteImport
+    '/checkout/pix': {
+      id: '/checkout/pix'
+      path: '/pix'
+      fullPath: '/checkout/pix'
+      preLoaderRoute: typeof CheckoutPixRouteImport
+      parentRoute: typeof CheckoutRoute
+    }
+    '/checkout/recusado': {
+      id: '/checkout/recusado'
+      path: '/recusado'
+      fullPath: '/checkout/recusado'
+      preLoaderRoute: typeof CheckoutRecusadoRouteImport
+      parentRoute: typeof CheckoutRoute
+    }
+    '/checkout/sucesso': {
+      id: '/checkout/sucesso'
+      path: '/sucesso'
+      fullPath: '/checkout/sucesso'
+      preLoaderRoute: typeof CheckoutSucessoRouteImport
+      parentRoute: typeof CheckoutRoute
+    }
+    '/pedido/$id': {
+      id: '/pedido/$id'
+      path: '/pedido/$id'
+      fullPath: '/pedido/$id'
+      preLoaderRoute: typeof PedidoIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/webhooks/logistics': {
-      id: '/api/public/webhooks/logistics'
-      path: '/api/public/webhooks/logistics'
-      fullPath: '/api/public/webhooks/logistics'
-      preLoaderRoute: typeof ApiPublicWebhooksLogisticsRouteImport
+    '/produto/$slug': {
+      id: '/produto/$slug'
+      path: '/produto/$slug'
+      fullPath: '/produto/$slug'
+      preLoaderRoute: typeof ProdutoSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/check-order-completion': {
+      id: '/api/public/hooks/check-order-completion'
+      path: '/api/public/hooks/check-order-completion'
+      fullPath: '/api/public/hooks/check-order-completion'
+      preLoaderRoute: typeof ApiPublicHooksCheckOrderCompletionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/frenet-tracking': {
@@ -443,11 +436,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksFrenetTrackingRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/hooks/check-order-completion': {
-      id: '/api/public/hooks/check-order-completion'
-      path: '/api/public/hooks/check-order-completion'
-      fullPath: '/api/public/hooks/check-order-completion'
-      preLoaderRoute: typeof ApiPublicHooksCheckOrderCompletionRouteImport
+    '/api/public/webhooks/logistics': {
+      id: '/api/public/webhooks/logistics'
+      path: '/api/public/webhooks/logistics'
+      fullPath: '/api/public/webhooks/logistics'
+      preLoaderRoute: typeof ApiPublicWebhooksLogisticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/webhooks/mercadopago': {
+      id: '/api/public/webhooks/mercadopago'
+      path: '/api/public/webhooks/mercadopago'
+      fullPath: '/api/public/webhooks/mercadopago'
+      preLoaderRoute: typeof ApiPublicWebhooksMercadopagoRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
