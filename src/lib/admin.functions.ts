@@ -35,18 +35,11 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
 
 const ADMIN_EMAIL = "admin@autopremium.local";
 
-function normalize(code: string) {
-  return code.replace(/[\s-]/g, "");
-}
-
-function getAdminPassword() {
-  return process.env.ADMIN_PASSWORD || "22582151";
-}
-
-// Senhas aceitas: a configurada no ambiente (ou a padrão) e a senha mestra legada.
-function isValidAdminPassword(input: string) {
-  const given = normalize(input);
-  return [getAdminPassword(), "22582151", "Operador2026"].some((p) => normalize(p) === given);
+// A validação da senha vive em admin-password.server.ts (servidor apenas),
+// importada dinamicamente dentro dos handlers.
+async function isValidAdminPassword(input: string) {
+  const { isValidAdminPassword: check } = await import("./admin-password.server");
+  return check(input);
 }
 
 // A senha do usuário de autenticação do admin NÃO é a senha do portão (que é curta e
@@ -64,7 +57,7 @@ export const adminBootstrap = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     // Senha inválida não é uma exceção: retorna erro tratado para o cliente
     // (throw aqui borbulhava como runtime error e derrubava a tela).
-    if (!isValidAdminPassword(data.password)) {
+    if (!(await isValidAdminPassword(data.password))) {
       return { ok: false as const, error: "Senha administrativa incorreta" };
     }
     const { ensureAdminAuthUser } = await backend();
@@ -77,7 +70,7 @@ export const claimAdminRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ password: z.string().min(1).max(64) }).parse(input))
   .handler(async ({ data, context }) => {
-    if (!isValidAdminPassword(data.password)) {
+    if (!(await isValidAdminPassword(data.password))) {
       throw new Error("Senha administrativa incorreta");
     }
     const { grantAdminRole } = await backend();
