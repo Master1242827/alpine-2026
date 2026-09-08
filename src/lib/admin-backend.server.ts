@@ -81,11 +81,11 @@ export async function isAdminUser(userId: string): Promise<boolean> {
     }
     return !!data;
   }
-  const out = await externalRequest<{ is_admin?: boolean }>(
+  const out = await externalRequest<{ data?: { user_id?: string; roles?: string[]; is_admin?: boolean } }>(
     "GET",
     `/users/${encodeURIComponent(userId)}/roles`,
   );
-  return !!out?.is_admin;
+  return !!out?.data?.is_admin;
 }
 
 /** Concede o cargo de administrador. */
