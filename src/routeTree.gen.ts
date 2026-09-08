@@ -27,6 +27,7 @@ import { Route as CheckoutSucessoRouteImport } from './routes/checkout.sucesso'
 import { Route as PedidoIdRouteImport } from './routes/pedido.$id'
 import { Route as ProdutoSlugRouteImport } from './routes/produto.$slug'
 import { Route as ApiPublicAdminSplatRouteImport } from './routes/api/public/admin/$'
+import { Route as ApiPublicCheckoutSplatRouteImport } from './routes/api/public/checkout/$'
 import { Route as ApiPublicHooksCheckOrderCompletionRouteImport } from './routes/api/public/hooks/check-order-completion'
 import { Route as ApiPublicHooksFrenetTrackingRouteImport } from './routes/api/public/hooks/frenet-tracking'
 import { Route as ApiPublicWebhooksLogisticsRouteImport } from './routes/api/public/webhooks/logistics'
@@ -122,6 +123,11 @@ const ApiPublicAdminSplatRoute = ApiPublicAdminSplatRouteImport.update({
   path: '/api/public/admin/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCheckoutSplatRoute = ApiPublicCheckoutSplatRouteImport.update({
+  id: '/api/public/checkout/$',
+  path: '/api/public/checkout/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksCheckOrderCompletionRoute =
   ApiPublicHooksCheckOrderCompletionRouteImport.update({
     id: '/api/public/hooks/check-order-completion',
@@ -166,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/pedido/$id': typeof PedidoIdRoute
   '/produto/$slug': typeof ProdutoSlugRoute
   '/api/public/admin/$': typeof ApiPublicAdminSplatRoute
+  '/api/public/checkout/$': typeof ApiPublicCheckoutSplatRoute
   '/api/public/hooks/check-order-completion': typeof ApiPublicHooksCheckOrderCompletionRoute
   '/api/public/hooks/frenet-tracking': typeof ApiPublicHooksFrenetTrackingRoute
   '/api/public/webhooks/logistics': typeof ApiPublicWebhooksLogisticsRoute
@@ -190,6 +197,7 @@ export interface FileRoutesByTo {
   '/pedido/$id': typeof PedidoIdRoute
   '/produto/$slug': typeof ProdutoSlugRoute
   '/api/public/admin/$': typeof ApiPublicAdminSplatRoute
+  '/api/public/checkout/$': typeof ApiPublicCheckoutSplatRoute
   '/api/public/hooks/check-order-completion': typeof ApiPublicHooksCheckOrderCompletionRoute
   '/api/public/hooks/frenet-tracking': typeof ApiPublicHooksFrenetTrackingRoute
   '/api/public/webhooks/logistics': typeof ApiPublicWebhooksLogisticsRoute
@@ -215,6 +223,7 @@ export interface FileRoutesById {
   '/pedido/$id': typeof PedidoIdRoute
   '/produto/$slug': typeof ProdutoSlugRoute
   '/api/public/admin/$': typeof ApiPublicAdminSplatRoute
+  '/api/public/checkout/$': typeof ApiPublicCheckoutSplatRoute
   '/api/public/hooks/check-order-completion': typeof ApiPublicHooksCheckOrderCompletionRoute
   '/api/public/hooks/frenet-tracking': typeof ApiPublicHooksFrenetTrackingRoute
   '/api/public/webhooks/logistics': typeof ApiPublicWebhooksLogisticsRoute
@@ -241,6 +250,7 @@ export interface FileRouteTypes {
     | '/pedido/$id'
     | '/produto/$slug'
     | '/api/public/admin/$'
+    | '/api/public/checkout/$'
     | '/api/public/hooks/check-order-completion'
     | '/api/public/hooks/frenet-tracking'
     | '/api/public/webhooks/logistics'
@@ -265,6 +275,7 @@ export interface FileRouteTypes {
     | '/pedido/$id'
     | '/produto/$slug'
     | '/api/public/admin/$'
+    | '/api/public/checkout/$'
     | '/api/public/hooks/check-order-completion'
     | '/api/public/hooks/frenet-tracking'
     | '/api/public/webhooks/logistics'
@@ -289,6 +300,7 @@ export interface FileRouteTypes {
     | '/pedido/$id'
     | '/produto/$slug'
     | '/api/public/admin/$'
+    | '/api/public/checkout/$'
     | '/api/public/hooks/check-order-completion'
     | '/api/public/hooks/frenet-tracking'
     | '/api/public/webhooks/logistics'
@@ -308,6 +320,7 @@ export interface RootRouteChildren {
   PedidoIdRoute: typeof PedidoIdRoute
   ProdutoSlugRoute: typeof ProdutoSlugRoute
   ApiPublicAdminSplatRoute: typeof ApiPublicAdminSplatRoute
+  ApiPublicCheckoutSplatRoute: typeof ApiPublicCheckoutSplatRoute
   ApiPublicHooksCheckOrderCompletionRoute: typeof ApiPublicHooksCheckOrderCompletionRoute
   ApiPublicHooksFrenetTrackingRoute: typeof ApiPublicHooksFrenetTrackingRoute
   ApiPublicWebhooksLogisticsRoute: typeof ApiPublicWebhooksLogisticsRoute
@@ -442,6 +455,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAdminSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/checkout/$': {
+      id: '/api/public/checkout/$'
+      path: '/api/public/checkout/$'
+      fullPath: '/api/public/checkout/$'
+      preLoaderRoute: typeof ApiPublicCheckoutSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/check-order-completion': {
       id: '/api/public/hooks/check-order-completion'
       path: '/api/public/hooks/check-order-completion'
@@ -508,6 +528,7 @@ const rootRouteChildren: RootRouteChildren = {
   PedidoIdRoute: PedidoIdRoute,
   ProdutoSlugRoute: ProdutoSlugRoute,
   ApiPublicAdminSplatRoute: ApiPublicAdminSplatRoute,
+  ApiPublicCheckoutSplatRoute: ApiPublicCheckoutSplatRoute,
   ApiPublicHooksCheckOrderCompletionRoute:
     ApiPublicHooksCheckOrderCompletionRoute,
   ApiPublicHooksFrenetTrackingRoute: ApiPublicHooksFrenetTrackingRoute,

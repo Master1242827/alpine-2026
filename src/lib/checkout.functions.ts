@@ -2,11 +2,16 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { quoteShippingInternal } from "./shipping.functions";
 
 const MP_PREFERENCES_ENDPOINT = "https://api.mercadopago.com/checkout/preferences";
 const MP_PAYMENTS_ENDPOINT = "https://api.mercadopago.com/v1/payments";
+
+/** Camada de dados/pagamento: usa a chave de serviço quando existe, senão a API pública. */
+async function backend() {
+  return await import("./checkout-backend.server");
+}
+
 
 type OrderStatus = "pending" | "paid" | "cancelled";
 
@@ -40,11 +45,8 @@ function mercadoPagoMessage(json: any, fallback: string) {
 // Public, non-sensitive store settings (read from client without auth).
 export const getPublicStoreSettings = createServerFn({ method: "GET" })
   .handler(async () => {
-    const { data } = await supabaseAdmin
-      .from("store_settings")
-      .select("pix_enabled, pix_discount_percent, card_discount_percent, installments_max, installments_interest_free, installments_monthly_rate, whatsapp_number, store_name")
-      .eq("id", 1)
-      .maybeSingle();
+    const data = await (await backend()).getStoreSettings();
+
     return {
       pix_enabled: !!data?.pix_enabled,
       pix_discount_percent: Number(data?.pix_discount_percent ?? 0),
@@ -112,15 +114,10 @@ type ResolvedItem = {
  */
 async function resolveCheckoutAmounts(input: z.infer<typeof InputSchema>) {
   const ids = Array.from(new Set(input.items.map((i) => i.productId)));
-  const { data: rows, error } = await supabaseAdmin
-    .from("products")
-    .select("id,name,price_cents,active")
-    .in("id", ids);
-  if (error) {
-    console.error("[checkout] product validation error", error);
-    throw new Error("Falha ao validar produtos. Tente novamente.");
-  }
+  const be = await backend();
+  const rows = await be.getProductsByIds(ids);
   const byId = new Map((rows ?? []).map((r) => [r.id, r]));
+
   const resolvedItems: ResolvedItem[] = input.items.map((i) => {
     const p = byId.get(i.productId);
     if (!p) throw new Error(`Produto indisponível (${i.productId})`);
@@ -172,22 +169,15 @@ async function resolveCheckoutAmounts(input: z.infer<typeof InputSchema>) {
   // Recompute discount from server-side store_settings.
   // PIX and card à vista both may have discounts; store settings drives the values.
   let discountCents = 0;
-  const { data: settings } = await supabaseAdmin
-    .from("store_settings")
-    .select("pix_enabled,pix_discount_percent,card_discount_percent")
-    .eq("id", 1)
-    .maybeSingle();
+  const settings = await be.getStoreSettings();
   if (input.paymentMethod === "pix" && settings?.pix_enabled && settings?.pix_discount_percent) {
     discountCents = Math.floor((subtotal * Number(settings.pix_discount_percent)) / 100);
   } else if (input.paymentMethod === "card" || input.paymentMethod === "boleto") {
     // Cartão/boleto: o desconto por parcela (installment_fees) manda; se não houver
     // linha ativa para a parcela escolhida, cai no desconto único de store_settings.
     const n = input.paymentMethod === "boleto" ? 1 : Math.max(1, Math.min(12, input.installments ?? 1));
-    const { data: feeRow } = await supabaseAdmin
-      .from("installment_fees")
-      .select("fee_percent,active")
-      .eq("installments", n)
-      .maybeSingle();
+    const feeRow = await be.getInstallmentFee(n);
+
     const percent =
       feeRow?.active && feeRow.fee_percent != null
         ? Number(feeRow.fee_percent)
@@ -205,40 +195,31 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const token = process.env.MERCADO_PAGO_ACCESS_TOKEN;
-    if (!token) throw new Error("MERCADO_PAGO_ACCESS_TOKEN is not configured");
+    const be = await backend();
+    if (!be.mpConfigured()) throw new Error("Pagamento não configurado neste ambiente.");
 
     const { resolvedItems, subtotal, shippingCostCents, discountCents, total } =
       await resolveCheckoutAmounts(data);
 
     // Create order (pending)
-    const { data: order, error: orderErr } = await supabaseAdmin
-      .from("orders")
-      .insert({
-        user_id: context.userId,
-        customer_name: data.customer.name,
-        customer_email: data.customer.email,
-        customer_phone: data.customer.phone,
-        customer_cpf: (data.customer.cpf || "").replace(/\D/g, "") || null,
-        shipping_address: data.shipping,
-        shipping_cost_cents: shippingCostCents,
-        shipping_service: data.shippingService,
-        subtotal_cents: subtotal,
-        discount_cents: discountCents,
-        total_cents: total,
-        notes: data.notes,
-        notes_images: data.notesImages ?? [],
-        notes_video_url: data.notesVideoUrl ?? null,
-        status: "pending",
-        payment_method: data.paymentMethod,
-      })
-      .select("id")
-      .single();
-    if (orderErr || !order) {
-      console.error("[checkout] create order error", orderErr);
-      throw new Error("Falha ao criar pedido. Tente novamente.");
-    }
-
+    const order = await be.createOrder({
+      user_id: context.userId,
+      customer_name: data.customer.name,
+      customer_email: data.customer.email,
+      customer_phone: data.customer.phone,
+      customer_cpf: (data.customer.cpf || "").replace(/\D/g, "") || null,
+      shipping_address: data.shipping,
+      shipping_cost_cents: shippingCostCents,
+      shipping_service: data.shippingService,
+      subtotal_cents: subtotal,
+      discount_cents: discountCents,
+      total_cents: total,
+      notes: data.notes,
+      notes_images: data.notesImages ?? [],
+      notes_video_url: data.notesVideoUrl ?? null,
+      status: "pending",
+      payment_method: data.paymentMethod,
+    });
 
     const itemsRows = resolvedItems.map((i) => ({
       order_id: order.id,
@@ -248,11 +229,8 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
       quantity: i.quantity,
       vehicle_config: i.vehicleConfig ?? null,
     }));
-    const { error: itemsErr } = await supabaseAdmin.from("order_items").insert(itemsRows);
-    if (itemsErr) {
-      console.error("[checkout] insert items error", itemsErr);
-      throw new Error("Falha ao registrar itens do pedido.");
-    }
+    await be.insertOrderItems(order.id, itemsRows);
+
 
     const origin = getRuntimeOrigin();
     // Sempre usa 1 linha consolidada quando há desconto, para o total bater com o MP.
@@ -283,12 +261,9 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
     }
 
     // Configurações de parcelamento (via store_settings)
-    const { data: paySettings } = await supabaseAdmin
-      .from("store_settings")
-      .select("installments_max,installments_interest_free")
-      .eq("id", 1)
-      .maybeSingle();
+    const paySettings = await be.getStoreSettings();
     const maxInstallments = Math.max(1, Math.min(12, Number(paySettings?.installments_max ?? 10)));
+
 
     const [firstName, ...rest] = data.customer.name.split(" ");
     let paymentMethods: any;
@@ -343,26 +318,17 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
 
 
     console.info("[MercadoPago] create preference", { endpoint: MP_PREFERENCES_ENDPOINT, orderId: order.id, paymentMethod: data.paymentMethod, totalCents: total });
-    const res = await fetch(MP_PREFERENCES_ENDPOINT, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(preferenceBody),
-    });
-    const { text, json } = await readMercadoPagoResponse(res);
+    const res = await be.mpCreatePreference(preferenceBody);
+    const json = res.json ?? {};
+    const text = res.text;
     const redirectUrl = json.init_point || json.sandbox_init_point;
     if (!res.ok || !json.id || !redirectUrl) {
       console.error("[MercadoPago] preference error", { endpoint: MP_PREFERENCES_ENDPOINT, status: res.status, body: text, orderId: order.id });
       throw new Error(`Mercado Pago preference_id error [${res.status}]: ${mercadoPagoMessage(json, "preference failed")}`);
     }
 
-    const { error: updateErr } = await supabaseAdmin
-      .from("orders")
-      .update({ mp_preference_id: json.id })
-      .eq("id", order.id);
-    if (updateErr) console.error("[MercadoPago] order preference update error", { orderId: order.id, message: updateErr.message });
+    await be.updateOrder(order.id, { mp_preference_id: String(json.id) });
+
 
     console.info("[MercadoPago] preference ready", { orderId: order.id, preferenceId: json.id, redirectUrl });
     return { orderId: order.id, initPoint: redirectUrl as string, preferenceId: json.id as string };
@@ -372,30 +338,15 @@ export const getOrderPaymentStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => OrderLookupSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { data: order, error } = await supabaseAdmin
-      .from("orders")
-      .select("id,user_id,total_cents,status,payment_method,mp_payment_id,mp_preference_id,created_at, order_items(product_id, product_name, quantity, unit_price_cents)")
-      .eq("id", data.orderId)
-      .maybeSingle();
-
-    if (error) {
-      console.error("[checkout] order lookup error", error);
-      throw new Error("Erro ao buscar pedido. Tente novamente.");
-    }
+    const be = await backend();
+    const order = await be.getOrderWithItems(data.orderId);
     if (!order || order.user_id !== context.userId) throw new Error("Pedido não encontrado");
 
     // Buscar imagem de capa de cada produto para exibir na tela de confirmação
     const productIds = (order.order_items ?? []).map((i: any) => i.product_id).filter(Boolean);
-    let imagesByProduct: Record<string, string | null> = {};
-    if (productIds.length > 0) {
-      const { data: prods } = await supabaseAdmin
-        .from("products")
-        .select("id, images")
-        .in("id", productIds);
-      imagesByProduct = Object.fromEntries(
-        (prods ?? []).map((p: any) => [p.id, Array.isArray(p.images) && p.images[0] ? p.images[0] : null]),
-      );
-    }
+    const imagesByProduct: Record<string, string | null> =
+      productIds.length > 0 ? await be.getProductImages(productIds) : {};
+
     const items = (order.order_items ?? []).map((i: any) => ({
       productId: i.product_id,
       name: i.product_name,
@@ -417,26 +368,20 @@ export const getOrderPaymentStatus = createServerFn({ method: "POST" })
       items,
     });
 
-    const token = process.env.MERCADO_PAGO_ACCESS_TOKEN;
-    if (token && order.status === "pending") {
-      const endpoint = order.mp_payment_id
-        ? `${MP_PAYMENTS_ENDPOINT}/${order.mp_payment_id}`
-        : `${MP_PAYMENTS_ENDPOINT}/search?external_reference=${encodeURIComponent(order.id)}&sort=date_created&criteria=desc`;
+    if (be.mpConfigured() && order.status === "pending") {
       try {
-        console.info("[MercadoPago] status check", { endpoint, orderId: order.id });
-        const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}` } });
-        const { text, json } = await readMercadoPagoResponse(res);
+        console.info("[MercadoPago] status check", { orderId: order.id });
+        const res = await be.mpGetPayment({
+          paymentId: order.mp_payment_id,
+          externalReference: order.id,
+        });
         if (!res.ok) {
-          console.error("[MercadoPago] status check error", { endpoint, status: res.status, body: text, orderId: order.id });
+          console.error("[MercadoPago] status check error", { status: res.status, body: res.text, orderId: order.id });
         } else {
-          const payment = order.mp_payment_id ? json : json?.results?.[0];
+          const payment = order.mp_payment_id ? res.json : res.json?.results?.[0];
           if (payment?.id && payment?.status) {
             const nextStatus = mapPaymentStatus(payment.status);
-            const { error: updateErr } = await supabaseAdmin
-              .from("orders")
-              .update({ status: nextStatus, mp_payment_id: String(payment.id) })
-              .eq("id", order.id);
-            if (updateErr) console.error("[MercadoPago] status update error", { orderId: order.id, message: updateErr.message });
+            await be.updateOrder(order.id, { status: nextStatus, mp_payment_id: String(payment.id) });
             return buildResult(nextStatus, String(payment.id), payment.status as string, payment.status_detail as string | undefined);
           }
         }
@@ -444,6 +389,7 @@ export const getOrderPaymentStatus = createServerFn({ method: "POST" })
         console.error("[MercadoPago] status check failed", { orderId: order.id, message: err instanceof Error ? err.message : String(err) });
       }
     }
+
 
     return buildResult(order.status as OrderStatus);
   });
