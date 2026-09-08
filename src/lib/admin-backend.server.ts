@@ -104,8 +104,17 @@ export async function grantAdminRole(userId: string): Promise<void> {
   await externalRequest("POST", `/users/${encodeURIComponent(userId)}/roles`, { role: "admin" });
 }
 
+export type OrderStatus =
+  | "pending"
+  | "paid"
+  | "shipped"
+  | "delivered"
+  | "returned"
+  | "completed"
+  | "cancelled";
+
 /** Atualiza o status de um pedido. */
-export async function setOrderStatus(orderId: string, status: string): Promise<void> {
+export async function setOrderStatus(orderId: string, status: OrderStatus): Promise<void> {
   if (hasServiceRole()) {
     const db = await admin();
     const { error } = await db.from("orders").update({ status }).eq("id", orderId);
