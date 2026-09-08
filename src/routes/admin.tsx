@@ -13,6 +13,12 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { formatCents } from "@/lib/format";
 import { checkIsAdmin, updateOrderStatus } from "@/lib/admin.functions";
+import {
+  adminGateLogin,
+  adminGateLogout,
+  adminGateStatus,
+  gateUpdateOrderStatus,
+} from "@/lib/admin-gate.functions";
 import { VehiclesAdmin } from "@/components/admin/vehicles-admin";
 import { ShippingAdmin } from "@/components/admin/shipping-admin";
 import { classifyProductSize, SIZE_LABEL } from "@/lib/shipping-classify";
@@ -151,7 +157,8 @@ function AdminPage() {
         <Button
           variant="outline"
           onClick={async () => {
-            await supabase.auth.signOut();
+            if (gateMode) await gateLogout();
+            else await supabase.auth.signOut();
             window.location.href = "/";
           }}
         >
