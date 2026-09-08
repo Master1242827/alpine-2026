@@ -368,26 +368,20 @@ export const getOrderPaymentStatus = createServerFn({ method: "POST" })
       items,
     });
 
-    const token = process.env.MERCADO_PAGO_ACCESS_TOKEN;
-    if (token && order.status === "pending") {
-      const endpoint = order.mp_payment_id
-        ? `${MP_PAYMENTS_ENDPOINT}/${order.mp_payment_id}`
-        : `${MP_PAYMENTS_ENDPOINT}/search?external_reference=${encodeURIComponent(order.id)}&sort=date_created&criteria=desc`;
+    if (be.mpConfigured() && order.status === "pending") {
       try {
-        console.info("[MercadoPago] status check", { endpoint, orderId: order.id });
-        const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}` } });
-        const { text, json } = await readMercadoPagoResponse(res);
+        console.info("[MercadoPago] status check", { orderId: order.id });
+        const res = await be.mpGetPayment({
+          paymentId: order.mp_payment_id,
+          externalReference: order.id,
+        });
         if (!res.ok) {
-          console.error("[MercadoPago] status check error", { endpoint, status: res.status, body: text, orderId: order.id });
+          console.error("[MercadoPago] status check error", { status: res.status, body: res.text, orderId: order.id });
         } else {
-          const payment = order.mp_payment_id ? json : json?.results?.[0];
+          const payment = order.mp_payment_id ? res.json : res.json?.results?.[0];
           if (payment?.id && payment?.status) {
             const nextStatus = mapPaymentStatus(payment.status);
-            const { error: updateErr } = await supabaseAdmin
-              .from("orders")
-              .update({ status: nextStatus, mp_payment_id: String(payment.id) })
-              .eq("id", order.id);
-            if (updateErr) console.error("[MercadoPago] status update error", { orderId: order.id, message: updateErr.message });
+            await be.updateOrder(order.id, { status: nextStatus, mp_payment_id: String(payment.id) });
             return buildResult(nextStatus, String(payment.id), payment.status as string, payment.status_detail as string | undefined);
           }
         }
@@ -395,6 +389,7 @@ export const getOrderPaymentStatus = createServerFn({ method: "POST" })
         console.error("[MercadoPago] status check failed", { orderId: order.id, message: err instanceof Error ? err.message : String(err) });
       }
     }
+
 
     return buildResult(order.status as OrderStatus);
   });
