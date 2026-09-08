@@ -338,30 +338,15 @@ export const getOrderPaymentStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => OrderLookupSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { data: order, error } = await supabaseAdmin
-      .from("orders")
-      .select("id,user_id,total_cents,status,payment_method,mp_payment_id,mp_preference_id,created_at, order_items(product_id, product_name, quantity, unit_price_cents)")
-      .eq("id", data.orderId)
-      .maybeSingle();
-
-    if (error) {
-      console.error("[checkout] order lookup error", error);
-      throw new Error("Erro ao buscar pedido. Tente novamente.");
-    }
+    const be = await backend();
+    const order = await be.getOrderWithItems(data.orderId);
     if (!order || order.user_id !== context.userId) throw new Error("Pedido não encontrado");
 
     // Buscar imagem de capa de cada produto para exibir na tela de confirmação
     const productIds = (order.order_items ?? []).map((i: any) => i.product_id).filter(Boolean);
-    let imagesByProduct: Record<string, string | null> = {};
-    if (productIds.length > 0) {
-      const { data: prods } = await supabaseAdmin
-        .from("products")
-        .select("id, images")
-        .in("id", productIds);
-      imagesByProduct = Object.fromEntries(
-        (prods ?? []).map((p: any) => [p.id, Array.isArray(p.images) && p.images[0] ? p.images[0] : null]),
-      );
-    }
+    const imagesByProduct: Record<string, string | null> =
+      productIds.length > 0 ? await be.getProductImages(productIds) : {};
+
     const items = (order.order_items ?? []).map((i: any) => ({
       productId: i.product_id,
       name: i.product_name,
