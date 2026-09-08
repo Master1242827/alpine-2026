@@ -77,7 +77,7 @@ export const claimAdminRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ password: z.string().min(1).max(64) }).parse(input))
   .handler(async ({ data, context }) => {
-    if (normalize(data.password) !== normalize(getAdminPassword())) {
+    if (!isValidAdminPassword(data.password)) {
       throw new Error("Senha administrativa incorreta");
     }
     const { grantAdminRole } = await backend();

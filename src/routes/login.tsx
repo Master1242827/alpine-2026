@@ -145,9 +145,10 @@ function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      // Usuário já autenticado: apenas reivindica o cargo de administrador
-      // (funciona também fora do Lovable, via fallback da API externa).
-      if (user) {
+      // Lê a sessão diretamente: o estado do contexto pode ainda não ter
+      // hidratado nesta tela, mesmo com o usuário já autenticado.
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session) {
         await claimRole({ data: { password: adminPassword } });
         toast.success("Acesso administrativo liberado");
         window.location.href = "/admin";
