@@ -700,9 +700,15 @@ function OrdersTab() {
   useEffect(() => { load(); }, []);
 
   const updateStatusFn = useServerFn(updateOrderStatus);
+  const gateUpdateStatusFn = useServerFn(gateUpdateOrderStatus);
   const updateStatus = async (id: string, status: string) => {
     try {
-      await updateStatusFn({ data: { orderId: id, status: status as any } });
+      try {
+        await updateStatusFn({ data: { orderId: id, status: status as any } });
+      } catch {
+        // Sem sessão de usuário (modo só senha): usa o cookie administrativo.
+        await gateUpdateStatusFn({ data: { orderId: id, status: status as any } });
+      }
       setOrders((o) => o.map((x) => (x.id === id ? { ...x, status } : x)));
       toast.success("Status atualizado");
     } catch (err: any) {
