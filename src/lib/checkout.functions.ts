@@ -45,11 +45,8 @@ function mercadoPagoMessage(json: any, fallback: string) {
 // Public, non-sensitive store settings (read from client without auth).
 export const getPublicStoreSettings = createServerFn({ method: "GET" })
   .handler(async () => {
-    const { data } = await supabaseAdmin
-      .from("store_settings")
-      .select("pix_enabled, pix_discount_percent, card_discount_percent, installments_max, installments_interest_free, installments_monthly_rate, whatsapp_number, store_name")
-      .eq("id", 1)
-      .maybeSingle();
+    const data = await (await backend()).getStoreSettings();
+
     return {
       pix_enabled: !!data?.pix_enabled,
       pix_discount_percent: Number(data?.pix_discount_percent ?? 0),
