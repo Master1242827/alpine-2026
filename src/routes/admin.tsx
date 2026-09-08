@@ -23,12 +23,32 @@ export const Route = createFileRoute("/admin")({ component: AdminPage });
 function AdminPage() {
   const [state, setState] = useState<"loading" | "guest" | "denied" | "ok">("loading");
   const [email, setEmail] = useState<string>("");
+  const [gateMode, setGateMode] = useState(false);
+  const [gatePassword, setGatePassword] = useState("");
+  const [gateLoading, setGateLoading] = useState(false);
   const check = useServerFn(checkIsAdmin);
+  const gateStatus = useServerFn(adminGateStatus);
+  const gateLogin = useServerFn(adminGateLogin);
+  const gateLogout = useServerFn(adminGateLogout);
 
   useEffect(() => {
     let cancelled = false;
 
     async function run() {
+      // 1) Modo simplificado: cookie de senha administrativa.
+      try {
+        const g = await gateStatus();
+        if (cancelled) return;
+        if (g.unlocked) {
+          setGateMode(true);
+          setEmail("acesso por senha administrativa");
+          setState("ok");
+          return;
+        }
+      } catch {
+        /* ignora e tenta o login normal */
+      }
+      // 2) Modo Supabase Auth (conta de usuário).
       const { data: sess } = await supabase.auth.getSession();
       if (!sess.session) { if (!cancelled) setState("guest"); return; }
       setEmail(sess.session.user.email ?? "");
@@ -46,7 +66,45 @@ function AdminPage() {
       if (session) run();
     });
     return () => { cancelled = true; sub.subscription.unsubscribe(); };
-  }, [check]);
+  }, [check, gateStatus]);
+
+  const submitGate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setGateLoading(true);
+    try {
+      const res = await gateLogin({ data: { password: gatePassword } });
+      if (!res.ok) {
+        toast.error(res.error ?? "Senha administrativa incorreta");
+        return;
+      }
+      setGateMode(true);
+      setEmail("acesso por senha administrativa");
+      setState("ok");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Não foi possível entrar.");
+    } finally {
+      setGateLoading(false);
+    }
+  };
+
+  const gateForm = (
+    <form onSubmit={submitGate} className="mx-auto mt-8 max-w-sm space-y-3 text-left">
+      <Label>Senha administrativa</Label>
+      <Input
+        type="password"
+        value={gatePassword}
+        onChange={(e) => setGatePassword(e.target.value)}
+        placeholder="Digite a senha administrativa"
+        required
+      />
+      <Button type="submit" className="w-full" disabled={gateLoading}>
+        {gateLoading ? "Aguarde…" : "Entrar somente com a senha"}
+      </Button>
+      <p className="text-xs text-muted-foreground">
+        Este acesso não precisa de conta nem de e-mail e funciona também no servidor externo.
+      </p>
+    </form>
+  );
 
   if (state === "loading") {
     return <div className="container mx-auto px-4 py-12">Carregando…</div>;
@@ -54,8 +112,11 @@ function AdminPage() {
   if (state === "guest") {
     return (
       <div className="container mx-auto max-w-md px-4 py-12 text-center">
-        <h1 className="text-2xl font-bold">Entre para continuar</h1>
-        <Link to="/login" className="mt-4 inline-block text-primary underline">Ir para login</Link>
+        <h1 className="text-2xl font-bold">Acesso administrativo</h1>
+        {gateForm}
+        <Link to="/login" className="mt-6 inline-block text-sm text-primary underline">
+          Prefiro entrar com e-mail e senha
+        </Link>
       </div>
     );
   }
@@ -64,9 +125,10 @@ function AdminPage() {
       <div className="container mx-auto max-w-md px-4 py-12 text-center">
         <h1 className="text-2xl font-bold">Acesso negado</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Sua conta ({email}) não possui permissão administrativa. Faça login novamente
-          informando a senha administrativa.
+          Sua conta ({email}) não possui permissão administrativa. Você pode entrar apenas com a
+          senha administrativa abaixo.
         </p>
+        {gateForm}
         <Button
           variant="outline"
           className="mt-4"
@@ -77,6 +139,7 @@ function AdminPage() {
       </div>
     );
   }
+
 
   return (
     <div className="container mx-auto max-w-6xl px-4 py-8">
