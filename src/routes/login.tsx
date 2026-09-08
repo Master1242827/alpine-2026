@@ -145,6 +145,15 @@ function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
+      // Usuário já autenticado: apenas reivindica o cargo de administrador
+      // (funciona também fora do Lovable, via fallback da API externa).
+      if (user) {
+        await claimRole({ data: { password: adminPassword } });
+        toast.success("Acesso administrativo liberado");
+        window.location.href = "/admin";
+        return;
+      }
+      // Sem sessão: tenta o acesso direto (exige chave de serviço).
       const res = await bootstrap({ data: { password: adminPassword } });
       if (!res.ok) {
         toast.error(res.error ?? "Senha administrativa incorreta");
@@ -167,6 +176,11 @@ function LoginPage() {
     return (
       <div className="container mx-auto max-w-md px-4 py-12">
         <h1 className="text-2xl font-bold">Acesso administrativo</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {user
+            ? `Você está conectado como ${user.email}. Digite a senha administrativa para liberar o painel nesta conta.`
+            : "Digite a senha administrativa. Se não funcionar no seu servidor, entre primeiro com seu e-mail e senha e volte aqui."}
+        </p>
         <form onSubmit={adminSubmit} className="mt-6 space-y-4">
           <div>
             <Label>Senha administrativa</Label>
@@ -180,9 +194,18 @@ function LoginPage() {
             />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Aguarde…" : "Entrar"}
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading ? "Aguarde…" : user ? "Liberar acesso de administrador" : "Entrar"}
           </Button>
         </form>
+        {!user && (
+          <button
+            onClick={() => setView("customer")}
+            className="mt-4 w-full text-center text-sm text-primary hover:underline"
+          >
+            Entrar com e-mail e senha primeiro
+          </button>
+        )}
         <button
           onClick={() => setView("customer")}
           className="mt-4 text-sm text-muted-foreground hover:underline"
