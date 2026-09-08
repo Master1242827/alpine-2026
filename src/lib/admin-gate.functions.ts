@@ -8,8 +8,6 @@ import { z } from "zod";
 
 async function gateSession() {
   const { adminSessionConfig } = await import("./admin-password.server");
-  const { useSession: _u } = { useSession };
-  void _u;
   return await useSession<{ unlocked?: boolean; at?: number }>(adminSessionConfig());
 }
 
