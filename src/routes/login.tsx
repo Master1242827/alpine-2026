@@ -6,8 +6,9 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { adminBootstrap } from "@/lib/admin.functions";
+import { adminBootstrap, claimAdminRole } from "@/lib/admin.functions";
 import { Loader2 } from "lucide-react";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
@@ -54,6 +55,8 @@ function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [resetting, setResetting] = useState(false);
   const bootstrap = useServerFn(adminBootstrap);
+  const claimRole = useServerFn(claimAdminRole);
+  const { user } = useAuth();
 
   const safeRedirect =
     typeof redirect === "string" && redirect.startsWith("/") && !redirect.startsWith("//")
