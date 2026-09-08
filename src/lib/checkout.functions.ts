@@ -2,11 +2,16 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { quoteShippingInternal } from "./shipping.functions";
 
 const MP_PREFERENCES_ENDPOINT = "https://api.mercadopago.com/checkout/preferences";
 const MP_PAYMENTS_ENDPOINT = "https://api.mercadopago.com/v1/payments";
+
+/** Camada de dados/pagamento: usa a chave de serviço quando existe, senão a API pública. */
+async function backend() {
+  return await import("./checkout-backend.server");
+}
+
 
 type OrderStatus = "pending" | "paid" | "cancelled";
 
