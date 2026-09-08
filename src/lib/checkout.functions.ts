@@ -261,12 +261,9 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
     }
 
     // Configurações de parcelamento (via store_settings)
-    const { data: paySettings } = await supabaseAdmin
-      .from("store_settings")
-      .select("installments_max,installments_interest_free")
-      .eq("id", 1)
-      .maybeSingle();
+    const paySettings = await be.getStoreSettings();
     const maxInstallments = Math.max(1, Math.min(12, Number(paySettings?.installments_max ?? 10)));
+
 
     const [firstName, ...rest] = data.customer.name.split(" ");
     let paymentMethods: any;
