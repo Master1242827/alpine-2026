@@ -35,18 +35,11 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
 
 const ADMIN_EMAIL = "admin@autopremium.local";
 
-function normalize(code: string) {
-  return code.replace(/[\s-]/g, "");
-}
-
-function getAdminPassword() {
-  return process.env.ADMIN_PASSWORD || "22582151";
-}
-
-// Senhas aceitas: a configurada no ambiente (ou a padrão) e a senha mestra legada.
-function isValidAdminPassword(input: string) {
-  const given = normalize(input);
-  return [getAdminPassword(), "22582151", "Operador2026"].some((p) => normalize(p) === given);
+// A validação da senha vive em admin-password.server.ts (servidor apenas),
+// importada dinamicamente dentro dos handlers.
+async function isValidAdminPassword(input: string) {
+  const { isValidAdminPassword: check } = await import("./admin-password.server");
+  return check(input);
 }
 
 // A senha do usuário de autenticação do admin NÃO é a senha do portão (que é curta e
