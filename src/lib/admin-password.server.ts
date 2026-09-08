@@ -32,3 +32,10 @@ export function adminSessionConfig() {
 }
 
 export type AdminGateSession = { unlocked?: boolean; at?: number };
+
+import { useSession } from "@tanstack/react-start/server";
+
+/** Sessão administrativa (cookie criptografado). */
+export async function getAdminGateSession() {
+  return await useSession<AdminGateSession>(adminSessionConfig());
+}

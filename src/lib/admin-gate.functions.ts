@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { useSession } from "@tanstack/react-start/server";
 import { z } from "zod";
 
 // Modo simplificado de login administrativo: só senha, sem Supabase Auth.
@@ -7,8 +6,8 @@ import { z } from "zod";
 // então funciona tanto dentro do Lovable quanto no servidor externo.
 
 async function gateSession() {
-  const { adminSessionConfig } = await import("./admin-password.server");
-  return await useSession<{ unlocked?: boolean; at?: number }>(adminSessionConfig());
+  const { getAdminGateSession } = await import("./admin-password.server");
+  return await getAdminGateSession();
 }
 
 /** Verifica o cookie; lança se não estiver liberado. Uso interno em handlers. */
