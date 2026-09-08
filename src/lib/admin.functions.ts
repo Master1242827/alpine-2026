@@ -57,7 +57,7 @@ export const adminBootstrap = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     // Senha inválida não é uma exceção: retorna erro tratado para o cliente
     // (throw aqui borbulhava como runtime error e derrubava a tela).
-    if (!isValidAdminPassword(data.password)) {
+    if (!(await isValidAdminPassword(data.password))) {
       return { ok: false as const, error: "Senha administrativa incorreta" };
     }
     const { ensureAdminAuthUser } = await backend();
@@ -70,7 +70,7 @@ export const claimAdminRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ password: z.string().min(1).max(64) }).parse(input))
   .handler(async ({ data, context }) => {
-    if (!isValidAdminPassword(data.password)) {
+    if (!(await isValidAdminPassword(data.password))) {
       throw new Error("Senha administrativa incorreta");
     }
     const { grantAdminRole } = await backend();
