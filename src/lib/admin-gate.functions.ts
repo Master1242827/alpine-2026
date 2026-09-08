@@ -40,3 +40,27 @@ export const adminGateLogout = createServerFn({ method: "POST" }).handler(async 
   await session.clear();
   return { ok: true as const };
 });
+
+const ORDER_STATUSES = [
+  "pending",
+  "paid",
+  "shipped",
+  "delivered",
+  "returned",
+  "completed",
+  "cancelled",
+] as const;
+
+/** Atualiza status do pedido provando acesso pelo cookie da senha administrativa. */
+export const gateUpdateOrderStatus = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    z
+      .object({ orderId: z.string().uuid(), status: z.enum(ORDER_STATUSES) })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireAdminGate();
+    const { setOrderStatus } = await import("./admin-backend.server");
+    await setOrderStatus(data.orderId, data.status);
+    return { ok: true as const };
+  });
