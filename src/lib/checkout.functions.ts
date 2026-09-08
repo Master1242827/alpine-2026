@@ -114,15 +114,10 @@ type ResolvedItem = {
  */
 async function resolveCheckoutAmounts(input: z.infer<typeof InputSchema>) {
   const ids = Array.from(new Set(input.items.map((i) => i.productId)));
-  const { data: rows, error } = await supabaseAdmin
-    .from("products")
-    .select("id,name,price_cents,active")
-    .in("id", ids);
-  if (error) {
-    console.error("[checkout] product validation error", error);
-    throw new Error("Falha ao validar produtos. Tente novamente.");
-  }
+  const be = await backend();
+  const rows = await be.getProductsByIds(ids);
   const byId = new Map((rows ?? []).map((r) => [r.id, r]));
+
   const resolvedItems: ResolvedItem[] = input.items.map((i) => {
     const p = byId.get(i.productId);
     if (!p) throw new Error(`Produto indisponível (${i.productId})`);
