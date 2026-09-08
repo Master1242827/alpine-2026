@@ -318,26 +318,17 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
 
 
     console.info("[MercadoPago] create preference", { endpoint: MP_PREFERENCES_ENDPOINT, orderId: order.id, paymentMethod: data.paymentMethod, totalCents: total });
-    const res = await fetch(MP_PREFERENCES_ENDPOINT, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(preferenceBody),
-    });
-    const { text, json } = await readMercadoPagoResponse(res);
+    const res = await be.mpCreatePreference(preferenceBody);
+    const json = res.json ?? {};
+    const text = res.text;
     const redirectUrl = json.init_point || json.sandbox_init_point;
     if (!res.ok || !json.id || !redirectUrl) {
       console.error("[MercadoPago] preference error", { endpoint: MP_PREFERENCES_ENDPOINT, status: res.status, body: text, orderId: order.id });
       throw new Error(`Mercado Pago preference_id error [${res.status}]: ${mercadoPagoMessage(json, "preference failed")}`);
     }
 
-    const { error: updateErr } = await supabaseAdmin
-      .from("orders")
-      .update({ mp_preference_id: json.id })
-      .eq("id", order.id);
-    if (updateErr) console.error("[MercadoPago] order preference update error", { orderId: order.id, message: updateErr.message });
+    await be.updateOrder(order.id, { mp_preference_id: String(json.id) });
+
 
     console.info("[MercadoPago] preference ready", { orderId: order.id, preferenceId: json.id, redirectUrl });
     return { orderId: order.id, initPoint: redirectUrl as string, preferenceId: json.id as string };
