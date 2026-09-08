@@ -169,22 +169,15 @@ async function resolveCheckoutAmounts(input: z.infer<typeof InputSchema>) {
   // Recompute discount from server-side store_settings.
   // PIX and card à vista both may have discounts; store settings drives the values.
   let discountCents = 0;
-  const { data: settings } = await supabaseAdmin
-    .from("store_settings")
-    .select("pix_enabled,pix_discount_percent,card_discount_percent")
-    .eq("id", 1)
-    .maybeSingle();
+  const settings = await be.getStoreSettings();
   if (input.paymentMethod === "pix" && settings?.pix_enabled && settings?.pix_discount_percent) {
     discountCents = Math.floor((subtotal * Number(settings.pix_discount_percent)) / 100);
   } else if (input.paymentMethod === "card" || input.paymentMethod === "boleto") {
     // Cartão/boleto: o desconto por parcela (installment_fees) manda; se não houver
     // linha ativa para a parcela escolhida, cai no desconto único de store_settings.
     const n = input.paymentMethod === "boleto" ? 1 : Math.max(1, Math.min(12, input.installments ?? 1));
-    const { data: feeRow } = await supabaseAdmin
-      .from("installment_fees")
-      .select("fee_percent,active")
-      .eq("installments", n)
-      .maybeSingle();
+    const feeRow = await be.getInstallmentFee(n);
+
     const percent =
       feeRow?.active && feeRow.fee_percent != null
         ? Number(feeRow.fee_percent)
