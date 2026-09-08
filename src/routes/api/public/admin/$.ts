@@ -23,8 +23,11 @@ import { z } from "zod";
  *   GET    /settings
  *   PATCH  /settings              { ...campos }
  *   GET    /users?limit=&offset=
+ *   GET    /users/:id/roles
  *   POST   /users/:id/roles       { role: admin|user }
  *   DELETE /users/:id/roles       { role: admin|user }
+ *   GET    /bootstrap             (config + categorias + contagens)
+ *   POST   /bootstrap
  */
 
 const ORDER_STATUSES = [
@@ -330,6 +333,42 @@ async function handle(request: Request, splat: string): Promise<Response> {
     }
   }
 
+  // ---------- BOOTSTRAP ----------
+  // Dados iniciais para o painel externo: configurações, categorias e contagens.
+  if (seg[0] === "bootstrap" && !seg[1] && (method === "POST" || method === "GET")) {
+    const [settings, categories, products, orders, returns] = await Promise.all([
+      db.from("store_settings").select("*").eq("id", 1).maybeSingle(),
+      db.from("categories").select("*").order("display_order", { ascending: true }),
+      db.from("products").select("id", { count: "exact", head: true }),
+      db.from("orders").select("status"),
+      db.from("return_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    ]);
+    const firstError =
+      settings.error ?? categories.error ?? products.error ?? orders.error ?? returns.error;
+    const failed = fail(firstError, "Falha ao carregar dados iniciais");
+    if (failed) return failed;
+
+    const ordersByStatus: Record<string, number> = {};
+    for (const s of ORDER_STATUSES) ordersByStatus[s] = 0;
+    for (const row of (orders.data ?? []) as { status: string }[]) {
+      ordersByStatus[row.status] = (ordersByStatus[row.status] ?? 0) + 1;
+    }
+
+    return json({
+      data: {
+        settings: settings.data ?? null,
+        categories: categories.data ?? [],
+        order_statuses: ORDER_STATUSES,
+        counts: {
+          products: products.count ?? 0,
+          orders: (orders.data ?? []).length,
+          orders_by_status: ordersByStatus,
+          returns_pending: returns.count ?? 0,
+        },
+      },
+    });
+  }
+
   // ---------- USERS ----------
   if (seg[0] === "users") {
     if (method === "GET" && !seg[1]) {
@@ -349,6 +388,17 @@ async function handle(request: Request, splat: string): Promise<Response> {
         roles: (roles ?? []).filter((r: any) => r.user_id === u.id).map((r: any) => r.role),
       }));
       return json({ data });
+    }
+    if (seg[1] && seg[2] === "roles" && method === "GET") {
+      if (!uuid.safeParse(seg[1]).success) return json({ error: "id inválido" }, 400);
+      const { data, error } = await db
+        .from("user_roles")
+        .select("role, created_at")
+        .eq("user_id", seg[1]);
+      const failed = fail(error, "Falha ao listar cargos");
+      if (failed) return failed;
+      const roles = (data ?? []).map((r: { role: string }) => r.role);
+      return json({ data: { user_id: seg[1], roles, is_admin: roles.includes("admin") } });
     }
     if (seg[1] && seg[2] === "roles" && (method === "POST" || method === "DELETE")) {
       if (!uuid.safeParse(seg[1]).success) return json({ error: "id inválido" }, 400);
