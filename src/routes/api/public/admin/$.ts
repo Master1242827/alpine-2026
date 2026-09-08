@@ -330,6 +330,42 @@ async function handle(request: Request, splat: string): Promise<Response> {
     }
   }
 
+  // ---------- BOOTSTRAP ----------
+  // Dados iniciais para o painel externo: configurações, categorias e contagens.
+  if (seg[0] === "bootstrap" && !seg[1] && (method === "POST" || method === "GET")) {
+    const [settings, categories, products, orders, returns] = await Promise.all([
+      db.from("store_settings").select("*").eq("id", 1).maybeSingle(),
+      db.from("categories").select("*").order("display_order", { ascending: true }),
+      db.from("products").select("id", { count: "exact", head: true }),
+      db.from("orders").select("status"),
+      db.from("return_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    ]);
+    const firstError =
+      settings.error ?? categories.error ?? products.error ?? orders.error ?? returns.error;
+    const failed = fail(firstError, "Falha ao carregar dados iniciais");
+    if (failed) return failed;
+
+    const ordersByStatus: Record<string, number> = {};
+    for (const s of ORDER_STATUSES) ordersByStatus[s] = 0;
+    for (const row of (orders.data ?? []) as { status: string }[]) {
+      ordersByStatus[row.status] = (ordersByStatus[row.status] ?? 0) + 1;
+    }
+
+    return json({
+      data: {
+        settings: settings.data ?? null,
+        categories: categories.data ?? [],
+        order_statuses: ORDER_STATUSES,
+        counts: {
+          products: products.count ?? 0,
+          orders: (orders.data ?? []).length,
+          orders_by_status: ordersByStatus,
+          returns_pending: returns.count ?? 0,
+        },
+      },
+    });
+  }
+
   // ---------- USERS ----------
   if (seg[0] === "users") {
     if (method === "GET" && !seg[1]) {
