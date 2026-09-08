@@ -2,13 +2,17 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-// Verifica se o usuário atual tem role admin.
-// Usa a service role quando disponível; senão, a API administrativa externa.
+// Verifica se o usuário atual tem role admin (usa supabaseAdmin para não depender de RLS)
 async function assertAdmin(userId: string) {
-  const { adminBackend } = await import("./admin-backend.server");
-  if (!(await adminBackend.isAdmin(userId))) {
-    throw new Error("Acesso negado: você não é administrador.");
-  }
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
+  if (error) throw new Error("Falha ao verificar permissões.");
+  if (!data) throw new Error("Acesso negado: você não é administrador.");
 }
 
 const ORDER_STATUSES = ["pending", "paid", "shipped", "delivered", "returned", "completed", "cancelled"] as const;
@@ -23,8 +27,16 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
-    const { adminBackend } = await import("./admin-backend.server");
-    return adminBackend.updateOrderStatus(data.orderId, data.status);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("orders")
+      .update({ status: data.status })
+      .eq("id", data.orderId);
+    if (error) {
+      console.error("[admin] update order status error", error);
+      throw new Error(`Falha ao atualizar status: ${error.message}`);
+    }
+    return { ok: true };
   });
 
 
@@ -63,27 +75,74 @@ export const adminBootstrap = createServerFn({ method: "POST" })
     if (!isValidAdminPassword(data.password)) {
       return { ok: false as const, error: "Senha administrativa incorreta" };
     }
-    const { adminBackend } = await import("./admin-backend.server");
-    const creds = await adminBackend.bootstrapAdmin();
-    return { ok: true as const, email: creds.email, password: creds.password };
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const password = randomPassword();
+    const list = await supabaseAdmin.auth.admin.listUsers();
+    if (list.error) {
+      console.error("[admin] listUsers error", list.error);
+      throw new Error("Falha ao acessar usuários administradores.");
+    }
+    let user = list.data.users.find((u) => u.email === ADMIN_EMAIL);
+    if (!user) {
+      const created = await supabaseAdmin.auth.admin.createUser({
+        email: ADMIN_EMAIL,
+        password,
+        email_confirm: true,
+      });
+      if (created.error) {
+        console.error("[admin] createUser error", created.error);
+        throw new Error("Falha ao criar usuário administrador.");
+      }
+      user = created.data.user!;
+    } else {
+      const upd = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+        password,
+        email_confirm: true,
+      });
+      if (upd.error) {
+        console.error("[admin] updateUser error", upd.error);
+        throw new Error("Falha ao atualizar senha do administrador.");
+      }
+    }
+    await supabaseAdmin
+      .from("user_roles")
+      .upsert({ user_id: user.id, role: "admin" }, { onConflict: "user_id,role" });
+    return { ok: true as const, email: ADMIN_EMAIL, password };
   });
 
 export const claimAdminRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ password: z.string().min(1).max(64) }).parse(input))
   .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
     if (normalize(data.password) !== normalize(getAdminPassword())) {
       throw new Error("Senha administrativa incorreta");
     }
-    const { adminBackend } = await import("./admin-backend.server");
-    await adminBackend.grantRole(context.userId, "admin");
+    const { error } = await supabaseAdmin
+      .from("user_roles")
+      .upsert({ user_id: context.userId, role: "admin" }, { onConflict: "user_id,role" });
+    if (error) {
+      console.error("[admin] claim role error", error);
+      throw new Error("Falha ao atribuir função de administrador.");
+    }
     return { ok: true };
   });
 
 export const checkIsAdmin = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { adminBackend } = await import("./admin-backend.server");
-    const isAdmin = await adminBackend.isAdmin(context.userId);
-    return { isAdmin, userId: context.userId };
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data, error } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (error) {
+      console.error("[admin] role check error", error);
+      throw new Error("Falha ao verificar permissões.");
+    }
+    return { isAdmin: !!data, userId: context.userId };
   });
