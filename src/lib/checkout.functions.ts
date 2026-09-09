@@ -399,39 +399,30 @@ export const createPixPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const token = process.env.MERCADO_PAGO_ACCESS_TOKEN;
-    if (!token) throw new Error("MERCADO_PAGO_ACCESS_TOKEN is not configured");
+    const be = await backend();
+    if (!be.mpConfigured()) throw new Error("Pagamento não configurado neste ambiente.");
 
     const { resolvedItems, subtotal, shippingCostCents, discountCents, total } =
       await resolveCheckoutAmounts({ ...data, paymentMethod: "pix" });
 
-    const { data: order, error: orderErr } = await supabaseAdmin
-      .from("orders")
-      .insert({
-        user_id: context.userId,
-        customer_name: data.customer.name,
-        customer_email: data.customer.email,
-        customer_phone: data.customer.phone,
-        customer_cpf: (data.customer.cpf || "").replace(/\D/g, "") || null,
-        shipping_address: data.shipping,
-        shipping_cost_cents: shippingCostCents,
-        shipping_service: data.shippingService,
-        subtotal_cents: subtotal,
-        discount_cents: discountCents,
-        total_cents: total,
-        notes: data.notes,
-        notes_images: data.notesImages ?? [],
-        notes_video_url: data.notesVideoUrl ?? null,
-        status: "pending",
-        payment_method: "pix",
-      })
-      .select("id")
-      .single();
-
-    if (orderErr || !order) {
-      console.error("[pix] create order error", orderErr);
-      throw new Error("Falha ao criar pedido. Tente novamente.");
-    }
+    const order = await be.createOrder({
+      user_id: context.userId,
+      customer_name: data.customer.name,
+      customer_email: data.customer.email,
+      customer_phone: data.customer.phone,
+      customer_cpf: (data.customer.cpf || "").replace(/\D/g, "") || null,
+      shipping_address: data.shipping,
+      shipping_cost_cents: shippingCostCents,
+      shipping_service: data.shippingService,
+      subtotal_cents: subtotal,
+      discount_cents: discountCents,
+      total_cents: total,
+      notes: data.notes,
+      notes_images: data.notesImages ?? [],
+      notes_video_url: data.notesVideoUrl ?? null,
+      status: "pending",
+      payment_method: "pix",
+    });
 
     const itemsRows = resolvedItems.map((i) => ({
       order_id: order.id,
@@ -441,11 +432,8 @@ export const createPixPayment = createServerFn({ method: "POST" })
       quantity: i.quantity,
       vehicle_config: i.vehicleConfig ?? null,
     }));
-    const { error: itemsErr } = await supabaseAdmin.from("order_items").insert(itemsRows);
-    if (itemsErr) {
-      console.error("[pix] insert items error", itemsErr);
-      throw new Error("Falha ao registrar itens do pedido.");
-    }
+    await be.insertOrderItems(order.id, itemsRows);
+
 
     const origin = getRuntimeOrigin();
     const [firstName, ...rest] = data.customer.name.split(" ");
