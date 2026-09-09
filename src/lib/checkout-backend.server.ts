@@ -86,6 +86,27 @@ export type StoreSettingsRow = {
 const SETTINGS_SELECT =
   "pix_enabled, pix_discount_percent, card_discount_percent, installments_max, installments_interest_free, installments_monthly_rate, whatsapp_number, store_name";
 
+/** Leitura pública (sem token) na instalação Lovable — dados que a loja já exibe. */
+async function publicRequest<T>(method: string, path: string, body?: Json): Promise<T | null> {
+  const base = (process.env["CHECKOUT_API_BASE_URL"] || PUBLIC_CHECKOUT_FALLBACK_BASE).replace(
+    /\/+$/,
+    "",
+  );
+  try {
+    const res = await fetch(`${base}${path}`, {
+      method,
+      headers: { "content-type": "application/json" },
+      signal: AbortSignal.timeout(12000),
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch (err) {
+    console.error("[checkout-backend] leitura pública falhou", { path, err });
+    return null;
+  }
+}
+
 export async function getStoreSettings(): Promise<StoreSettingsRow> {
   if (hasServiceRole()) {
     const client = await db();
@@ -96,8 +117,16 @@ export async function getStoreSettings(): Promise<StoreSettingsRow> {
       .maybeSingle();
     return data ?? null;
   }
-  const out = await request<{ data?: StoreSettingsRow }>("GET", "/settings");
-  return out?.data ?? null;
+  if (externalConfig()) {
+    try {
+      const out = await request<{ data?: StoreSettingsRow }>("GET", "/settings");
+      if (out?.data) return out.data;
+    } catch (err) {
+      console.error("[checkout-backend] settings via API autenticada falhou", err);
+    }
+  }
+  const pub = await publicRequest<{ data?: StoreSettingsRow }>("GET", "/settings-public");
+  return pub?.data ?? null;
 }
 
 export type ProductRow = { id: string; name: string; price_cents: number; active: boolean };
@@ -116,8 +145,16 @@ export async function getProductsByIds(ids: string[]): Promise<ProductRow[]> {
     }
     return (data ?? []) as ProductRow[];
   }
-  const out = await request<{ data?: ProductRow[] }>("POST", "/products", { ids });
-  return out?.data ?? [];
+  if (externalConfig()) {
+    try {
+      const out = await request<{ data?: ProductRow[] }>("POST", "/products", { ids });
+      if (out?.data?.length) return out.data;
+    } catch (err) {
+      console.error("[checkout-backend] produtos via API autenticada falhou", err);
+    }
+  }
+  const pub = await publicRequest<{ data?: ProductRow[] }>("POST", "/products-public", { ids });
+  return pub?.data ?? [];
 }
 
 export async function getProductImages(ids: string[]): Promise<Record<string, string | null>> {
@@ -127,14 +164,18 @@ export async function getProductImages(ids: string[]): Promise<Record<string, st
     const client = await db();
     const { data } = await client.from("products").select("id, images").in("id", ids);
     rows = (data ?? []) as any;
-  } else {
+  } else if (externalConfig()) {
     const out = await request<{ data?: any[] }>("POST", "/product-images", { ids });
+    rows = out?.data ?? [];
+  } else {
+    const out = await publicRequest<{ data?: any[] }>("POST", "/product-images-public", { ids });
     rows = out?.data ?? [];
   }
   return Object.fromEntries(
     rows.map((p) => [p.id, Array.isArray(p.images) && p.images[0] ? String(p.images[0]) : null]),
   );
 }
+
 
 export async function getInstallmentFee(
   installments: number,
@@ -148,8 +189,20 @@ export async function getInstallmentFee(
       .maybeSingle();
     return data ?? null;
   }
-  const out = await request<{ data?: any }>("GET", `/installment-fee/${installments}`);
-  return out?.data ?? null;
+  if (externalConfig()) {
+    try {
+      const out = await request<{ data?: any }>("GET", `/installment-fee/${installments}`);
+      if (out?.data) return out.data;
+    } catch (err) {
+      console.error("[checkout-backend] taxa via API autenticada falhou", err);
+    }
+  }
+  const pub = await publicRequest<{ data?: any }>(
+    "GET",
+    `/installment-fee-public/${installments}`,
+  );
+  return pub?.data ?? null;
+
 }
 
 export async function createOrder(order: Json): Promise<{ id: string }> {
