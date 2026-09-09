@@ -581,6 +581,7 @@ function CheckoutPage() {
                       >
                         <span className="font-medium">
                           {n}x de {formatCents(Math.round(nTotal / n))}
+                          <span className="ml-1 text-xs font-normal text-muted-foreground">sem juros</span>
                         </span>
                         <span className="flex items-center gap-2">
                           {pct > 0 && (
