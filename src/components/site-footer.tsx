@@ -1,8 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import alpineLogoAsset from "@/assets/alpine-logo-footer-red.png.asset.json";
-const alpineLogo = alpineLogoAsset.url;
+import alpineLogo from "@/assets/alpine-logo-footer-red.png";
 
 function formatBrPhone(num: string | null | undefined) {
   const digits = String(num ?? "").replace(/\D/g, "");
