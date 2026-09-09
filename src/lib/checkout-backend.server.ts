@@ -209,6 +209,80 @@ export async function getOrderWithItems(orderId: string): Promise<any | null> {
   }
 }
 
+// ---------- Webhooks (pagamento / logística) ----------
+
+export type OrderRow = Record<string, any> | null;
+
+/**
+ * Busca um pedido por id (uuid) ou por código de rastreio.
+ * Direto no banco quando há service role; senão via POST /orders/find.
+ */
+export async function findOrder(opts: {
+  id?: string | null;
+  trackingCode?: string | null;
+}): Promise<OrderRow> {
+  const id = opts.id?.trim() || null;
+  const trackingCode = opts.trackingCode?.trim() || null;
+  if (!id && !trackingCode) return null;
+
+  if (hasServiceRole()) {
+    const client = await db();
+    let query = client.from("orders").select("*, order_items(*)");
+    if (id) query = query.eq("id", id);
+    else query = query.eq("tracking_code", trackingCode);
+    const { data, error } = await query.maybeSingle();
+    if (error) {
+      console.error("[checkout-backend] findOrder error", error);
+      throw new Error("Erro ao buscar pedido.");
+    }
+    return data ?? null;
+  }
+
+  const out = await request<{ data?: OrderRow }>("POST", "/orders/find", {
+    id,
+    tracking_code: trackingCode,
+  });
+  return out?.data ?? null;
+}
+
+export type WebhookEventRow = {
+  payment_id: string;
+  topic?: string | null;
+  payment_status?: string | null;
+  mapped_status?: string | null;
+  order_id?: string | null;
+  raw_body?: string | null;
+  query_string?: string | null;
+};
+
+/**
+ * Registra o evento recebido. Retorna { duplicate: true } quando a constraint
+ * unique dispara (reentrega do mesmo evento).
+ */
+export async function recordWebhookEvent(
+  row: WebhookEventRow,
+): Promise<{ duplicate: boolean; error?: string }> {
+  if (hasServiceRole()) {
+    const client = await db();
+    const { error } = await client.from("mp_webhook_events").insert(row);
+    if (error) {
+      if (error.code === "23505") return { duplicate: true };
+      return { duplicate: false, error: error.message };
+    }
+    return { duplicate: false };
+  }
+  try {
+    const out = await request<{ duplicate?: boolean; error?: string }>(
+      "POST",
+      "/webhook-events",
+      row as unknown as Json,
+    );
+    return { duplicate: !!out?.duplicate, ...(out?.error ? { error: out.error } : {}) };
+  } catch (err) {
+    return { duplicate: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 // ---------- Mercado Pago ----------
 
 export type MpResult = { status: number; ok: boolean; json: any; text: string };

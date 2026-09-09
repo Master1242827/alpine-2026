@@ -672,13 +672,14 @@ function ProductForm({ initial, onClose }: { initial: Product; onClose: () => vo
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pendente",
   paid: "Pago",
+  processing: "Processando",
   shipped: "Enviado",
   delivered: "Entregue",
   returned: "Devolução",
   completed: "Concluído",
   cancelled: "Cancelado",
 };
-const STATUS_ORDER = ["pending", "paid", "shipped", "delivered", "returned", "completed", "cancelled"];
+const STATUS_ORDER = ["pending", "paid", "processing", "shipped", "delivered", "returned", "completed", "cancelled"];
 
 function OrdersTab() {
   const [orders, setOrders] = useState<any[]>([]);

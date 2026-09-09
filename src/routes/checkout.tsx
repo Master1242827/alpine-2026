@@ -12,7 +12,7 @@ import { createCheckoutPreference, createPixPayment } from "@/lib/checkout.funct
 import { quoteShipping } from "@/lib/shipping.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Truck, MapPin, User, ShoppingBag, CheckCircle2, ChevronDown, ChevronUp, Lock, UserPlus, CreditCard, QrCode } from "lucide-react";
+import { Loader2, Truck, MapPin, User, ShoppingBag, CheckCircle2, ChevronDown, ChevronUp, Lock, UserPlus, CreditCard, QrCode, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 
@@ -564,9 +564,11 @@ function CheckoutPage() {
 
             {paymentMethod === "card" && (
               <div className="mt-4">
-                <Label className="mb-2 block text-xs font-medium">Em quantas vezes?</Label>
+                <Label className="mb-2 block text-xs font-medium">
+                  Em quantas vezes? <span className="text-muted-foreground">(até 10x sem juros)</span>
+                </Label>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {Array.from({ length: Math.max(1, paySettings?.installments_max ?? 10) }, (_, idx) => idx + 1).map((n) => {
+                  {Array.from({ length: Math.min(10, Math.max(1, paySettings?.installments_max ?? 10)) }, (_, idx) => idx + 1).map((n) => {
                     const pct = feeFor(n);
                     const nTotal = baseTotal - Math.round((subtotalCents * pct) / 100);
                     const selected = installments === n;
@@ -579,6 +581,7 @@ function CheckoutPage() {
                       >
                         <span className="font-medium">
                           {n}x de {formatCents(Math.round(nTotal / n))}
+                          <span className="ml-1 text-xs font-normal text-muted-foreground">sem juros</span>
                         </span>
                         <span className="flex items-center gap-2">
                           {pct > 0 && (
@@ -666,6 +669,8 @@ function CheckoutPage() {
 
 
 
+          <TrustNotices />
+
           <Button type="submit" className="hidden h-12 w-full md:flex" disabled={loading || !selectedShip} size="lg">
             {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando…</> : <><Lock className="mr-2 h-4 w-4" /> Pagar {formatCents(total)}</>}
           </Button>
@@ -707,6 +712,9 @@ function CheckoutPage() {
 
         {/* Mobile bottom bar */}
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background p-3 shadow-lg md:hidden">
+          <div className="mb-2">
+            <TrustNotices compact />
+          </div>
           <Button type="button" onClick={handleSubmit as any} className="h-12 w-full" disabled={loading || !selectedShip} size="lg">
             {loading
               ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando…</>
@@ -714,6 +722,21 @@ function CheckoutPage() {
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function TrustNotices({ compact = false }: { compact?: boolean }) {
+  return (
+    <div className={compact ? "space-y-1" : "space-y-2 rounded-xl border border-border bg-card p-4"}>
+      <p className="flex items-start gap-2 text-xs text-muted-foreground">
+        <Lock className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+        <span>Seus dados são criptografados e protegidos. Nós não armazenamos os dados do seu cartão.</span>
+      </p>
+      <p className="flex items-start gap-2 text-xs text-muted-foreground">
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+        <span>Pagamento processado com segurança pelo Mercado Pago.</span>
+      </p>
     </div>
   );
 }

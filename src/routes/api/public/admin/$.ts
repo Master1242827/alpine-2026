@@ -33,6 +33,7 @@ import { z } from "zod";
 const ORDER_STATUSES = [
   "pending",
   "paid",
+  "processing",
   "shipped",
   "delivered",
   "returned",

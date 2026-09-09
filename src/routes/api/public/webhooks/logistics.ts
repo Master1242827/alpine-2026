@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { findOrder, updateOrder } from "@/lib/checkout-backend.server";
 
 /**
  * Webhook genérico de logística/transportadora.
@@ -46,6 +46,7 @@ const EVENT_MAP: Record<string, Mapped> = {
 const RANK: Record<string, number> = {
   pending: 0,
   paid: 1,
+  processing: 1,
   shipped: 2,
   delivered: 3,
   completed: 4,
@@ -113,14 +114,14 @@ export const Route = createFileRoute("/api/public/webhooks/logistics")({
         if (!mapped) return new Response("ignored", { status: 200 });
 
         // Localiza o pedido por id ou por código de rastreio já salvo
-        let query = supabaseAdmin.from("orders").select("id,status,tracking_code");
-        if (orderId && /^[0-9a-f-]{36}$/i.test(orderId)) query = query.eq("id", orderId);
-        else if (trackingCode) query = query.eq("tracking_code", trackingCode);
-        else return new Response("missing order reference", { status: 400 });
+        const byId = orderId && /^[0-9a-f-]{36}$/i.test(orderId) ? orderId : null;
+        if (!byId && !trackingCode) return new Response("missing order reference", { status: 400 });
 
-        const { data: order, error } = await query.maybeSingle();
-        if (error) {
-          log("error", "order_lookup_failed", { message: error.message });
+        let order: Record<string, any> | null = null;
+        try {
+          order = await findOrder({ id: byId, trackingCode: byId ? null : trackingCode });
+        } catch (err) {
+          log("error", "order_lookup_failed", { message: err instanceof Error ? err.message : String(err) });
           return new Response("lookup failed", { status: 500 });
         }
         if (!order) {
@@ -132,7 +133,7 @@ export const Route = createFileRoute("/api/public/webhooks/logistics")({
         if ((RANK[mapped] ?? 0) <= (RANK[order.status] ?? 0) && order.status !== mapped) {
           log("info", "skip_regression", { orderId: order.id, current: order.status, incoming: mapped });
           if (trackingCode && !order.tracking_code) {
-            await supabaseAdmin.from("orders").update({ tracking_code: trackingCode }).eq("id", order.id);
+            await updateOrder(order.id, { tracking_code: trackingCode });
           }
           return new Response("no regression", { status: 200 });
         }
@@ -147,11 +148,7 @@ export const Route = createFileRoute("/api/public/webhooks/logistics")({
           ...(mapped === "delivered" ? { delivered_at: whenIso } : {}),
         };
 
-        const { error: updErr } = await supabaseAdmin.from("orders").update(patch).eq("id", order.id);
-        if (updErr) {
-          log("error", "order_update_failed", { orderId: order.id, message: updErr.message });
-          return new Response("update failed", { status: 500 });
-        }
+        await updateOrder(order.id, patch);
 
         log("info", "order_updated", { orderId: order.id, from: order.status, to: mapped, trackingCode });
         return new Response(JSON.stringify({ ok: true, orderId: order.id, status: mapped }), {

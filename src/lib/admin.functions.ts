@@ -16,7 +16,7 @@ async function assertAdmin(userId: string) {
   }
 }
 
-const ORDER_STATUSES = ["pending", "paid", "shipped", "delivered", "returned", "completed", "cancelled"] as const;
+const ORDER_STATUSES = ["pending", "paid", "processing", "shipped", "delivered", "returned", "completed", "cancelled"] as const;
 
 export const updateOrderStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

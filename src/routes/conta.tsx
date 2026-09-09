@@ -25,7 +25,7 @@ import {
 
 export const Route = createFileRoute("/conta")({ component: AccountPage });
 
-const STATUS_FLOW = ["pending", "paid", "shipped", "delivered"] as const;
+const STATUS_FLOW = ["pending", "paid", "processing", "shipped", "delivered"] as const;
 
 const STATUS_META: Record<
   string,
@@ -33,6 +33,7 @@ const STATUS_META: Record<
 > = {
   pending: { label: "Aguardando pagamento", variant: "secondary", icon: Clock },
   paid: { label: "Pagamento aprovado", variant: "default", icon: CreditCard },
+  processing: { label: "Em preparação", variant: "default", icon: Clock },
   shipped: { label: "Enviado", variant: "default", icon: Truck },
   delivered: { label: "Entregue", variant: "default", icon: CheckCircle2 },
   cancelled: { label: "Cancelado", variant: "destructive", icon: XCircle },
