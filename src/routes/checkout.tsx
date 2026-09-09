@@ -12,7 +12,7 @@ import { createCheckoutPreference, createPixPayment, createCardPayment, createBo
 import { quoteShipping } from "@/lib/shipping.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Truck, MapPin, User, ShoppingBag, CheckCircle2, ChevronDown, ChevronUp, Lock, UserPlus, CreditCard, QrCode, ShieldCheck } from "lucide-react";
+import { Loader2, Truck, MapPin, User, ShoppingBag, CheckCircle2, ChevronDown, ChevronUp, Lock, UserPlus, CreditCard, QrCode, ShieldCheck, Copy, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { QRCodeCanvas } from "qrcode.react";
@@ -37,8 +37,28 @@ function CheckoutPage() {
     qrCode: string;
     qrCodeBase64?: string;
     totalCents: number;
+    expiresAt?: string;
   } | null>(null);
+  const [pixCountdown, setPixCountdown] = useState("");
+
   const [card, setCard] = useState({ number: "", name: "", expiry: "", cvv: "", cpf: "" });
+
+  // Contagem regressiva de validade do código PIX
+  useEffect(() => {
+    if (!pixInline?.expiresAt) { setPixCountdown(""); return; }
+    const deadline = new Date(pixInline.expiresAt).getTime();
+    if (!Number.isFinite(deadline)) { setPixCountdown(""); return; }
+    const tick = () => {
+      const left = Math.max(0, deadline - Date.now());
+      const m = Math.floor(left / 60000);
+      const s = Math.floor((left % 60000) / 1000);
+      setPixCountdown(`${m}:${String(s).padStart(2, "0")}`);
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [pixInline?.expiresAt]);
+
 
 
 
@@ -426,6 +446,8 @@ function CheckoutPage() {
         // NÃO limpa o carrinho aqui — só quando o pagamento for confirmado.
         setPixInline({
           orderId: res.orderId,
+          expiresAt: res.expiresAt,
+
           qrCode: res.qrCode,
           qrCodeBase64: res.qrCodeBase64,
           totalCents: res.totalCents,
@@ -487,70 +509,8 @@ function CheckoutPage() {
     }
   }
 
-  if (pixInline) {
-    return (
-      <div className="container mx-auto max-w-xl px-4 py-8">
-        <Card className="space-y-5 p-6">
-          <header className="text-center">
-            <QrCode className="mx-auto h-12 w-12 text-primary" />
-            <h1 className="mt-3 text-2xl font-bold">Pague com PIX</h1>
-            <p className="text-sm text-muted-foreground">
-              Pedido #{pixInline.orderId.slice(0, 8).toUpperCase()} ·{" "}
-              <span className="font-semibold text-primary">{formatCents(pixInline.totalCents)}</span>
-            </p>
-          </header>
 
-          <div className="flex justify-center">
-            {pixInline.qrCodeBase64 ? (
-              <img
-                src={`data:image/png;base64,${pixInline.qrCodeBase64}`}
-                alt="QR Code PIX"
-                className="h-64 w-64 rounded-lg border bg-white object-contain p-2"
-              />
-            ) : (
-              <div className="rounded-lg border bg-white p-3">
-                <QRCodeCanvas value={pixInline.qrCode} size={240} level="M" />
-              </div>
-            )}
-          </div>
 
-          <div>
-            <p className="mb-1 text-xs font-medium text-muted-foreground">PIX Copia e Cola</p>
-            <div className="flex gap-2">
-              <input
-                readOnly
-                value={pixInline.qrCode}
-                onFocus={(e) => e.currentTarget.select()}
-                className="flex-1 truncate rounded-md border bg-muted px-3 py-2 font-mono text-xs"
-              />
-              <Button
-                size="sm"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(pixInline.qrCode);
-                    toast.success("Código PIX copiado");
-                  } catch {
-                    toast.error("Não foi possível copiar");
-                  }
-                }}
-              >
-                Copiar
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-            <span>Aguardando confirmação automática do pagamento…</span>
-          </div>
-
-          <Button asChild variant="outline" className="w-full">
-            <Link to="/checkout/pix" search={{ order: pixInline.orderId }}>Acompanhar pagamento</Link>
-          </Button>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="bg-muted/30 pb-32 md:pb-12">
@@ -754,6 +714,69 @@ function CheckoutPage() {
               )}
             </div>
 
+            {paymentMethod === "pix" && pixInline && (
+              <div className="mt-4 space-y-3 rounded-xl border-2 border-primary/40 bg-primary/5 p-4">
+                <div className="flex justify-center">
+                  {pixInline.qrCodeBase64 ? (
+                    <img
+                      src={`data:image/png;base64,${pixInline.qrCodeBase64}`}
+                      alt="QR Code PIX"
+                      className="h-56 w-56 rounded-xl border bg-white object-contain p-2"
+                    />
+                  ) : (
+                    <div className="rounded-xl border bg-white p-3">
+                      <QRCodeCanvas value={pixInline.qrCode} size={208} level="M" />
+                    </div>
+                  )}
+                </div>
+
+                {pixCountdown && (
+                  <p className="flex items-center justify-center gap-2 text-sm">
+                    <Clock className="h-4 w-4 text-amber-500" />
+                    <span className="text-muted-foreground">
+                      Código válido por <span className="font-bold text-foreground">{pixCountdown}</span>
+                    </span>
+                  </p>
+                )}
+
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
+                  <span className="flex-1 truncate font-mono text-xs">{pixInline.qrCode}</span>
+                  <button
+                    type="button"
+                    aria-label="Copiar código PIX"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(pixInline.qrCode);
+                        toast.success("Código PIX copiado");
+                      } catch {
+                        toast.error("Não foi possível copiar");
+                      }
+                    }}
+                    className="shrink-0 rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {pixDiscountPercent > 0 && (
+                  <p className="rounded-lg bg-primary/10 py-2 text-center text-sm font-medium text-primary">
+                    {pixDiscountPercent}% de desconto aplicado no PIX
+                  </p>
+                )}
+
+                <p className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                  Aguardando confirmação automática do pagamento…
+                </p>
+
+                <Button asChild variant="outline" size="sm" className="w-full">
+                  <Link to="/checkout/pix" search={{ order: pixInline.orderId }}>Acompanhar pagamento</Link>
+                </Button>
+              </div>
+            )}
+
+
+
             {paymentMethod === "card" && (
               <div className="mt-4">
                 <Label className="mb-2 block text-xs font-medium">
@@ -934,7 +957,7 @@ function CheckoutPage() {
 
           <TrustNotices />
 
-          <Button type="submit" className="hidden h-12 w-full md:flex" disabled={loading || !selectedShip} size="lg">
+          <Button type="submit" className={`h-12 w-full md:flex ${pixInline ? "hidden md:hidden" : "hidden"}`} disabled={loading || !selectedShip} size="lg">
             {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processando pagamento…</> : <><Lock className="mr-2 h-4 w-4" /> Pagar {formatCents(total)}</>}
           </Button>
         </form>
@@ -978,7 +1001,7 @@ function CheckoutPage() {
           <div className="mb-2">
             <TrustNotices compact />
           </div>
-          <Button type="button" onClick={handleSubmit as any} className="h-12 w-full" disabled={loading || !selectedShip} size="lg">
+          <Button type="button" onClick={handleSubmit as any} className={`h-12 w-full ${pixInline ? "hidden" : ""}`} disabled={loading || !selectedShip} size="lg">
             {loading
               ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processando pagamento…</>
               : <><Lock className="mr-2 h-4 w-4" /> Pagar {formatCents(total)}</>}
