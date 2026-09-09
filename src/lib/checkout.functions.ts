@@ -56,6 +56,8 @@ export const getPublicStoreSettings = createServerFn({ method: "GET" })
       installments_monthly_rate: Number(data?.installments_monthly_rate ?? 0),
       whatsapp_number: data?.whatsapp_number ?? "",
       store_name: data?.store_name ?? "",
+      mp_public_key: (await backend()).mpPublicKey(),
+
     };
   });
 
