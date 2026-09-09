@@ -1,6 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createHmac, timingSafeEqual } from "crypto";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import {
+  findOrder,
+  recordWebhookEvent,
+  updateOrder,
+  getStoreSettings,
+} from "@/lib/checkout-backend.server";
+import { generateShippingLabel } from "@/lib/melhor-envio.server";
 
 const MP_PAYMENTS_ENDPOINT = "https://api.mercadopago.com/v1/payments";
 
