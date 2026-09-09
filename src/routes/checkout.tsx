@@ -564,9 +564,11 @@ function CheckoutPage() {
 
             {paymentMethod === "card" && (
               <div className="mt-4">
-                <Label className="mb-2 block text-xs font-medium">Em quantas vezes?</Label>
+                <Label className="mb-2 block text-xs font-medium">
+                  Em quantas vezes? <span className="text-muted-foreground">(até 10x sem juros)</span>
+                </Label>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {Array.from({ length: Math.max(1, paySettings?.installments_max ?? 10) }, (_, idx) => idx + 1).map((n) => {
+                  {Array.from({ length: Math.min(10, Math.max(1, paySettings?.installments_max ?? 10)) }, (_, idx) => idx + 1).map((n) => {
                     const pct = feeFor(n);
                     const nTotal = baseTotal - Math.round((subtotalCents * pct) / 100);
                     const selected = installments === n;
