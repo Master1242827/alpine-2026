@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { findOrder, updateOrder } from "@/lib/checkout-backend.server";
 
 /**
  * Webhook genérico de logística/transportadora.
@@ -113,14 +113,14 @@ export const Route = createFileRoute("/api/public/webhooks/logistics")({
         if (!mapped) return new Response("ignored", { status: 200 });
 
         // Localiza o pedido por id ou por código de rastreio já salvo
-        let query = supabaseAdmin.from("orders").select("id,status,tracking_code");
-        if (orderId && /^[0-9a-f-]{36}$/i.test(orderId)) query = query.eq("id", orderId);
-        else if (trackingCode) query = query.eq("tracking_code", trackingCode);
-        else return new Response("missing order reference", { status: 400 });
+        const byId = orderId && /^[0-9a-f-]{36}$/i.test(orderId) ? orderId : null;
+        if (!byId && !trackingCode) return new Response("missing order reference", { status: 400 });
 
-        const { data: order, error } = await query.maybeSingle();
-        if (error) {
-          log("error", "order_lookup_failed", { message: error.message });
+        let order: Record<string, any> | null = null;
+        try {
+          order = await findOrder({ id: byId, trackingCode: byId ? null : trackingCode });
+        } catch (err) {
+          log("error", "order_lookup_failed", { message: err instanceof Error ? err.message : String(err) });
           return new Response("lookup failed", { status: 500 });
         }
         if (!order) {
