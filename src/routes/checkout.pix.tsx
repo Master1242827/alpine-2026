@@ -8,7 +8,7 @@ import { Copy, CheckCircle2, Loader2, QrCode, Clock } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { formatCents } from "@/lib/format";
 import { toast } from "sonner";
-import { getOrderPaymentStatus } from "@/lib/checkout.functions";
+import { getOrderPaymentStatus, getOrderPixData } from "@/lib/checkout.functions";
 
 export const Route = createFileRoute("/checkout/pix")({
   component: PixPage,
@@ -26,6 +26,8 @@ function PixPage() {
   const { order } = useSearch({ from: "/checkout/pix" });
   const navigate = useNavigate();
   const getStatus = useServerFn(getOrderPaymentStatus);
+  const getPix = useServerFn(getOrderPixData);
+
 
   const [orderRow, setOrderRow] = useState<any>(null);
   const [pix, setPix] = useState<PixData | null>(null);
@@ -43,12 +45,32 @@ function PixPage() {
       else if (o?.status) setStatus("pending");
 
       const raw = sessionStorage.getItem(`pix:${order}`);
+      let loaded: PixData | null = null;
       if (raw) {
-        try { setPix(JSON.parse(raw) as PixData); } catch { /* ignore */ }
+        try { loaded = JSON.parse(raw) as PixData; } catch { /* ignore */ }
       }
+      if (!loaded?.qrCode) {
+        // Sem dados na sessão (reload/outro dispositivo): busca o QR no servidor.
+        try {
+          const remote = await getPix({ data: { orderId: order } });
+          if (remote?.qrCode) {
+            loaded = {
+              qrCode: remote.qrCode,
+              qrCodeBase64: remote.qrCodeBase64,
+              ticketUrl: remote.ticketUrl,
+              expiresAt: remote.expiresAt,
+            };
+            sessionStorage.setItem(`pix:${order}`, JSON.stringify(loaded));
+          }
+        } catch (err) {
+          console.error("[PIX] falha ao recuperar QR", err);
+        }
+      }
+      if (loaded) setPix(loaded);
       setLoading(false);
     })();
-  }, [order]);
+  }, [order, getPix]);
+
 
   // Polling automático do status (a cada 4s enquanto pendente)
   useEffect(() => {

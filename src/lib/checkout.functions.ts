@@ -515,6 +515,39 @@ export const createPixPayment = createServerFn({ method: "POST" })
     };
   });
 
+// Recupera o QR Code PIX direto do Mercado Pago (usado quando a tela do PIX
+// é aberta sem os dados salvos na sessão, ex.: outro dispositivo/reload).
+export const getOrderPixData = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => OrderLookupSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const be = await backend();
+    const order = await be.getOrderWithItems(data.orderId);
+    if (!order || order.user_id !== context.userId) throw new Error("Pedido não encontrado");
+    if (!be.mpConfigured()) return null;
+
+    const res = await be.mpGetPayment({
+      paymentId: order.mp_payment_id,
+      externalReference: order.id,
+    });
+    if (!res.ok) {
+      console.error("[MercadoPago] pix fetch error", { status: res.status, orderId: order.id });
+      return null;
+    }
+    const payment = order.mp_payment_id ? res.json : res.json?.results?.[0];
+    const tx = payment?.point_of_interaction?.transaction_data;
+    if (!tx?.qr_code) return null;
+    return {
+      orderId: order.id,
+      qrCode: tx.qr_code as string,
+      qrCodeBase64: (tx.qr_code_base64 as string | undefined) ?? undefined,
+      ticketUrl: (tx.ticket_url as string | undefined) ?? undefined,
+      expiresAt: (payment?.date_of_expiration as string | undefined) ?? undefined,
+    };
+  });
+
+
+
 
 // ---------------------------------------------------------------------------
 // Pagamento transparente (dentro do site): cartão e boleto
