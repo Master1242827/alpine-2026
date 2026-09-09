@@ -29,6 +29,7 @@ const MP_PAYMENTS_ENDPOINT = "https://api.mercadopago.com/v1/payments";
 const ORDER_STATUSES = [
   "pending",
   "paid",
+  "processing",
   "shipped",
   "delivered",
   "returned",
@@ -250,8 +251,33 @@ async function handle(request: Request, splat: string): Promise<Response> {
     return fail(error, "Falha ao ler taxa de parcelamento") ?? json({ data });
   }
 
+  // ---------- WEBHOOK EVENTS (idempotência) ----------
+  if (seg[0] === "webhook-events" && method === "POST") {
+    const parsed = WebhookEventSchema.safeParse(await readBody(request));
+    if (!parsed.success) return json({ error: "evento inválido" }, 400);
+    const { error } = await db.from("mp_webhook_events").insert(parsed.data);
+    if (error) {
+      if ((error as any).code === "23505") return json({ duplicate: true });
+      console.error(JSON.stringify({ scope: "checkout-api", path: splat, error: error.message }));
+      return json({ duplicate: false, error: error.message });
+    }
+    return json({ duplicate: false });
+  }
+
   // ---------- ORDERS ----------
   if (seg[0] === "orders") {
+    if (method === "POST" && seg[1] === "find") {
+      const body = await readBody(request);
+      const id = body["id"] ? String(body["id"]) : "";
+      const tracking = body["tracking_code"] ? String(body["tracking_code"]) : "";
+      let query = db.from("orders").select("*");
+      if (id && uuid.safeParse(id).success) query = query.eq("id", id);
+      else if (tracking) query = query.eq("tracking_code", tracking);
+      else return json({ error: "informe id ou tracking_code" }, 400);
+      const { data, error } = await query.maybeSingle();
+      return fail(error, "Falha ao buscar pedido") ?? json({ data: data ?? null });
+    }
+
     if (method === "POST" && !seg[1]) {
       const body = await readBody(request);
       const parsed = OrderInsertSchema.safeParse(body["order"]);
