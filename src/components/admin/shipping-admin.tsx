@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, AlertTriangle, XCircle, RefreshCw, Truck } from "lucide-react";
+import { Loader2, CheckCircle2, AlertTriangle, XCircle, RefreshCw, Truck, Eye, EyeOff } from "lucide-react";
 
 type Status = {
   ok: boolean;
@@ -33,6 +33,25 @@ export function ShippingAdmin() {
   const [loadingTest, setLoadingTest] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadingInfo, setLoadingInfo] = useState(true);
+  const [fullToken, setFullToken] = useState<string | null>(null);
+  const [revealing, setRevealing] = useState(false);
+  const reveal = useServerFn(revealFrenetToken);
+
+  async function handleReveal() {
+    if (fullToken) {
+      setFullToken(null);
+      return;
+    }
+    setRevealing(true);
+    try {
+      const r = await reveal();
+      setFullToken(r.token);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao revelar o token");
+    } finally {
+      setRevealing(false);
+    }
+  }
 
   async function refresh() {
     setLoadingInfo(true);
@@ -143,7 +162,24 @@ export function ShippingAdmin() {
         )}
 
         <dl className="space-y-1 text-sm">
-          <div className="flex justify-between"><dt className="text-muted-foreground">Token cadastrado</dt><dd>{info?.tokenPreview || "—"}</dd></div>
+          <div className="flex items-center justify-between gap-2">
+            <dt className="text-muted-foreground">Token cadastrado</dt>
+            <dd className="flex items-center gap-2">
+              <span className="break-all font-mono text-xs">{fullToken || info?.tokenPreview || "—"}</span>
+              {info?.hasToken && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 shrink-0"
+                  onClick={handleReveal}
+                  disabled={revealing}
+                  title={fullToken ? "Ocultar token" : "Ver token completo"}
+                >
+                  {revealing ? <Loader2 className="h-3 w-3 animate-spin" /> : fullToken ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                </Button>
+              )}
+            </dd>
+          </div>
           <div className="flex justify-between"><dt className="text-muted-foreground">Origem</dt><dd>{info?.source === "database" ? "Painel" : info?.source === "env" ? "Variável de ambiente" : "Nenhuma"}</dd></div>
           <div className="flex justify-between"><dt className="text-muted-foreground">Atualizado em</dt><dd>{info?.updatedAt ? new Date(info.updatedAt).toLocaleString("pt-BR") : "—"}</dd></div>
         </dl>
