@@ -442,19 +442,23 @@ export const createPixPayment = createServerFn({ method: "POST" })
     // MP payer.email é sensível: usa fallback determinístico sempre que houver
     // qualquer suspeita de formato inválido (espaços, +tags, TLD curto, domínios de teste).
     const rawEmail = (data.customer.email || "").trim().toLowerCase().replace(/\s+/g, "");
-    const strictEmail = /^[a-z0-9._-]+@[a-z0-9-]+(\.[a-z0-9-]+)+$/;
-    const hasBadChars = /[^a-z0-9._@+-]/.test(rawEmail) || rawEmail.includes("+");
-    const domain = rawEmail.split("@")[1] || "";
+    const strictEmail = /^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?@[a-z0-9-]+(\.[a-z0-9-]+)+$/;
+    const hasBadChars = /[^a-z0-9._@-]/.test(rawEmail) || rawEmail.includes("..");
+    const [localPart = "", domain = ""] = rawEmail.split("@");
     const tld = domain.split(".").pop() || "";
     const emailValid =
       strictEmail.test(rawEmail) &&
       !hasBadChars &&
+      localPart.length >= 3 &&
+      localPart.length <= 64 &&
+      domain.length <= 190 &&
       tld.length >= 2 &&
+      /^[a-z]+$/.test(tld) &&
       !/@(test|example|localhost|invalid)\.(com|org|net|local|test)$/.test(rawEmail);
     const fallbackEmail = `pedido${String(order.id).replace(/-/g, "").slice(0, 12)}@alpinecapotas.com.br`;
     const payerEmail = emailValid ? rawEmail : fallbackEmail;
     console.info("[MercadoPago] pix payer email", { orderId: order.id, usedFallback: !emailValid });
-    const pixBody = {
+    const buildPixBody = (email: string) => ({
       transaction_amount: Number((total / 100).toFixed(2)),
       description: `Pedido Alpine #${String(order.id).slice(0, 8)}`,
       payment_method_id: "pix",
@@ -462,15 +466,28 @@ export const createPixPayment = createServerFn({ method: "POST" })
       notification_url: `${origin}/api/public/webhooks/mercadopago`,
       date_of_expiration: expiration,
       payer: {
-        email: payerEmail,
+        email,
         first_name: firstName,
         last_name: rest.join(" ") || firstName,
       },
-    };
+    });
 
 
     console.info("[MercadoPago] create pix payment", { orderId: order.id, totalCents: total });
-    const res = await be.mpCreatePixPayment(pixBody, `pix-${order.id}`);
+    let res = await be.mpCreatePixPayment(buildPixBody(payerEmail), `pix-${order.id}`);
+
+    // Se o Mercado Pago recusar o e-mail do cliente, refaz a cobrança com o
+    // e-mail interno do pedido para não travar o pagamento.
+    const emailRejected =
+      !res.ok &&
+      /payer\.?_?email|email.*valid|valid.*email/i.test(
+        `${mercadoPagoMessage(res.json, "")} ${res.text ?? ""}`,
+      );
+    if (emailRejected && payerEmail !== fallbackEmail) {
+      console.warn("[MercadoPago] pix retry with fallback email", { orderId: order.id });
+      res = await be.mpCreatePixPayment(buildPixBody(fallbackEmail), `pix-${order.id}-fb`);
+    }
+
     const json = res.json;
     const text = res.text;
     const qrCode = json?.point_of_interaction?.transaction_data?.qr_code as string | undefined;
