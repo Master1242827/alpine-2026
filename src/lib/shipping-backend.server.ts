@@ -38,6 +38,7 @@ async function request<T>(method: string, path: string, body?: Json): Promise<T>
   const res = await fetch(`${cfg.baseUrl}${path}`, {
     method,
     headers: { "content-type": "application/json", "x-checkout-token": cfg.token },
+    signal: AbortSignal.timeout(12000),
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   const text = await res.text();
