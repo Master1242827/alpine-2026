@@ -148,12 +148,23 @@ export async function getShippingProducts(ids: string[]): Promise<ShippingProduc
     const { data } = await client.from("products").select(SHIPPING_PRODUCT_SELECT).in("id", ids);
     return (data ?? []) as ShippingProductRow[];
   }
+  if (externalConfigured()) {
+    try {
+      const out = await request<{ data?: ShippingProductRow[] }>("POST", "/shipping-products", { ids });
+      if (out?.data?.length) return out.data;
+    } catch (err) {
+      console.error("[shipping-backend] produtos via API externa falharam", err);
+    }
+  }
   try {
-    const out = await request<{ data?: ShippingProductRow[] }>("POST", "/shipping-products", { ids });
-    return out?.data ?? [];
+    const pub = await publicDb();
+    if (!pub) return [];
+    const { data } = await pub.from("products").select(SHIPPING_PRODUCT_SELECT).in("id", ids);
+    return (data ?? []) as ShippingProductRow[];
   } catch {
     return [];
   }
+
 }
 
 export async function saveFrenetToken(token: string): Promise<void> {
