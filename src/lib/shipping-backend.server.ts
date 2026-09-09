@@ -38,6 +38,7 @@ async function request<T>(method: string, path: string, body?: Json): Promise<T>
   const res = await fetch(`${cfg.baseUrl}${path}`, {
     method,
     headers: { "content-type": "application/json", "x-checkout-token": cfg.token },
+    signal: AbortSignal.timeout(12000),
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   const text = await res.text();
@@ -65,6 +66,18 @@ async function db() {
   return supabaseAdmin as any;
 }
 
+/** Cliente público (anon) — leitura de dados não sensíveis fora do Lovable. */
+async function publicDb(): Promise<any | null> {
+  const url = process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
+  const key =
+    process.env["SUPABASE_PUBLISHABLE_KEY"] || process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
+  if (!url || !key) return null;
+  const { createClient } = await import("@supabase/supabase-js");
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  }) as any;
+}
+
 export type ShippingConfig = {
   frenetToken: string;
   updatedAt: string | null;
@@ -84,16 +97,35 @@ export async function getShippingConfig(): Promise<ShippingConfig> {
       originCep: String(settings?.origin_cep || "").trim(),
     };
   }
-  const out = await request<{ data?: { frenet_token?: string; updated_at?: string | null; origin_cep?: string } }>(
-    "GET",
-    "/shipping-config",
-  );
-  return {
-    frenetToken: String(out?.data?.frenet_token || "").trim(),
-    updatedAt: out?.data?.updated_at ?? null,
-    originCep: String(out?.data?.origin_cep || "").trim(),
-  };
+
+  if (externalConfigured()) {
+    try {
+      const out = await request<{
+        data?: { frenet_token?: string; updated_at?: string | null; origin_cep?: string };
+      }>("GET", "/shipping-config");
+      return {
+        frenetToken: String(out?.data?.frenet_token || "").trim(),
+        updatedAt: out?.data?.updated_at ?? null,
+        originCep: String(out?.data?.origin_cep || "").trim(),
+      };
+    } catch (err) {
+      console.error("[shipping-backend] config via API externa falhou, usando fallback local", err);
+    }
+  }
+
+  // Fallback local: token pelo .env do servidor + CEP de origem por leitura pública.
+  const envToken = String(process.env["FRENET_TOKEN"] || "").trim();
+  let originCep = String(process.env["ORIGIN_CEP"] || "").trim();
+  if (!originCep) {
+    const pub = await publicDb();
+    if (pub) {
+      const { data } = await pub.from("store_settings").select("origin_cep").eq("id", 1).maybeSingle();
+      originCep = String(data?.origin_cep || "").trim();
+    }
+  }
+  return { frenetToken: envToken, updatedAt: null, originCep };
 }
+
 
 export type ShippingProductRow = {
   id: string;
@@ -117,12 +149,23 @@ export async function getShippingProducts(ids: string[]): Promise<ShippingProduc
     const { data } = await client.from("products").select(SHIPPING_PRODUCT_SELECT).in("id", ids);
     return (data ?? []) as ShippingProductRow[];
   }
+  if (externalConfigured()) {
+    try {
+      const out = await request<{ data?: ShippingProductRow[] }>("POST", "/shipping-products", { ids });
+      if (out?.data?.length) return out.data;
+    } catch (err) {
+      console.error("[shipping-backend] produtos via API externa falharam", err);
+    }
+  }
   try {
-    const out = await request<{ data?: ShippingProductRow[] }>("POST", "/shipping-products", { ids });
-    return out?.data ?? [];
+    const pub = await publicDb();
+    if (!pub) return [];
+    const { data } = await pub.from("products").select(SHIPPING_PRODUCT_SELECT).in("id", ids);
+    return (data ?? []) as ShippingProductRow[];
   } catch {
     return [];
   }
+
 }
 
 export async function saveFrenetToken(token: string): Promise<void> {
