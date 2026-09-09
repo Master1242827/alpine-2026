@@ -198,7 +198,7 @@ export const createCheckoutPreference = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data, context }) => {
     const be = await backend();
-    if (!be.mpConfigured()) throw new Error("Pagamento não configurado neste ambiente.");
+    if (!be.mpConfigured()) throw new Error("Pagamento indisponível neste servidor: copie CHECKOUT_API_BASE_URL e CHECKOUT_API_TOKEN em Admin → Pagamentos para o .env deste servidor.");
 
     const { resolvedItems, subtotal, shippingCostCents, discountCents, total } =
       await resolveCheckoutAmounts(data);
@@ -402,7 +402,7 @@ export const createPixPayment = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data, context }) => {
     const be = await backend();
-    if (!be.mpConfigured()) throw new Error("Pagamento não configurado neste ambiente.");
+    if (!be.mpConfigured()) throw new Error("Pagamento indisponível neste servidor: copie CHECKOUT_API_BASE_URL e CHECKOUT_API_TOKEN em Admin → Pagamentos para o .env deste servidor.");
 
     const { resolvedItems, subtotal, shippingCostCents, discountCents, total } =
       await resolveCheckoutAmounts({ ...data, paymentMethod: "pix" });
@@ -627,7 +627,7 @@ export const createCardPayment = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => CardInputSchema.parse(input))
   .handler(async ({ data, context }) => {
     const be = await backend();
-    if (!be.mpConfigured()) throw new Error("Pagamento não configurado neste ambiente.");
+    if (!be.mpConfigured()) throw new Error("Pagamento indisponível neste servidor: copie CHECKOUT_API_BASE_URL e CHECKOUT_API_TOKEN em Admin → Pagamentos para o .env deste servidor.");
 
     const amounts = await resolveCheckoutAmounts({ ...data, paymentMethod: "card", installments: data.card.installments });
     const order = await persistOrder(data, context.userId, "card", amounts);
@@ -680,7 +680,7 @@ export const createBoletoPayment = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data, context }) => {
     const be = await backend();
-    if (!be.mpConfigured()) throw new Error("Pagamento não configurado neste ambiente.");
+    if (!be.mpConfigured()) throw new Error("Pagamento indisponível neste servidor: copie CHECKOUT_API_BASE_URL e CHECKOUT_API_TOKEN em Admin → Pagamentos para o .env deste servidor.");
 
     const cpf = (data.customer.cpf || "").replace(/\D/g, "");
     if (cpf.length !== 11) throw new Error("Informe um CPF válido para gerar o boleto.");
