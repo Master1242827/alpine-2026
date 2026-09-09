@@ -12,7 +12,7 @@ import { createCheckoutPreference, createPixPayment, createCardPayment, createBo
 import { quoteShipping } from "@/lib/shipping.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Truck, MapPin, User, ShoppingBag, CheckCircle2, ChevronDown, ChevronUp, Lock, UserPlus, CreditCard, QrCode, ShieldCheck } from "lucide-react";
+import { Loader2, Truck, MapPin, User, ShoppingBag, CheckCircle2, ChevronDown, ChevronUp, Lock, UserPlus, CreditCard, QrCode, ShieldCheck, Copy, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { QRCodeCanvas } from "qrcode.react";
@@ -42,6 +42,23 @@ function CheckoutPage() {
   const [pixCountdown, setPixCountdown] = useState("");
 
   const [card, setCard] = useState({ number: "", name: "", expiry: "", cvv: "", cpf: "" });
+
+  // Contagem regressiva de validade do código PIX
+  useEffect(() => {
+    if (!pixInline?.expiresAt) { setPixCountdown(""); return; }
+    const deadline = new Date(pixInline.expiresAt).getTime();
+    if (!Number.isFinite(deadline)) { setPixCountdown(""); return; }
+    const tick = () => {
+      const left = Math.max(0, deadline - Date.now());
+      const m = Math.floor(left / 60000);
+      const s = Math.floor((left % 60000) / 1000);
+      setPixCountdown(`${m}:${String(s).padStart(2, "0")}`);
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [pixInline?.expiresAt]);
+
 
 
 
