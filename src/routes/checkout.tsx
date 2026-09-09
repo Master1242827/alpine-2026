@@ -778,12 +778,15 @@ function CheckoutPage() {
             {paymentMethod === "card" && (
               <div className="mt-4">
                 <Label className="mb-2 block text-xs font-medium">
-                  Em quantas vezes? <span className="text-muted-foreground">(até 10x sem juros)</span>
+                  Em quantas vezes?
                 </Label>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {Array.from({ length: Math.min(10, Math.max(1, paySettings?.installments_max ?? 10)) }, (_, idx) => idx + 1).map((n) => {
                     const pct = feeFor(n);
-                    const nTotal = baseTotal - Math.round((subtotalCents * pct) / 100);
+                    const nTotal =
+                      baseTotal
+                      - Math.round((subtotalCents * cardDiscountPercent) / 100)
+                      + Math.round((subtotalCents * pct) / 100);
                     const selected = installments === n;
                     return (
                       <button
@@ -794,12 +797,14 @@ function CheckoutPage() {
                       >
                         <span className="font-medium">
                           {n}x de {formatCents(Math.round(nTotal / n))}
-                          <span className="ml-1 text-xs font-normal text-muted-foreground">sem juros</span>
+                          <span className="ml-1 text-xs font-normal text-muted-foreground">
+                            {pct > 0 ? "com juros" : "sem juros"}
+                          </span>
                         </span>
                         <span className="flex items-center gap-2">
                           {pct > 0 && (
-                            <span className="rounded bg-primary/15 px-1.5 py-0.5 text-xs font-semibold text-primary">
-                              -{pct}%
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-semibold text-muted-foreground">
+                              +{pct}%
                             </span>
                           )}
                           <span className="text-xs text-muted-foreground">{formatCents(nTotal)}</span>
