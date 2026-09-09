@@ -107,6 +107,7 @@ export async function grantAdminRole(userId: string): Promise<void> {
 export type OrderStatus =
   | "pending"
   | "paid"
+  | "processing"
   | "shipped"
   | "delivered"
   | "returned"
