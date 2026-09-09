@@ -46,6 +46,7 @@ const EVENT_MAP: Record<string, Mapped> = {
 const RANK: Record<string, number> = {
   pending: 0,
   paid: 1,
+  processing: 1,
   shipped: 2,
   delivered: 3,
   completed: 4,
@@ -132,7 +133,7 @@ export const Route = createFileRoute("/api/public/webhooks/logistics")({
         if ((RANK[mapped] ?? 0) <= (RANK[order.status] ?? 0) && order.status !== mapped) {
           log("info", "skip_regression", { orderId: order.id, current: order.status, incoming: mapped });
           if (trackingCode && !order.tracking_code) {
-            await supabaseAdmin.from("orders").update({ tracking_code: trackingCode }).eq("id", order.id);
+            await updateOrder(order.id, { tracking_code: trackingCode });
           }
           return new Response("no regression", { status: 200 });
         }
@@ -147,11 +148,7 @@ export const Route = createFileRoute("/api/public/webhooks/logistics")({
           ...(mapped === "delivered" ? { delivered_at: whenIso } : {}),
         };
 
-        const { error: updErr } = await supabaseAdmin.from("orders").update(patch).eq("id", order.id);
-        if (updErr) {
-          log("error", "order_update_failed", { orderId: order.id, message: updErr.message });
-          return new Response("update failed", { status: 500 });
-        }
+        await updateOrder(order.id, patch);
 
         log("info", "order_updated", { orderId: order.id, from: order.status, to: mapped, trackingCode });
         return new Response(JSON.stringify({ ok: true, orderId: order.id, status: mapped }), {
