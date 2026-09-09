@@ -32,9 +32,10 @@ async function request<T>(method: string, path: string, body?: Json): Promise<T>
   const cfg = externalConfig();
   if (!cfg) {
     throw new Error(
-      "Frete indisponível: configure CHECKOUT_API_BASE_URL e CHECKOUT_API_TOKEN no .env deste servidor (ou use a chave de serviço).",
+      "Sem conexão com o banco neste servidor. O token foi salvo localmente (arquivo .frenet-token.json) e o frete continua funcionando.",
     );
   }
+
   const res = await fetch(`${cfg.baseUrl}${path}`, {
     method,
     headers: { "content-type": "application/json", "x-checkout-token": cfg.token },
