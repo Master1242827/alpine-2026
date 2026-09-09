@@ -1086,9 +1086,10 @@ function InstallmentFeesEditor() {
     <div className="mt-6 rounded-lg border border-border bg-muted/20 p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-base font-bold">Desconto por parcela (Cartão)</h3>
+          <h3 className="text-base font-bold">Juros por parcela (Cartão)</h3>
           <p className="text-xs text-muted-foreground">
-            Percentual de desconto aplicado no total quando o cliente escolhe essa quantidade de parcelas no cartão. 0% = sem desconto.
+            Percentual de juros somado ao total quando o cliente escolhe essa quantidade de parcelas no cartão. 0% = sem juros.
+            Não afeta Pix nem boleto.
           </p>
         </div>
         <Button size="sm" onClick={save} disabled={saving || loading}>

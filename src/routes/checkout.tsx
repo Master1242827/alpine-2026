@@ -101,17 +101,15 @@ function CheckoutPage() {
   const shippingCostCents = selectedShip?.priceCents ?? 0;
   const baseTotal = subtotalCents + shippingCostCents;
   const pixDiscountPercent = paySettings?.pix_enabled ? Number(paySettings.pix_discount_percent) || 0 : 0;
-  // Desconto por parcela (tabela installment_fees) tem prioridade sobre o desconto único do cartão.
-  const feeFor = (n: number) =>
-    installmentDiscounts[n] != null
-      ? Number(installmentDiscounts[n])
-      : Number(paySettings?.card_discount_percent ?? 0) || 0;
-  const cardDiscountPercent = feeFor(installments);
-  const boletoDiscountPercent = feeFor(1);
+  // installment_fees = JUROS (acréscimo) repassados no cartão parcelado. Nunca desconto.
+  const feeFor = (n: number) => Number(installmentDiscounts[n] ?? 0) || 0;
+  const cardFeePercent = paymentMethod === "card" ? feeFor(installments) : 0;
+  const cardDiscountPercent = Number(paySettings?.card_discount_percent ?? 0) || 0;
   const activeDiscountPercent =
-    paymentMethod === "pix" ? pixDiscountPercent : paymentMethod === "boleto" ? boletoDiscountPercent : cardDiscountPercent;
+    paymentMethod === "pix" ? pixDiscountPercent : paymentMethod === "card" ? cardDiscountPercent : 0;
   const discountCents = Math.round((subtotalCents * activeDiscountPercent) / 100);
-  const total = baseTotal - discountCents;
+  const feeCents = Math.round((subtotalCents * cardFeePercent) / 100);
+  const total = baseTotal - discountCents + feeCents;
   const lastQuotedCep = useRef<string>("");
 
   useEffect(() => {
@@ -656,13 +654,13 @@ function CheckoutPage() {
                     Cartão{" "}
                     {cardDiscountPercent > 0 && (
                       <span className="rounded bg-primary/15 px-1.5 py-0.5 text-xs text-primary">
-                        -{cardDiscountPercent}% em {installments}x
+                        -{cardDiscountPercent}% à vista
                       </span>
                     )}
                   </p>
                   <p className="text-xs text-muted-foreground">Até {paySettings?.installments_max ?? 10}x</p>
                   <p className="mt-1 text-sm font-bold">
-                    {formatCents(baseTotal - Math.round((subtotalCents * cardDiscountPercent) / 100))}
+                    {formatCents(baseTotal - Math.round((subtotalCents * cardDiscountPercent) / 100) + Math.round((subtotalCents * feeFor(installments)) / 100))}
                   </p>
                 </div>
               </button>
@@ -780,12 +778,15 @@ function CheckoutPage() {
             {paymentMethod === "card" && (
               <div className="mt-4">
                 <Label className="mb-2 block text-xs font-medium">
-                  Em quantas vezes? <span className="text-muted-foreground">(até 10x sem juros)</span>
+                  Em quantas vezes?
                 </Label>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {Array.from({ length: Math.min(10, Math.max(1, paySettings?.installments_max ?? 10)) }, (_, idx) => idx + 1).map((n) => {
                     const pct = feeFor(n);
-                    const nTotal = baseTotal - Math.round((subtotalCents * pct) / 100);
+                    const nTotal =
+                      baseTotal
+                      - Math.round((subtotalCents * cardDiscountPercent) / 100)
+                      + Math.round((subtotalCents * pct) / 100);
                     const selected = installments === n;
                     return (
                       <button
@@ -796,12 +797,14 @@ function CheckoutPage() {
                       >
                         <span className="font-medium">
                           {n}x de {formatCents(Math.round(nTotal / n))}
-                          <span className="ml-1 text-xs font-normal text-muted-foreground">sem juros</span>
+                          <span className="ml-1 text-xs font-normal text-muted-foreground">
+                            {pct > 0 ? "com juros" : "sem juros"}
+                          </span>
                         </span>
                         <span className="flex items-center gap-2">
                           {pct > 0 && (
-                            <span className="rounded bg-primary/15 px-1.5 py-0.5 text-xs font-semibold text-primary">
-                              -{pct}%
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-semibold text-muted-foreground">
+                              +{pct}%
                             </span>
                           )}
                           <span className="text-xs text-muted-foreground">{formatCents(nTotal)}</span>
@@ -982,10 +985,17 @@ function CheckoutPage() {
             <Row label="Frete" value={selectedShip ? formatCents(shippingCostCents) : <span className="text-muted-foreground">A calcular</span>} />
             {discountCents > 0 && (
               <Row
-                label={`Desconto ${paymentMethod === "pix" ? "PIX" : paymentMethod === "boleto" ? "Boleto" : "Cartão à vista"} (${activeDiscountPercent}%)`}
+                label={`Desconto ${paymentMethod === "pix" ? "PIX" : "Cartão"} (${activeDiscountPercent}%)`}
                 value={<span className="text-primary">- {formatCents(discountCents)}</span>}
               />
             )}
+            {feeCents > 0 && (
+              <Row
+                label={`Juros do parcelamento (${cardFeePercent}%)`}
+                value={<span>+ {formatCents(feeCents)}</span>}
+              />
+            )}
+
 
             <div className="flex justify-between pt-2 text-base font-bold">
               <span>Total</span><span className="text-primary">{formatCents(total)}</span>
