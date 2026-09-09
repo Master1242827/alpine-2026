@@ -334,6 +334,17 @@ export async function mpCreatePixPayment(body: Json, idempotencyKey: string): Pr
   return request<MpResult>("POST", "/mp/pix", { body, idempotencyKey });
 }
 
+/** Cria qualquer pagamento no Mercado Pago (cartão, boleto, pix). */
+export async function mpCreatePayment(body: Json, idempotencyKey: string): Promise<MpResult> {
+  return mpCreatePixPayment(body, idempotencyKey);
+}
+
+/** Chave pública do Mercado Pago (publicável no navegador). */
+export function mpPublicKey(): string {
+  return process.env["MERCADO_PAGO_PUBLIC_KEY"] ?? "";
+}
+
+
 export async function mpGetPayment(opts: {
   paymentId?: string | null;
   externalReference?: string | null;
