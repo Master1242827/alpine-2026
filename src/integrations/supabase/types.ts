@@ -339,6 +339,8 @@ export type Database = {
           shipped_at: string | null
           shipping_address: Json | null
           shipping_cost_cents: number
+          shipping_label_id: string | null
+          shipping_label_url: string | null
           shipping_service: string | null
           status: Database["public"]["Enums"]["order_status"]
           stock_decremented: boolean
@@ -367,6 +369,8 @@ export type Database = {
           shipped_at?: string | null
           shipping_address?: Json | null
           shipping_cost_cents?: number
+          shipping_label_id?: string | null
+          shipping_label_url?: string | null
           shipping_service?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           stock_decremented?: boolean
@@ -395,6 +399,8 @@ export type Database = {
           shipped_at?: string | null
           shipping_address?: Json | null
           shipping_cost_cents?: number
+          shipping_label_id?: string | null
+          shipping_label_url?: string | null
           shipping_service?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           stock_decremented?: boolean
@@ -910,6 +916,7 @@ export type Database = {
       order_status:
         | "pending"
         | "paid"
+        | "processing"
         | "shipped"
         | "delivered"
         | "cancelled"
@@ -1046,6 +1053,7 @@ export const Constants = {
       order_status: [
         "pending",
         "paid",
+        "processing",
         "shipped",
         "delivered",
         "cancelled",
