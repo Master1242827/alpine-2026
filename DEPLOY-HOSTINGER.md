@@ -1,6 +1,8 @@
 # Deploy completo na VPS Hostinger — passo a passo
 
-Guia para copiar e colar. Substitua **apenas** estes 3 valores onde aparecerem:
+Guia para copiar e colar. O caminho mais rápido é usar o script `scripts/setup-external-server.sh` (veja o atalho no final deste arquivo). Se preferir fazer manualmente, siga os passos abaixo.
+
+Substitua **apenas** estes 3 valores onde aparecerem:
 
 - `SEU_IP` → IP público da VPS (painel Hostinger → VPS → Visão geral)
 - `seudominio.com.br` → seu domínio
