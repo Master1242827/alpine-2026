@@ -515,3 +515,190 @@ export const createPixPayment = createServerFn({ method: "POST" })
     };
   });
 
+
+// ---------------------------------------------------------------------------
+// Pagamento transparente (dentro do site): cartão e boleto
+// ---------------------------------------------------------------------------
+
+const CardInputSchema = InputSchema.extend({
+  card: z.object({
+    token: z.string().min(5).max(200),
+    paymentMethodId: z.string().min(2).max(40),
+    issuerId: z.string().max(40).optional().nullable(),
+    installments: z.number().int().min(1).max(12).default(1),
+    cardholderEmail: z.string().max(180).optional().default(""),
+    identificationType: z.string().max(10).optional().default("CPF"),
+    identificationNumber: z.string().max(20).optional().default(""),
+  }),
+});
+
+function safePayerEmail(raw: string, orderId: string) {
+  const email = (raw || "").trim().toLowerCase().replace(/\s+/g, "");
+  const strict = /^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?@[a-z0-9-]+(\.[a-z0-9-]+)+$/;
+  const [localPart = "", domain = ""] = email.split("@");
+  const tld = domain.split(".").pop() || "";
+  const valid =
+    strict.test(email) &&
+    !/[^a-z0-9._@-]/.test(email) &&
+    !email.includes("..") &&
+    localPart.length >= 3 &&
+    domain.length <= 190 &&
+    tld.length >= 2 &&
+    /^[a-z]+$/.test(tld) &&
+    !/@(test|example|localhost|invalid)\./.test(email);
+  return valid ? email : `pedido${orderId.replace(/-/g, "").slice(0, 12)}@alpinecapotas.com.br`;
+}
+
+async function persistOrder(
+  data: z.infer<typeof InputSchema>,
+  userId: string,
+  method: string,
+  amounts: Awaited<ReturnType<typeof resolveCheckoutAmounts>>,
+) {
+  const be = await backend();
+  const order = await be.createOrder({
+    user_id: userId,
+    customer_name: data.customer.name,
+    customer_email: data.customer.email,
+    customer_phone: data.customer.phone,
+    customer_cpf: (data.customer.cpf || "").replace(/\D/g, "") || null,
+    shipping_address: data.shipping,
+    shipping_cost_cents: amounts.shippingCostCents,
+    shipping_service: data.shippingService,
+    subtotal_cents: amounts.subtotal,
+    discount_cents: amounts.discountCents,
+    total_cents: amounts.total,
+    notes: data.notes,
+    notes_images: data.notesImages ?? [],
+    notes_video_url: data.notesVideoUrl ?? null,
+    status: "pending",
+    payment_method: method,
+  });
+  await be.insertOrderItems(
+    order.id,
+    amounts.resolvedItems.map((i) => ({
+      order_id: order.id,
+      product_id: i.productId,
+      product_name: i.name,
+      unit_price_cents: i.priceCents,
+      quantity: i.quantity,
+      vehicle_config: i.vehicleConfig ?? null,
+    })),
+  );
+  return order;
+}
+
+/** Cobrança no cartão sem sair do site (token gerado no navegador pelo SDK do MP). */
+export const createCardPayment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => CardInputSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const be = await backend();
+    if (!be.mpConfigured()) throw new Error("Pagamento não configurado neste ambiente.");
+
+    const amounts = await resolveCheckoutAmounts({ ...data, paymentMethod: "card", installments: data.card.installments });
+    const order = await persistOrder(data, context.userId, "card", amounts);
+
+    const origin = getRuntimeOrigin();
+    const [firstName, ...rest] = data.customer.name.split(" ");
+    const cpf = (data.card.identificationNumber || data.customer.cpf || "").replace(/\D/g, "");
+    const body = {
+      transaction_amount: Number((amounts.total / 100).toFixed(2)),
+      token: data.card.token,
+      description: `Pedido Alpine #${String(order.id).slice(0, 8)}`,
+      installments: data.card.installments,
+      payment_method_id: data.card.paymentMethodId,
+      ...(data.card.issuerId ? { issuer_id: data.card.issuerId } : {}),
+      external_reference: order.id,
+      notification_url: `${origin}/api/public/webhooks/mercadopago`,
+      statement_descriptor: "ALPINE",
+      capture: true,
+      payer: {
+        email: safePayerEmail(data.card.cardholderEmail || data.customer.email, order.id),
+        first_name: firstName,
+        last_name: rest.join(" ") || firstName,
+        ...(cpf.length === 11 ? { identification: { type: "CPF", number: cpf } } : {}),
+      },
+    };
+
+    const res = await be.mpCreatePayment(body as any, `card-${order.id}`);
+    const json = res.json;
+    if (!res.ok || !json?.id) {
+      console.error("[MercadoPago] card error", { status: res.status, body: res.text, orderId: order.id });
+      throw new Error(`Mercado Pago cartão [${res.status}]: ${mercadoPagoMessage(json, "pagamento recusado")}`);
+    }
+
+    const status = mapPaymentStatus(json.status);
+    await be.updateOrder(order.id, { mp_payment_id: String(json.id), status });
+
+    return {
+      orderId: order.id,
+      paymentId: String(json.id),
+      status,
+      paymentStatus: String(json.status ?? ""),
+      statusDetail: String(json.status_detail ?? ""),
+      totalCents: amounts.total,
+    };
+  });
+
+/** Boleto gerado na hora, dentro do site. */
+export const createBoletoPayment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => InputSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const be = await backend();
+    if (!be.mpConfigured()) throw new Error("Pagamento não configurado neste ambiente.");
+
+    const cpf = (data.customer.cpf || "").replace(/\D/g, "");
+    if (cpf.length !== 11) throw new Error("Informe um CPF válido para gerar o boleto.");
+
+    const amounts = await resolveCheckoutAmounts({ ...data, paymentMethod: "boleto", installments: 1 });
+    const order = await persistOrder(data, context.userId, "boleto", amounts);
+
+    const origin = getRuntimeOrigin();
+    const [firstName, ...rest] = data.customer.name.split(" ");
+    const expiration = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().replace("Z", "+00:00");
+    const body = {
+      transaction_amount: Number((amounts.total / 100).toFixed(2)),
+      description: `Pedido Alpine #${String(order.id).slice(0, 8)}`,
+      payment_method_id: "bolbradesco",
+      external_reference: order.id,
+      notification_url: `${origin}/api/public/webhooks/mercadopago`,
+      date_of_expiration: expiration,
+      payer: {
+        email: safePayerEmail(data.customer.email, order.id),
+        first_name: firstName,
+        last_name: rest.join(" ") || firstName,
+        identification: { type: "CPF", number: cpf },
+        address: {
+          zip_code: data.shipping.cep.replace(/\D/g, ""),
+          street_name: data.shipping.street,
+          street_number: data.shipping.number,
+          neighborhood: data.shipping.district,
+          city: data.shipping.city,
+          federal_unit: data.shipping.state,
+        },
+      },
+    };
+
+    const res = await be.mpCreatePayment(body as any, `boleto-${order.id}`);
+    const json = res.json;
+    const td = json?.transaction_details ?? {};
+    const barcode = json?.barcode?.content as string | undefined;
+    if (!res.ok || !json?.id) {
+      console.error("[MercadoPago] boleto error", { status: res.status, body: res.text, orderId: order.id });
+      throw new Error(`Mercado Pago boleto [${res.status}]: ${mercadoPagoMessage(json, "falha ao gerar boleto")}`);
+    }
+
+    await be.updateOrder(order.id, { mp_payment_id: String(json.id) });
+
+    return {
+      orderId: order.id,
+      paymentId: String(json.id),
+      barcode: barcode ?? "",
+      digitableLine: (barcode ?? "") as string,
+      pdfUrl: (td.external_resource_url as string | undefined) ?? "",
+      expiresAt: expiration,
+      totalCents: amounts.total,
+    };
+  });
