@@ -850,7 +850,7 @@ function CheckoutPage() {
           <TrustNotices />
 
           <Button type="submit" className="hidden h-12 w-full md:flex" disabled={loading || !selectedShip} size="lg">
-            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando…</> : <><Lock className="mr-2 h-4 w-4" /> Pagar {formatCents(total)}</>}
+            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processando pagamento…</> : <><Lock className="mr-2 h-4 w-4" /> Pagar {formatCents(total)}</>}
           </Button>
         </form>
 
@@ -895,7 +895,7 @@ function CheckoutPage() {
           </div>
           <Button type="button" onClick={handleSubmit as any} className="h-12 w-full" disabled={loading || !selectedShip} size="lg">
             {loading
-              ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando…</>
+              ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processando pagamento…</>
               : <><Lock className="mr-2 h-4 w-4" /> Pagar {formatCents(total)}</>}
           </Button>
         </div>
