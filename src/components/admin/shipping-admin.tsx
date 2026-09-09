@@ -31,8 +31,10 @@ export function ShippingAdmin() {
   const [token, setToken] = useState("");
   const [loadingTest, setLoadingTest] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadingInfo, setLoadingInfo] = useState(true);
 
   async function refresh() {
+    setLoadingInfo(true);
     try {
       const i = await getStatus();
       setInfo(i);
@@ -64,6 +66,8 @@ export function ShippingAdmin() {
             : "Não foi possível ler a configuração de frete neste servidor.",
         account: null,
       });
+    } finally {
+      setLoadingInfo(false);
     }
   }
 
@@ -100,7 +104,7 @@ export function ShippingAdmin() {
   }
 
   const badge = (() => {
-    if (loadingTest && !status) return <Badge variant="secondary"><Loader2 className="mr-1 h-3 w-3 animate-spin" />Verificando</Badge>;
+    if (loadingInfo || (loadingTest && !status)) return <Badge variant="secondary"><Loader2 className="mr-1 h-3 w-3 animate-spin" />Verificando</Badge>;
     if (!status) return <Badge variant="secondary">—</Badge>;
     if (status.ok) return <Badge className="bg-green-600 hover:bg-green-600"><CheckCircle2 className="mr-1 h-3 w-3" />Ativa</Badge>;
     if (status.status === "expired") return <Badge variant="destructive"><AlertTriangle className="mr-1 h-3 w-3" />Token inválido</Badge>;
