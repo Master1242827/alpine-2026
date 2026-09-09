@@ -189,8 +189,20 @@ export async function getInstallmentFee(
       .maybeSingle();
     return data ?? null;
   }
-  const out = await request<{ data?: any }>("GET", `/installment-fee/${installments}`);
-  return out?.data ?? null;
+  if (externalConfig()) {
+    try {
+      const out = await request<{ data?: any }>("GET", `/installment-fee/${installments}`);
+      if (out?.data) return out.data;
+    } catch (err) {
+      console.error("[checkout-backend] taxa via API autenticada falhou", err);
+    }
+  }
+  const pub = await publicRequest<{ data?: any }>(
+    "GET",
+    `/installment-fee-public/${installments}`,
+  );
+  return pub?.data ?? null;
+
 }
 
 export async function createOrder(order: Json): Promise<{ id: string }> {
