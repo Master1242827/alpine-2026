@@ -18,11 +18,16 @@ function externalConfig() {
     process.env["CHECKOUT_API_BASE_URL"] ||
     (process.env["ADMIN_API_BASE_URL"]
       ? process.env["ADMIN_API_BASE_URL"]!.replace(/\/admin\/?$/, "/checkout")
-      : "");
-  const token = process.env["CHECKOUT_API_TOKEN"] || process.env["ADMIN_API_TOKEN"];
+      : "") ||
+    "https://project--b370b26e-0ef1-41ec-ae73-c00c6755b5d3.lovable.app/api/public/checkout";
+  const token =
+    process.env["CHECKOUT_API_TOKEN"] ||
+    process.env["ADMIN_API_TOKEN"] ||
+    process.env["EXTERNAL_ADMIN_API_TOKEN"];
   if (!base || !token) return null;
   return { baseUrl: base.replace(/\/+$/, ""), token };
 }
+
 
 export function externalConfigured(): boolean {
   return !!externalConfig();
