@@ -283,12 +283,19 @@ export async function getOrderWithItems(orderId: string): Promise<any | null> {
     }
     return data ?? null;
   }
-  try {
-    const out = await request<{ data?: any }>("GET", `/orders/${encodeURIComponent(orderId)}`);
-    return out?.data ?? null;
-  } catch {
-    return null;
+  if (externalConfig()) {
+    try {
+      const out = await request<{ data?: any }>("GET", `/orders/${encodeURIComponent(orderId)}`);
+      if (out?.data) return out.data;
+    } catch {
+      /* cai para leitura pública */
+    }
   }
+  const pub = await publicRequest<{ data?: any }>(
+    "GET",
+    `/order-get-public/${encodeURIComponent(orderId)}`,
+  );
+  return pub?.data ?? null;
 }
 
 // ---------- Webhooks (pagamento / logística) ----------
