@@ -49,6 +49,16 @@ export function ShippingAdmin() {
       }
     } catch (e) {
       console.error(e);
+      setInfo(null);
+      setStatus({
+        ok: false,
+        status: "error",
+        message:
+          e instanceof Error && e.message
+            ? e.message
+            : "Não foi possível ler a configuração de frete neste servidor.",
+        account: null,
+      });
     }
   }
 
