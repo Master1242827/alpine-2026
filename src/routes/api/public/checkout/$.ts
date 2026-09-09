@@ -270,7 +270,7 @@ async function handle(request: Request, splat: string): Promise<Response> {
       const body = await readBody(request);
       const id = body["id"] ? String(body["id"]) : "";
       const tracking = body["tracking_code"] ? String(body["tracking_code"]) : "";
-      let query = db.from("orders").select("*");
+      let query = db.from("orders").select("*, order_items(*)");
       if (id && uuid.safeParse(id).success) query = query.eq("id", id);
       else if (tracking) query = query.eq("tracking_code", tracking);
       else return json({ error: "informe id ou tracking_code" }, 400);

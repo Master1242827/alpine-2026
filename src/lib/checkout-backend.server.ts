@@ -227,7 +227,7 @@ export async function findOrder(opts: {
 
   if (hasServiceRole()) {
     const client = await db();
-    let query = client.from("orders").select("*");
+    let query = client.from("orders").select("*, order_items(*)");
     if (id) query = query.eq("id", id);
     else query = query.eq("tracking_code", trackingCode);
     const { data, error } = await query.maybeSingle();
