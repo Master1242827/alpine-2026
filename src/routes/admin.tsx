@@ -21,6 +21,8 @@ import {
 } from "@/lib/admin-gate.functions";
 import { VehiclesAdmin } from "@/components/admin/vehicles-admin";
 import { ShippingAdmin } from "@/components/admin/shipping-admin";
+import { ServerConnectionCard } from "@/components/admin/server-connection-card";
+
 import { classifyProductSize, SIZE_LABEL } from "@/lib/shipping-classify";
 
 
