@@ -215,9 +215,17 @@ export async function createOrder(order: Json): Promise<{ id: string }> {
     }
     return data as { id: string };
   }
-  const out = await request<{ data?: { id: string } }>("POST", "/orders", { order });
-  if (!out?.data?.id) throw new Error("Falha ao criar pedido. Tente novamente.");
-  return out.data;
+  if (externalConfig()) {
+    try {
+      const out = await request<{ data?: { id: string } }>("POST", "/orders", { order });
+      if (out?.data?.id) return out.data;
+    } catch (err) {
+      console.error("[checkout-backend] criar pedido via API autenticada falhou", err);
+    }
+  }
+  const pub = await publicRequest<{ data?: { id: string } }>("POST", "/orders-public", { order });
+  if (!pub?.data?.id) throw new Error("Falha ao criar pedido. Tente novamente.");
+  return pub.data;
 }
 
 export async function insertOrderItems(orderId: string, items: Json[]): Promise<void> {
@@ -230,7 +238,15 @@ export async function insertOrderItems(orderId: string, items: Json[]): Promise<
     }
     return;
   }
-  await request("POST", `/orders/${encodeURIComponent(orderId)}/items`, { items });
+  if (externalConfig()) {
+    try {
+      await request("POST", `/orders/${encodeURIComponent(orderId)}/items`, { items });
+      return;
+    } catch (err) {
+      console.error("[checkout-backend] itens via API autenticada falhou", err);
+    }
+  }
+  await publicRequest("POST", "/order-items-public", { order_id: orderId, items });
 }
 
 export async function updateOrder(orderId: string, patch: Json): Promise<void> {
@@ -240,11 +256,15 @@ export async function updateOrder(orderId: string, patch: Json): Promise<void> {
     if (error) console.error("[checkout-backend] update order error", { orderId, error });
     return;
   }
-  try {
-    await request("PATCH", `/orders/${encodeURIComponent(orderId)}`, patch);
-  } catch (err) {
-    console.error("[checkout-backend] update order failed", { orderId, err });
+  if (externalConfig()) {
+    try {
+      await request("PATCH", `/orders/${encodeURIComponent(orderId)}`, patch);
+      return;
+    } catch (err) {
+      console.error("[checkout-backend] update order failed", { orderId, err });
+    }
   }
+  await publicRequest("POST", "/order-patch-public", { order_id: orderId, patch });
 }
 
 export async function getOrderWithItems(orderId: string): Promise<any | null> {
@@ -263,12 +283,19 @@ export async function getOrderWithItems(orderId: string): Promise<any | null> {
     }
     return data ?? null;
   }
-  try {
-    const out = await request<{ data?: any }>("GET", `/orders/${encodeURIComponent(orderId)}`);
-    return out?.data ?? null;
-  } catch {
-    return null;
+  if (externalConfig()) {
+    try {
+      const out = await request<{ data?: any }>("GET", `/orders/${encodeURIComponent(orderId)}`);
+      if (out?.data) return out.data;
+    } catch {
+      /* cai para leitura pública */
+    }
   }
+  const pub = await publicRequest<{ data?: any }>(
+    "GET",
+    `/order-get-public/${encodeURIComponent(orderId)}`,
+  );
+  return pub?.data ?? null;
 }
 
 // ---------- Webhooks (pagamento / logística) ----------
@@ -374,6 +401,13 @@ async function mpDirect(url: string, init: RequestInit): Promise<MpResult> {
 const MP_PREFERENCES_ENDPOINT = "https://api.mercadopago.com/checkout/preferences";
 const MP_PAYMENTS_ENDPOINT = "https://api.mercadopago.com/v1/payments";
 
+const MP_FAIL: MpResult = {
+  status: 503,
+  ok: false,
+  json: { message: "Pagamento temporariamente indisponível. Tente novamente." },
+  text: "",
+};
+
 export async function mpCreatePreference(body: Json): Promise<MpResult> {
   if (hasMpToken()) {
     return mpDirect(MP_PREFERENCES_ENDPOINT, {
@@ -382,7 +416,14 @@ export async function mpCreatePreference(body: Json): Promise<MpResult> {
       body: JSON.stringify(body),
     });
   }
-  return request<MpResult>("POST", "/mp/preference", { body });
+  if (externalConfig()) {
+    try {
+      return await request<MpResult>("POST", "/mp/preference", { body });
+    } catch (err) {
+      console.error("[checkout-backend] preferência via API autenticada falhou", err);
+    }
+  }
+  return (await publicRequest<MpResult>("POST", "/mp-preference-public", { body })) ?? MP_FAIL;
 }
 
 export async function mpCreatePixPayment(body: Json, idempotencyKey: string): Promise<MpResult> {
@@ -393,7 +434,16 @@ export async function mpCreatePixPayment(body: Json, idempotencyKey: string): Pr
       body: JSON.stringify(body),
     });
   }
-  return request<MpResult>("POST", "/mp/pix", { body, idempotencyKey });
+  if (externalConfig()) {
+    try {
+      return await request<MpResult>("POST", "/mp/pix", { body, idempotencyKey });
+    } catch (err) {
+      console.error("[checkout-backend] pagamento via API autenticada falhou", err);
+    }
+  }
+  return (
+    (await publicRequest<MpResult>("POST", "/mp-pix-public", { body, idempotencyKey })) ?? MP_FAIL
+  );
 }
 
 /** Cria qualquer pagamento no Mercado Pago (cartão, boleto, pix). */
@@ -402,8 +452,14 @@ export async function mpCreatePayment(body: Json, idempotencyKey: string): Promi
 }
 
 /** Chave pública do Mercado Pago (publicável no navegador). */
-export function mpPublicKey(): string {
-  return process.env["MERCADO_PAGO_PUBLIC_KEY"] ?? "";
+export async function mpPublicKey(): Promise<string> {
+  const local = process.env["MERCADO_PAGO_PUBLIC_KEY"];
+  if (local) return local;
+  const pub = await publicRequest<{ data?: { mp_public_key?: string } }>(
+    "GET",
+    "/mp-public-key-public",
+  );
+  return pub?.data?.mp_public_key ?? "";
 }
 
 
@@ -419,12 +475,24 @@ export async function mpGetPayment(opts: {
         )}&sort=date_created&criteria=desc`;
     return mpDirect(endpoint, { method: "GET" });
   }
-  return request<MpResult>("POST", "/mp/payment", {
-    paymentId: opts.paymentId ?? null,
-    externalReference: opts.externalReference ?? null,
-  });
+  if (externalConfig()) {
+    try {
+      return await request<MpResult>("POST", "/mp/payment", {
+        paymentId: opts.paymentId ?? null,
+        externalReference: opts.externalReference ?? null,
+      });
+    } catch (err) {
+      console.error("[checkout-backend] consulta de pagamento autenticada falhou", err);
+    }
+  }
+  return (
+    (await publicRequest<MpResult>("POST", "/mp-payment-public", {
+      paymentId: opts.paymentId ?? null,
+      externalReference: opts.externalReference ?? null,
+    })) ?? MP_FAIL
+  );
 }
 
 export function mpConfigured(): boolean {
-  return hasMpToken() || !!externalConfig();
+  return true;
 }
