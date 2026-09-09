@@ -101,17 +101,15 @@ function CheckoutPage() {
   const shippingCostCents = selectedShip?.priceCents ?? 0;
   const baseTotal = subtotalCents + shippingCostCents;
   const pixDiscountPercent = paySettings?.pix_enabled ? Number(paySettings.pix_discount_percent) || 0 : 0;
-  // Desconto por parcela (tabela installment_fees) tem prioridade sobre o desconto único do cartão.
-  const feeFor = (n: number) =>
-    installmentDiscounts[n] != null
-      ? Number(installmentDiscounts[n])
-      : Number(paySettings?.card_discount_percent ?? 0) || 0;
-  const cardDiscountPercent = feeFor(installments);
-  const boletoDiscountPercent = feeFor(1);
+  // installment_fees = JUROS (acréscimo) repassados no cartão parcelado. Nunca desconto.
+  const feeFor = (n: number) => Number(installmentDiscounts[n] ?? 0) || 0;
+  const cardFeePercent = paymentMethod === "card" ? feeFor(installments) : 0;
+  const cardDiscountPercent = Number(paySettings?.card_discount_percent ?? 0) || 0;
   const activeDiscountPercent =
-    paymentMethod === "pix" ? pixDiscountPercent : paymentMethod === "boleto" ? boletoDiscountPercent : cardDiscountPercent;
+    paymentMethod === "pix" ? pixDiscountPercent : paymentMethod === "card" ? cardDiscountPercent : 0;
   const discountCents = Math.round((subtotalCents * activeDiscountPercent) / 100);
-  const total = baseTotal - discountCents;
+  const feeCents = Math.round((subtotalCents * cardFeePercent) / 100);
+  const total = baseTotal - discountCents + feeCents;
   const lastQuotedCep = useRef<string>("");
 
   useEffect(() => {
