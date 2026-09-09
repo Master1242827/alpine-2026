@@ -114,8 +114,9 @@ export async function getShippingConfig(): Promise<ShippingConfig> {
     }
   }
 
-  // Fallback local: token pelo .env do servidor + CEP de origem por leitura pública.
-  const envToken = String(process.env["FRENET_TOKEN"] || "").trim();
+  // Fallback local: token salvo no arquivo local / .env + CEP de origem por leitura pública.
+  const local = await readLocalToken();
+  const envToken = local?.token || String(process.env["FRENET_TOKEN"] || "").trim();
   let originCep = String(process.env["ORIGIN_CEP"] || "").trim();
   if (!originCep) {
     const pub = await publicDb();
@@ -124,8 +125,42 @@ export async function getShippingConfig(): Promise<ShippingConfig> {
       originCep = String(data?.origin_cep || "").trim();
     }
   }
-  return { frenetToken: envToken, updatedAt: null, originCep };
+  return { frenetToken: envToken, updatedAt: local?.updatedAt ?? null, originCep };
 }
+
+/** Guarda local do token (servidores externos sem chave de serviço). */
+function localTokenPath(): string {
+  return process.env["FRENET_TOKEN_FILE"] || `${process.cwd()}/.frenet-token.json`;
+}
+
+async function readLocalToken(): Promise<{ token: string; updatedAt: string | null } | null> {
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const raw = await readFile(localTokenPath(), "utf8");
+    const parsed = JSON.parse(raw) as { token?: string; updated_at?: string };
+    const token = String(parsed?.token || "").trim();
+    if (!token) return null;
+    return { token, updatedAt: parsed?.updated_at ?? null };
+  } catch {
+    return null;
+  }
+}
+
+async function writeLocalToken(token: string): Promise<boolean> {
+  try {
+    const { writeFile } = await import("node:fs/promises");
+    await writeFile(
+      localTokenPath(),
+      JSON.stringify({ token, updated_at: new Date().toISOString() }, null, 2),
+      "utf8",
+    );
+    return true;
+  } catch (err) {
+    console.error("[shipping-backend] falha ao salvar token local", err);
+    return false;
+  }
+}
+
 
 
 export type ShippingProductRow = {
