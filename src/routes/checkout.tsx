@@ -416,10 +416,51 @@ function CheckoutPage() {
         window.location.assign(`/checkout/pix?order=${res.orderId}`);
         return;
       }
+
+      if (paymentMethod === "boleto") {
+        const res = await createBoleto({ data: payload });
+        if (!res?.digitableLine && !res?.pdfUrl) throw new Error("Mercado Pago não retornou o boleto");
+        sessionStorage.setItem(`boleto:${res.orderId}`, JSON.stringify({
+          digitableLine: res.digitableLine,
+          pdfUrl: res.pdfUrl,
+          expiresAt: res.expiresAt,
+          totalCents: res.totalCents,
+        }));
+        window.location.assign(`/checkout/boleto?order=${res.orderId}`);
+        return;
+      }
+
+      if (paymentMethod === "card" && mpPublicKey) {
+        const tokenized = await tokenizeCard();
+        const res = await createCard({
+          data: {
+            ...payload,
+            card: {
+              token: tokenized.token,
+              paymentMethodId: tokenized.paymentMethodId,
+              issuerId: tokenized.issuerId,
+              installments,
+              cardholderEmail: form.email.trim(),
+              identificationType: "CPF",
+              identificationNumber: tokenized.identificationNumber,
+            },
+          },
+        });
+        if (res.status === "paid") {
+          window.location.assign(`/checkout/aprovado?order=${res.orderId}`);
+        } else if (res.status === "cancelled") {
+          window.location.assign(`/checkout/recusado?order=${res.orderId}`);
+        } else {
+          window.location.assign(`/checkout/pendente?order=${res.orderId}`);
+        }
+        return;
+      }
+
       const res = await createPref({ data: payload });
       if (!res?.initPoint) throw new Error("Mercado Pago não retornou link de pagamento");
       // Carrinho preservado até confirmação (ponto 7)
       window.location.assign(res.initPoint);
+
     } catch (err: any) {
       console.error("[Checkout] erro ao iniciar Mercado Pago", err);
       toast.error(err?.message ?? "Falha ao iniciar pagamento no Mercado Pago");
