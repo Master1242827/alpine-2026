@@ -1198,6 +1198,8 @@ function PaymentsTab() {
 
   return (
     <div className="mt-4 space-y-6">
+      <ServerConnectionCard />
+
       {loadError && (
         <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
           Não foi possível carregar as configurações salvas ({loadError}). Os campos abaixo
