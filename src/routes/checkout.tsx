@@ -702,8 +702,79 @@ function CheckoutPage() {
                     );
                   })}
                 </div>
+
+                {mpPublicKey && (
+                  <div className="mt-4 space-y-3 rounded-xl border border-border bg-muted/30 p-3">
+                    <p className="flex items-center gap-2 text-sm font-semibold">
+                      <Lock className="h-4 w-4 text-primary" /> Dados do cartão
+                    </p>
+                    <div>
+                      <Label className="text-xs">Número do cartão</Label>
+                      <Input
+                        inputMode="numeric"
+                        autoComplete="cc-number"
+                        placeholder="0000 0000 0000 0000"
+                        value={card.number}
+                        onChange={(e) =>
+                          setCard((p) => ({
+                            ...p,
+                            number: e.target.value.replace(/\D/g, "").slice(0, 19).replace(/(\d{4})(?=\d)/g, "$1 "),
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Nome impresso no cartão</Label>
+                      <Input
+                        autoComplete="cc-name"
+                        placeholder="Como está no cartão"
+                        value={card.name}
+                        onChange={(e) => setCard((p) => ({ ...p, name: e.target.value.toUpperCase() }))}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Validade (MM/AA)</Label>
+                        <Input
+                          inputMode="numeric"
+                          autoComplete="cc-exp"
+                          placeholder="12/29"
+                          value={card.expiry}
+                          onChange={(e) => {
+                            const d = e.target.value.replace(/\D/g, "").slice(0, 4);
+                            setCard((p) => ({ ...p, expiry: d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d }));
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Código de segurança</Label>
+                        <Input
+                          inputMode="numeric"
+                          autoComplete="cc-csc"
+                          placeholder="CVV"
+                          value={card.cvv}
+                          onChange={(e) => setCard((p) => ({ ...p, cvv: e.target.value.replace(/\D/g, "").slice(0, 4) }))}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">CPF do titular</Label>
+                      <Input
+                        inputMode="numeric"
+                        placeholder="000.000.000-00"
+                        value={card.cpf || form.cpf}
+                        onChange={(e) => setCard((p) => ({ ...p, cpf: e.target.value }))}
+                      />
+                    </div>
+                    <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Os dados do cartão são enviados criptografados direto ao Mercado Pago.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
+
           </Section>
 
 
