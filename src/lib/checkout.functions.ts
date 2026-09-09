@@ -399,39 +399,30 @@ export const createPixPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const token = process.env.MERCADO_PAGO_ACCESS_TOKEN;
-    if (!token) throw new Error("MERCADO_PAGO_ACCESS_TOKEN is not configured");
+    const be = await backend();
+    if (!be.mpConfigured()) throw new Error("Pagamento não configurado neste ambiente.");
 
     const { resolvedItems, subtotal, shippingCostCents, discountCents, total } =
       await resolveCheckoutAmounts({ ...data, paymentMethod: "pix" });
 
-    const { data: order, error: orderErr } = await supabaseAdmin
-      .from("orders")
-      .insert({
-        user_id: context.userId,
-        customer_name: data.customer.name,
-        customer_email: data.customer.email,
-        customer_phone: data.customer.phone,
-        customer_cpf: (data.customer.cpf || "").replace(/\D/g, "") || null,
-        shipping_address: data.shipping,
-        shipping_cost_cents: shippingCostCents,
-        shipping_service: data.shippingService,
-        subtotal_cents: subtotal,
-        discount_cents: discountCents,
-        total_cents: total,
-        notes: data.notes,
-        notes_images: data.notesImages ?? [],
-        notes_video_url: data.notesVideoUrl ?? null,
-        status: "pending",
-        payment_method: "pix",
-      })
-      .select("id")
-      .single();
-
-    if (orderErr || !order) {
-      console.error("[pix] create order error", orderErr);
-      throw new Error("Falha ao criar pedido. Tente novamente.");
-    }
+    const order = await be.createOrder({
+      user_id: context.userId,
+      customer_name: data.customer.name,
+      customer_email: data.customer.email,
+      customer_phone: data.customer.phone,
+      customer_cpf: (data.customer.cpf || "").replace(/\D/g, "") || null,
+      shipping_address: data.shipping,
+      shipping_cost_cents: shippingCostCents,
+      shipping_service: data.shippingService,
+      subtotal_cents: subtotal,
+      discount_cents: discountCents,
+      total_cents: total,
+      notes: data.notes,
+      notes_images: data.notesImages ?? [],
+      notes_video_url: data.notesVideoUrl ?? null,
+      status: "pending",
+      payment_method: "pix",
+    });
 
     const itemsRows = resolvedItems.map((i) => ({
       order_id: order.id,
@@ -441,11 +432,8 @@ export const createPixPayment = createServerFn({ method: "POST" })
       quantity: i.quantity,
       vehicle_config: i.vehicleConfig ?? null,
     }));
-    const { error: itemsErr } = await supabaseAdmin.from("order_items").insert(itemsRows);
-    if (itemsErr) {
-      console.error("[pix] insert items error", itemsErr);
-      throw new Error("Falha ao registrar itens do pedido.");
-    }
+    await be.insertOrderItems(order.id, itemsRows);
+
 
     const origin = getRuntimeOrigin();
     const [firstName, ...rest] = data.customer.name.split(" ");
@@ -481,30 +469,20 @@ export const createPixPayment = createServerFn({ method: "POST" })
     };
 
 
-    console.info("[MercadoPago] create pix payment", { endpoint: MP_PAYMENTS_ENDPOINT, orderId: order.id, totalCents: total });
-    const res = await fetch(MP_PAYMENTS_ENDPOINT, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        "X-Idempotency-Key": `pix-${order.id}`,
-      },
-      body: JSON.stringify(pixBody),
-    });
-    const { text, json } = await readMercadoPagoResponse(res);
+    console.info("[MercadoPago] create pix payment", { orderId: order.id, totalCents: total });
+    const res = await be.mpCreatePixPayment(pixBody, `pix-${order.id}`);
+    const json = res.json;
+    const text = res.text;
     const qrCode = json?.point_of_interaction?.transaction_data?.qr_code as string | undefined;
     const qrCodeBase64 = json?.point_of_interaction?.transaction_data?.qr_code_base64 as string | undefined;
     const ticketUrl = json?.point_of_interaction?.transaction_data?.ticket_url as string | undefined;
     if (!res.ok || !json?.id || !qrCode) {
-      console.error("[MercadoPago] pix error", { endpoint: MP_PAYMENTS_ENDPOINT, status: res.status, body: text, orderId: order.id });
+      console.error("[MercadoPago] pix error", { status: res.status, body: text, orderId: order.id });
       throw new Error(`Mercado Pago PIX error [${res.status}]: ${mercadoPagoMessage(json, "pix failed")}`);
     }
 
-    const { error: updateErr } = await supabaseAdmin
-      .from("orders")
-      .update({ mp_payment_id: String(json.id) })
-      .eq("id", order.id);
-    if (updateErr) console.error("[MercadoPago] order pix update error", { orderId: order.id, message: updateErr.message });
+    await be.updateOrder(order.id, { mp_payment_id: String(json.id) });
+
 
     console.info("[MercadoPago] pix ready", { orderId: order.id, paymentId: json.id });
     return {

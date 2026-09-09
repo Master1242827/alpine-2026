@@ -1,7 +1,46 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
+/** Camada de dados: chave de serviço quando existe, senão API pública. */
+async function backend() {
+  return await import("./shipping-backend.server");
+}
+
+/**
+ * Acesso administrativo: aceita o cookie de senha (modo simplificado) ou um
+ * token Supabase de usuário com cargo admin. Funciona dentro e fora do Lovable.
+ */
+async function assertAdminAccess() {
+  try {
+    const { getAdminGateSession } = await import("./admin-password.server");
+    const session = await getAdminGateSession();
+    if (session.data.unlocked) return;
+  } catch {
+    /* segue para o Supabase Auth */
+  }
+
+  const token = getRequest()
+    ?.headers.get("authorization")
+    ?.replace(/^Bearer\s+/i, "");
+  if (!token) throw new Error("Acesso negado");
+
+  const url = process.env["SUPABASE_URL"];
+  const key = process.env["SUPABASE_PUBLISHABLE_KEY"];
+  if (!url || !key) throw new Error("Acesso negado");
+
+  const { createClient } = await import("@supabase/supabase-js");
+  const sb = createClient(url, key, {
+    auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+  });
+  const { data, error } = await sb.auth.getClaims(token);
+  const userId = data?.claims?.sub;
+  if (error || !userId) throw new Error("Acesso negado");
+
+  const { isAdminUser } = await import("./admin-backend.server");
+  if (!(await isAdminUser(userId))) throw new Error("Acesso negado");
+}
+
 
 const ProductSchema = z.object({
   id: z.string().min(1),
@@ -40,14 +79,11 @@ type FrenetQuoteResponse = {
 };
 
 async function getFrenetConfig() {
-  const { data } = await supabaseAdmin
-    .from("admin_integrations")
-    .select("frenet_token, updated_at")
-    .eq("id", 1)
-    .maybeSingle();
-  const token = (data?.frenet_token || process.env.FRENET_TOKEN || "").trim();
-  return { token, updatedAt: data?.updated_at ?? null };
+  const cfg = await (await backend()).getShippingConfig();
+  const token = (cfg.frenetToken || process.env.FRENET_TOKEN || "").trim();
+  return { token, updatedAt: cfg.updatedAt, originCep: cfg.originCep, dbToken: cfg.frenetToken };
 }
+
 
 export type QuotedOption = {
   id: string;
@@ -65,27 +101,20 @@ export async function quoteShippingInternal(
   toCep: string,
   products: z.infer<typeof ProductSchema>[],
 ): Promise<QuoteResult> {
-  const { token } = await getFrenetConfig();
+  const { token, originCep } = await getFrenetConfig();
   if (!token) {
     console.error("Frenet: token não configurado");
     return { options: [], unavailable: true };
   }
 
-  const { data: settings } = await supabaseAdmin
-    .from("store_settings")
-    .select("origin_cep")
-    .eq("id", 1)
-    .maybeSingle();
-  const fromCep = (settings?.origin_cep || "").replace(/\D/g, "");
+  const fromCep = (originCep || "").replace(/\D/g, "");
   if (fromCep.length !== 8) {
     return { options: [], unavailable: true };
   }
 
   const productIds = products.map((p) => p.id);
-  const { data: productRows } = await supabaseAdmin
-    .from("products")
-    .select("id, name, allowed_carriers, blocked_carriers, shipping_weight_kg, shipping_length_cm, shipping_width_cm, shipping_height_cm, categories(slug, name)")
-    .in("id", productIds);
+  const productRows = await (await backend()).getShippingProducts(productIds);
+
   const productMap = new Map<string, {
     name: string;
     categoryName?: string;
@@ -296,65 +325,39 @@ function isCarrierCompatible(
 
 // ============ Admin: integração Frenet ============
 
-async function assertAdmin(userId: string) {
-  const { data } = await supabaseAdmin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (!data) throw new Error("Acesso negado");
-}
-
 export const getShippingIntegrationStatus = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await assertAdmin(context.userId);
-    const { data } = await supabaseAdmin
-      .from("admin_integrations")
-      .select("frenet_token, updated_at")
-      .eq("id", 1)
-      .maybeSingle();
-    const dbToken = (data?.frenet_token || "").trim();
+  .handler(async () => {
+    await assertAdminAccess();
+    const cfg = await getFrenetConfig();
+    const dbToken = (cfg.dbToken || "").trim();
     const envToken = (process.env.FRENET_TOKEN || "").trim();
     const token = dbToken || envToken;
     return {
       provider: "frenet" as const,
       hasToken: !!token,
       source: dbToken ? ("database" as const) : envToken ? ("env" as const) : ("none" as const),
-      updatedAt: data?.updated_at ?? null,
+      updatedAt: cfg.updatedAt,
       tokenPreview: token ? `${token.slice(0, 6)}…${token.slice(-4)}` : null,
     };
   });
 
 export const updateShippingIntegration = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
     z.object({
       token: z.string().min(10).max(4000),
     }).parse(input),
   )
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
-    const { error } = await supabaseAdmin
-      .from("admin_integrations")
-      .upsert({
-        id: 1,
-        frenet_token: data.token.trim(),
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "id" });
-    if (error) {
-      console.error("[shipping] update integration error", error);
-      throw new Error("Falha ao salvar integração. Tente novamente.");
-    }
+  .handler(async ({ data }) => {
+    await assertAdminAccess();
+    await (await backend()).saveFrenetToken(data.token.trim());
     return { ok: true };
   });
 
 export const testShippingIntegration = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await assertAdmin(context.userId);
+  .handler(async () => {
+    await assertAdminAccess();
     const { token } = await getFrenetConfig();
+
     if (!token) {
       return {
         ok: false,

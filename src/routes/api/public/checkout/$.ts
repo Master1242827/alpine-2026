@@ -177,7 +177,52 @@ async function handle(request: Request, splat: string): Promise<Response> {
     return fail(error, "Falha ao ler imagens") ?? json({ data });
   }
 
+  // ---------- FRETE (Frenet) ----------
+  if (seg[0] === "shipping-config" && method === "GET") {
+    const [{ data: integ, error: e1 }, { data: settings, error: e2 }] = await Promise.all([
+      db.from("admin_integrations").select("frenet_token, updated_at").eq("id", 1).maybeSingle(),
+      db.from("store_settings").select("origin_cep").eq("id", 1).maybeSingle(),
+    ]);
+    return (
+      fail(e1 || e2, "Falha ao ler configuração de frete") ??
+      json({
+        data: {
+          frenet_token: integ?.frenet_token ?? "",
+          updated_at: integ?.updated_at ?? null,
+          origin_cep: settings?.origin_cep ?? "",
+        },
+      })
+    );
+  }
+
+  if (seg[0] === "shipping-products" && method === "POST") {
+    const parsed = idsSchema.safeParse(await readBody(request));
+    if (!parsed.success) return json({ error: "ids inválidos" }, 400);
+    const { data, error } = await db
+      .from("products")
+      .select(
+        "id, name, allowed_carriers, blocked_carriers, shipping_weight_kg, shipping_length_cm, shipping_width_cm, shipping_height_cm, categories(slug, name)",
+      )
+      .in("id", parsed.data.ids);
+    return fail(error, "Falha ao ler produtos do frete") ?? json({ data });
+  }
+
+  if (seg[0] === "shipping-token" && method === "POST") {
+    const parsed = z
+      .object({ token: z.string().min(10).max(4000) })
+      .safeParse(await readBody(request));
+    if (!parsed.success) return json({ error: "token inválido" }, 400);
+    const { error } = await db
+      .from("admin_integrations")
+      .upsert(
+        { id: 1, frenet_token: parsed.data.token.trim(), updated_at: new Date().toISOString() },
+        { onConflict: "id" },
+      );
+    return fail(error, "Falha ao salvar token") ?? json({ ok: true });
+  }
+
   // ---------- INSTALLMENT FEE ----------
+
   if (seg[0] === "installment-fee" && method === "GET" && seg[1]) {
     const n = Number(seg[1]);
     if (!Number.isInteger(n) || n < 1 || n > 12) return json({ error: "parcela inválida" }, 400);
