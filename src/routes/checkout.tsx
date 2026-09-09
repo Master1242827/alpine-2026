@@ -103,6 +103,28 @@ function CheckoutPage() {
       .catch((err: any) => console.error("[Checkout] erro ao carregar configurações de pagamento", err));
   }, []);
 
+  // Chave pública do Mercado Pago + SDK para tokenizar o cartão no navegador
+  useEffect(() => {
+    let alive = true;
+    loadPublicSettings()
+      .then((s: any) => {
+        if (!alive) return;
+        const key = String(s?.mp_public_key ?? "");
+        setMpPublicKey(key);
+        if (key && !document.getElementById("mp-sdk-v2")) {
+          const el = document.createElement("script");
+          el.id = "mp-sdk-v2";
+          el.src = "https://sdk.mercadopago.com/js/v2";
+          el.async = true;
+          document.body.appendChild(el);
+        }
+      })
+      .catch((err: any) => console.error("[Checkout] erro ao carregar chave de pagamento", err));
+    return () => { alive = false; };
+  }, [loadPublicSettings]);
+
+
+
   // Descontos por parcela definidos no painel (Configurações → Taxas por parcela)
   useEffect(() => {
     (supabase as any)
