@@ -14,16 +14,25 @@ export function hasServiceRole(): boolean {
   return !!process.env["SUPABASE_SERVICE_ROLE_KEY"];
 }
 
+/** Base pública da instalação Lovable (tem chave de serviço e token do Mercado Pago). */
+const PUBLIC_CHECKOUT_FALLBACK_BASE =
+  "https://project--b370b26e-0ef1-41ec-ae73-c00c6755b5d3.lovable.app/api/public/checkout";
+
 function externalConfig() {
   const base =
     process.env["CHECKOUT_API_BASE_URL"] ||
     (process.env["ADMIN_API_BASE_URL"]
       ? process.env["ADMIN_API_BASE_URL"]!.replace(/\/admin\/?$/, "/checkout")
-      : "");
-  const token = process.env["CHECKOUT_API_TOKEN"] || process.env["ADMIN_API_TOKEN"];
+      : "") ||
+    PUBLIC_CHECKOUT_FALLBACK_BASE;
+  const token =
+    process.env["CHECKOUT_API_TOKEN"] ||
+    process.env["ADMIN_API_TOKEN"] ||
+    process.env["EXTERNAL_ADMIN_API_TOKEN"];
   if (!base || !token) return null;
   return { baseUrl: base.replace(/\/+$/, ""), token };
 }
+
 
 async function request<T>(method: string, path: string, body?: Json): Promise<T> {
   const cfg = externalConfig();
