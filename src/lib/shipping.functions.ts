@@ -383,6 +383,17 @@ export const getShippingIntegrationStatus = createServerFn({ method: "GET" })
     };
   });
 
+export const revealFrenetToken = createServerFn({ method: "GET" })
+  .handler(async () => {
+    await assertAdminAccess();
+    const cfg = await getFrenetConfig();
+    const dbToken = (cfg.dbToken || "").trim();
+    const envToken = (process.env.FRENET_TOKEN || "").trim();
+    const token = dbToken || envToken;
+    if (!token) throw new Error("Nenhum token da Frenet cadastrado.");
+    return { token };
+  });
+
 export const updateShippingIntegration = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z.object({
