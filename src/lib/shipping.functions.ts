@@ -325,65 +325,39 @@ function isCarrierCompatible(
 
 // ============ Admin: integração Frenet ============
 
-async function assertAdmin(userId: string) {
-  const { data } = await supabaseAdmin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (!data) throw new Error("Acesso negado");
-}
-
 export const getShippingIntegrationStatus = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await assertAdmin(context.userId);
-    const { data } = await supabaseAdmin
-      .from("admin_integrations")
-      .select("frenet_token, updated_at")
-      .eq("id", 1)
-      .maybeSingle();
-    const dbToken = (data?.frenet_token || "").trim();
+  .handler(async () => {
+    await assertAdminAccess();
+    const cfg = await getFrenetConfig();
+    const dbToken = (cfg.dbToken || "").trim();
     const envToken = (process.env.FRENET_TOKEN || "").trim();
     const token = dbToken || envToken;
     return {
       provider: "frenet" as const,
       hasToken: !!token,
       source: dbToken ? ("database" as const) : envToken ? ("env" as const) : ("none" as const),
-      updatedAt: data?.updated_at ?? null,
+      updatedAt: cfg.updatedAt,
       tokenPreview: token ? `${token.slice(0, 6)}…${token.slice(-4)}` : null,
     };
   });
 
 export const updateShippingIntegration = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
     z.object({
       token: z.string().min(10).max(4000),
     }).parse(input),
   )
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
-    const { error } = await supabaseAdmin
-      .from("admin_integrations")
-      .upsert({
-        id: 1,
-        frenet_token: data.token.trim(),
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "id" });
-    if (error) {
-      console.error("[shipping] update integration error", error);
-      throw new Error("Falha ao salvar integração. Tente novamente.");
-    }
+  .handler(async ({ data }) => {
+    await assertAdminAccess();
+    await (await backend()).saveFrenetToken(data.token.trim());
     return { ok: true };
   });
 
 export const testShippingIntegration = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await assertAdmin(context.userId);
+  .handler(async () => {
+    await assertAdminAccess();
     const { token } = await getFrenetConfig();
+
     if (!token) {
       return {
         ok: false,
