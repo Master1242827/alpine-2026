@@ -1,6 +1,8 @@
 # Deploy completo na VPS Hostinger — passo a passo
 
-Guia para copiar e colar. Substitua **apenas** estes 3 valores onde aparecerem:
+Guia para copiar e colar. O caminho mais rápido é usar o script `scripts/setup-external-server.sh` (veja o atalho no final deste arquivo). Se preferir fazer manualmente, siga os passos abaixo.
+
+Substitua **apenas** estes 3 valores onde aparecerem:
 
 - `SEU_IP` → IP público da VPS (painel Hostinger → VPS → Visão geral)
 - `seudominio.com.br` → seu domínio
@@ -86,7 +88,8 @@ nano /var/www/alpine/.env
 ```
 
 Cole o bloco abaixo, **substituindo cada `COLE_AQUI_...` pelo valor real**.
-Pegue os valores em **Lovable → Cloud → Secrets** (e no painel do Supabase, para o Service Role Key):
+
+> **Modo espelhado (recomendado para servidores fora do Lovable):** você não precisa da `SUPABASE_SERVICE_ROLE_KEY` nem do `MERCADO_PAGO_ACCESS_TOKEN` na VPS. O servidor externo usa a API pública do Lovable para pagamentos, frete e admin. Copie `CHECKOUT_API_BASE_URL` e `CHECKOUT_API_TOKEN` em **Admin → Pagamentos → Conexão do servidor externo**.
 
 ```env
 # Públicas (frontend)
@@ -97,10 +100,31 @@ VITE_SUPABASE_PROJECT_ID=dxrfmfozqdgvtianmjcu
 # Servidor (NUNCA expor publicamente)
 SUPABASE_URL=https://dxrfmfozqdgvtianmjcu.supabase.co
 SUPABASE_PUBLISHABLE_KEY=COLE_AQUI_PUBLISHABLE_KEY
-SUPABASE_SERVICE_ROLE_KEY=COLE_AQUI_SERVICE_ROLE_KEY
-MERCADO_PAGO_ACCESS_TOKEN=COLE_AQUI_MP_ACCESS_TOKEN
-MERCADO_PAGO_WEBHOOK_SECRET=COLE_AQUI_MP_WEBHOOK_SECRET
-MELHOR_ENVIO_TOKEN=COLE_AQUI_MELHOR_ENVIO_TOKEN
+
+# Opcional — só se este servidor for acessar o banco diretamente
+# SUPABASE_SERVICE_ROLE_KEY=COLE_AQUI_SERVICE_ROLE_KEY
+
+# Conexão com a instalação principal (modo espelhado)
+CHECKOUT_API_BASE_URL=https://project--b370b26e-0ef1-41ec-ae73-c00c6755b5d3.lovable.app/api/public/checkout
+CHECKOUT_API_TOKEN=COLE_AQUI_CHECKOUT_API_TOKEN
+ADMIN_API_BASE_URL=https://project--b370b26e-0ef1-41ec-ae73-c00c6755b5d3.lovable.app/api/public/admin
+ADMIN_API_TOKEN=COLE_AQUI_ADMIN_API_TOKEN
+
+# Mercado Pago — só necessário se este servidor processar pagamentos sozinho
+MERCADO_PAGO_ACCESS_TOKEN=
+MERCADO_PAGO_PUBLIC_KEY=COLE_AQUI_MP_PUBLIC_KEY
+MERCADO_PAGO_WEBHOOK_SECRET=
+MELHOR_ENVIO_TOKEN=
+
+# Frete (fallback local, opcional)
+FRENET_TOKEN=
+ORIGIN_CEP=
+
+# Segurança da sessão administrativa
+ADMIN_SESSION_SECRET=COLE_AQUI_UMA_STRING_FORTE
+SESSION_SECRET=COLE_AQUI_UMA_STRING_FORTE
+
+# Outros
 ADMIN_BOOTSTRAP_CODE=COLE_AQUI_ADMIN_CODE
 LOVABLE_API_KEY=COLE_AQUI_LOVABLE_API_KEY
 
@@ -343,36 +367,38 @@ Pronto — sem downtime perceptível.
 
 ---
 
-## Atalho: deploy automático em `alpine.nextuz.com.br`
+## Atalho: configuração completa automática em `alpine.nextuz.com.br`
 
-Em vez dos passos 8 a 14 manuais, use o script pronto (já com o domínio, Nginx, PM2 e SSL configurados).
+Use o script `scripts/setup-external-server.sh` para fazer tudo de uma vez: instalar dependências,
+configurar Nginx, SSL, PM2 e ativar o deploy automático. É idempotente — pode rodar várias vezes.
 
-**Pré-requisitos:** passos 1 a 7 feitos (VPS acessível, projeto clonado em `/var/www/alpine`, `.env` criado).
+**Pré-requisitos:**
+1. VPS acessível via SSH.
+2. Repositório clonado em `/var/www/alpine`.
+3. Arquivo `/var/www/alpine/.env` criado com pelo menos:
+   - `CHECKOUT_API_BASE_URL`
+   - `CHECKOUT_API_TOKEN`
+   
+   Pegue esses dois valores em **Admin → Pagamentos → Conexão do servidor externo** no painel da loja.
+4. DNS de `nextuz.com.br` com registro `A` `alpine` → IP da VPS.
 
-**1. DNS** — no painel onde `nextuz.com.br` é gerenciado, crie:
-
-| Tipo | Nome     | Valor          | TTL  |
-|------|----------|----------------|------|
-| A    | `alpine` | IP público da VPS | 3600 |
-
-Confirme com `dig +short alpine.nextuz.com.br` (deve retornar o IP da VPS).
-
-**2. Rode o script na VPS:**
+**Rode na VPS:**
 
 ```bash
 cd /var/www/alpine
 git pull
-bash scripts/deploy-alpine-nextuz.sh seu@email.com
+bash scripts/setup-external-server.sh
 ```
 
-O script faz tudo: instala o que faltar, confere o DNS, roda `npm install` + `npm run build:node`,
-sobe/reinicia o PM2, escreve o Nginx para `alpine.nextuz.com.br`, emite o certificado HTTPS com
-Certbot e mostra a verificação final. Pode ser rodado de novo a qualquer momento — é idempotente.
+O script:
+- instala Node.js 20, Nginx, Certbot, PM2, UFW e dnsutils se faltarem;
+- roda `npm install` + `npm run build:node`;
+- sobe/reinicia o app no PM2;
+- configura o Nginx como proxy reverso;
+- emite o certificado HTTPS (quando o DNS já estiver propagado);
+- ativa o deploy automático a cada 3 minutos via cron.
 
-Se o DNS ainda não tiver propagado, o script configura tudo em HTTP e pula o SSL; basta rodar de
-novo depois que `dig` retornar o IP correto.
-
-**3. Mercado Pago** — atualize a URL do webhook para:
+**Mercado Pago** — cadastre a URL do webhook:
 
 ```
 https://alpine.nextuz.com.br/api/public/webhooks/mercadopago
@@ -380,6 +406,14 @@ https://alpine.nextuz.com.br/api/public/webhooks/mercadopago
 
 **Atualizações futuras:**
 
+O site na VPS atualiza sozinho quando você publicar no Lovable. Acompanhe em:
+
 ```bash
-cd /var/www/alpine && git pull && bash scripts/deploy-alpine-nextuz.sh seu@email.com
+tail -f /var/log/alpine-auto-deploy.log
+```
+
+Se quiser forçar uma atualização manual:
+
+```bash
+cd /var/www/alpine && git pull && bash scripts/setup-external-server.sh
 ```

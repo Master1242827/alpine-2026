@@ -40,6 +40,7 @@ if [ "$LOCAL" = "$REMOTE" ]; then
 fi
 
 log "Nova versão detectada ($LOCAL -> $REMOTE). Atualizando..."
+git clean -fd --quiet
 git reset --hard "origin/$BRANCH" --quiet
 
 if command -v bun >/dev/null 2>&1; then
