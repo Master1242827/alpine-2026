@@ -88,7 +88,8 @@ nano /var/www/alpine/.env
 ```
 
 Cole o bloco abaixo, **substituindo cada `COLE_AQUI_...` pelo valor real**.
-Pegue os valores em **Lovable → Cloud → Secrets** (e no painel do Supabase, para o Service Role Key):
+
+> **Modo espelhado (recomendado para servidores fora do Lovable):** você não precisa da `SUPABASE_SERVICE_ROLE_KEY` nem do `MERCADO_PAGO_ACCESS_TOKEN` na VPS. O servidor externo usa a API pública do Lovable para pagamentos, frete e admin. Copie `CHECKOUT_API_BASE_URL` e `CHECKOUT_API_TOKEN` em **Admin → Pagamentos → Conexão do servidor externo**.
 
 ```env
 # Públicas (frontend)
@@ -99,10 +100,31 @@ VITE_SUPABASE_PROJECT_ID=dxrfmfozqdgvtianmjcu
 # Servidor (NUNCA expor publicamente)
 SUPABASE_URL=https://dxrfmfozqdgvtianmjcu.supabase.co
 SUPABASE_PUBLISHABLE_KEY=COLE_AQUI_PUBLISHABLE_KEY
-SUPABASE_SERVICE_ROLE_KEY=COLE_AQUI_SERVICE_ROLE_KEY
-MERCADO_PAGO_ACCESS_TOKEN=COLE_AQUI_MP_ACCESS_TOKEN
-MERCADO_PAGO_WEBHOOK_SECRET=COLE_AQUI_MP_WEBHOOK_SECRET
-MELHOR_ENVIO_TOKEN=COLE_AQUI_MELHOR_ENVIO_TOKEN
+
+# Opcional — só se este servidor for acessar o banco diretamente
+# SUPABASE_SERVICE_ROLE_KEY=COLE_AQUI_SERVICE_ROLE_KEY
+
+# Conexão com a instalação principal (modo espelhado)
+CHECKOUT_API_BASE_URL=https://project--b370b26e-0ef1-41ec-ae73-c00c6755b5d3.lovable.app/api/public/checkout
+CHECKOUT_API_TOKEN=COLE_AQUI_CHECKOUT_API_TOKEN
+ADMIN_API_BASE_URL=https://project--b370b26e-0ef1-41ec-ae73-c00c6755b5d3.lovable.app/api/public/admin
+ADMIN_API_TOKEN=COLE_AQUI_ADMIN_API_TOKEN
+
+# Mercado Pago — só necessário se este servidor processar pagamentos sozinho
+MERCADO_PAGO_ACCESS_TOKEN=
+MERCADO_PAGO_PUBLIC_KEY=COLE_AQUI_MP_PUBLIC_KEY
+MERCADO_PAGO_WEBHOOK_SECRET=
+MELHOR_ENVIO_TOKEN=
+
+# Frete (fallback local, opcional)
+FRENET_TOKEN=
+ORIGIN_CEP=
+
+# Segurança da sessão administrativa
+ADMIN_SESSION_SECRET=COLE_AQUI_UMA_STRING_FORTE
+SESSION_SECRET=COLE_AQUI_UMA_STRING_FORTE
+
+# Outros
 ADMIN_BOOTSTRAP_CODE=COLE_AQUI_ADMIN_CODE
 LOVABLE_API_KEY=COLE_AQUI_LOVABLE_API_KEY
 
