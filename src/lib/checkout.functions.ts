@@ -469,30 +469,20 @@ export const createPixPayment = createServerFn({ method: "POST" })
     };
 
 
-    console.info("[MercadoPago] create pix payment", { endpoint: MP_PAYMENTS_ENDPOINT, orderId: order.id, totalCents: total });
-    const res = await fetch(MP_PAYMENTS_ENDPOINT, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        "X-Idempotency-Key": `pix-${order.id}`,
-      },
-      body: JSON.stringify(pixBody),
-    });
-    const { text, json } = await readMercadoPagoResponse(res);
+    console.info("[MercadoPago] create pix payment", { orderId: order.id, totalCents: total });
+    const res = await be.mpCreatePixPayment(pixBody, `pix-${order.id}`);
+    const json = res.json;
+    const text = res.text;
     const qrCode = json?.point_of_interaction?.transaction_data?.qr_code as string | undefined;
     const qrCodeBase64 = json?.point_of_interaction?.transaction_data?.qr_code_base64 as string | undefined;
     const ticketUrl = json?.point_of_interaction?.transaction_data?.ticket_url as string | undefined;
     if (!res.ok || !json?.id || !qrCode) {
-      console.error("[MercadoPago] pix error", { endpoint: MP_PAYMENTS_ENDPOINT, status: res.status, body: text, orderId: order.id });
+      console.error("[MercadoPago] pix error", { status: res.status, body: text, orderId: order.id });
       throw new Error(`Mercado Pago PIX error [${res.status}]: ${mercadoPagoMessage(json, "pix failed")}`);
     }
 
-    const { error: updateErr } = await supabaseAdmin
-      .from("orders")
-      .update({ mp_payment_id: String(json.id) })
-      .eq("id", order.id);
-    if (updateErr) console.error("[MercadoPago] order pix update error", { orderId: order.id, message: updateErr.message });
+    await be.updateOrder(order.id, { mp_payment_id: String(json.id) });
+
 
     console.info("[MercadoPago] pix ready", { orderId: order.id, paymentId: json.id });
     return {
