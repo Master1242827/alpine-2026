@@ -178,8 +178,64 @@ async function handle(request: Request, splat: string): Promise<Response> {
     return json({ data });
   }
 
+  // Leituras públicas (mesmos dados que a loja já mostra ao cliente final):
+  // funcionam sem token para servidores externos sem credenciais.
+  {
+    const clean = splat.replace(/^\/+|\/+$/g, "");
+    const parts = clean.split("/").filter(Boolean);
+    if (parts[0]?.endsWith("-public") || parts[0] === "installment-fee-public") {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const pdb = supabaseAdmin as any;
+      const name = parts[0];
+
+      if (name === "settings-public" && request.method === "GET") {
+        const { data } = await pdb
+          .from("store_settings")
+          .select(
+            "pix_enabled, pix_discount_percent, card_discount_percent, installments_max, installments_interest_free, installments_monthly_rate, whatsapp_number, store_name",
+          )
+          .eq("id", 1)
+          .maybeSingle();
+        return json({ data });
+      }
+
+      if (name === "products-public" && request.method === "POST") {
+        const parsed = idsSchema.safeParse(await readBody(request));
+        if (!parsed.success) return json({ error: "ids inválidos" }, 400);
+        const { data } = await pdb
+          .from("products")
+          .select("id,name,price_cents,active")
+          .in("id", parsed.data.ids);
+        return json({ data });
+      }
+
+      if (name === "product-images-public" && request.method === "POST") {
+        const parsed = idsSchema.safeParse(await readBody(request));
+        if (!parsed.success) return json({ error: "ids inválidos" }, 400);
+        const { data } = await pdb.from("products").select("id, images").in("id", parsed.data.ids);
+        return json({ data });
+      }
+
+      if (name === "installment-fee-public" && request.method === "GET" && parts[1]) {
+        const n = Number(parts[1]);
+        if (!Number.isInteger(n) || n < 1 || n > 12) return json({ error: "parcela inválida" }, 400);
+        const { data } = await pdb
+          .from("installment_fees")
+          .select("fee_percent,active")
+          .eq("installments", n)
+          .maybeSingle();
+        return json({ data });
+      }
+
+      return json({ error: "rota não encontrada" }, 404);
+    }
+  }
+
   const denied = authorize(request);
   if (denied) return denied;
+
+
+
 
 
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
