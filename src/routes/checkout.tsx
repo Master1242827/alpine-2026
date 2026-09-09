@@ -692,6 +692,69 @@ function CheckoutPage() {
               )}
             </div>
 
+            {paymentMethod === "pix" && pixInline && (
+              <div className="mt-4 space-y-3 rounded-xl border-2 border-primary/40 bg-primary/5 p-4">
+                <div className="flex justify-center">
+                  {pixInline.qrCodeBase64 ? (
+                    <img
+                      src={`data:image/png;base64,${pixInline.qrCodeBase64}`}
+                      alt="QR Code PIX"
+                      className="h-56 w-56 rounded-xl border bg-white object-contain p-2"
+                    />
+                  ) : (
+                    <div className="rounded-xl border bg-white p-3">
+                      <QRCodeCanvas value={pixInline.qrCode} size={208} level="M" />
+                    </div>
+                  )}
+                </div>
+
+                {pixCountdown && (
+                  <p className="flex items-center justify-center gap-2 text-sm">
+                    <Clock className="h-4 w-4 text-amber-500" />
+                    <span className="text-muted-foreground">
+                      Código válido por <span className="font-bold text-foreground">{pixCountdown}</span>
+                    </span>
+                  </p>
+                )}
+
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
+                  <span className="flex-1 truncate font-mono text-xs">{pixInline.qrCode}</span>
+                  <button
+                    type="button"
+                    aria-label="Copiar código PIX"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(pixInline.qrCode);
+                        toast.success("Código PIX copiado");
+                      } catch {
+                        toast.error("Não foi possível copiar");
+                      }
+                    }}
+                    className="shrink-0 rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {pixDiscountPercent > 0 && (
+                  <p className="rounded-lg bg-primary/10 py-2 text-center text-sm font-medium text-primary">
+                    {pixDiscountPercent}% de desconto aplicado no PIX
+                  </p>
+                )}
+
+                <p className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                  Aguardando confirmação automática do pagamento…
+                </p>
+
+                <Button asChild variant="outline" size="sm" className="w-full">
+                  <Link to="/checkout/pix" search={{ order: pixInline.orderId }}>Acompanhar pagamento</Link>
+                </Button>
+              </div>
+            )}
+
+
+
             {paymentMethod === "card" && (
               <div className="mt-4">
                 <Label className="mb-2 block text-xs font-medium">
