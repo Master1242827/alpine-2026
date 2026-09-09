@@ -97,18 +97,60 @@ export type QuoteResult =
   | { options: QuotedOption[]; unavailable: false }
   | { options: []; unavailable: true };
 
+/**
+ * Base pública da instalação Lovable (tem a chave de serviço e o token Frenet).
+ * Serve de último recurso para servidores externos sem token configurado.
+ */
+const PUBLIC_QUOTE_FALLBACK_BASE =
+  "https://project--b370b26e-0ef1-41ec-ae73-c00c6755b5d3.lovable.app/api/public/checkout";
+
+function publicQuoteBase(): string {
+  const base =
+    process.env["PUBLIC_QUOTE_BASE_URL"] ||
+    process.env["CHECKOUT_API_BASE_URL"] ||
+    PUBLIC_QUOTE_FALLBACK_BASE;
+  return base.replace(/\/+$/, "");
+}
+
+/** Cotação remota sem token: usada quando este servidor não tem credenciais. */
+async function remoteQuote(
+  toCep: string,
+  products: z.infer<typeof ProductSchema>[],
+): Promise<QuoteResult | null> {
+  try {
+    const res = await fetch(`${publicQuoteBase()}/shipping-quote`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ toCep, products }),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) {
+      console.error("[frete] cotação remota falhou", res.status);
+      return null;
+    }
+    const out = (await res.json()) as { data?: QuoteResult };
+    if (out?.data && Array.isArray(out.data.options)) return out.data;
+    return null;
+  } catch (err) {
+    console.error("[frete] cotação remota erro", err);
+    return null;
+  }
+}
+
 export async function quoteShippingInternal(
   toCep: string,
   products: z.infer<typeof ProductSchema>[],
 ): Promise<QuoteResult> {
+  const hasServiceRole = !!process.env["SUPABASE_SERVICE_ROLE_KEY"];
   const { token, originCep } = await getFrenetConfig();
-  if (!token) {
-    console.error("Frenet: token não configurado");
-    return { options: [], unavailable: true };
-  }
-
   const fromCep = (originCep || "").replace(/\D/g, "");
-  if (fromCep.length !== 8) {
+
+  if (!token || fromCep.length !== 8) {
+    if (!hasServiceRole) {
+      const remote = await remoteQuote(toCep, products);
+      if (remote) return remote;
+    }
+    console.error("Frenet: token ou CEP de origem não configurado");
     return { options: [], unavailable: true };
   }
 

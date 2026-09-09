@@ -149,9 +149,38 @@ async function mpFetch(url: string, init: RequestInit) {
   return json({ status: res.status, ok: res.ok, json: parsed, text });
 }
 
+const PublicQuoteSchema = z.object({
+  toCep: z.string().min(8).max(9),
+  products: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        width: z.number().min(1),
+        height: z.number().min(1),
+        length: z.number().min(1),
+        weight: z.number().min(0.01),
+        insurance_value: z.number().min(0),
+        quantity: z.number().int().min(1),
+      }),
+    )
+    .min(1)
+    .max(50),
+});
+
 async function handle(request: Request, splat: string): Promise<Response> {
+  // Cotação de frete é pública (é o que o cliente final já vê na loja),
+  // então funciona sem token para servidores externos sem credenciais.
+  if (splat.replace(/^\/+|\/+$/g, "") === "shipping-quote" && request.method === "POST") {
+    const parsed = PublicQuoteSchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return json({ error: "dados inválidos" }, 400);
+    const { quoteShippingInternal } = await import("@/lib/shipping.functions");
+    const data = await quoteShippingInternal(parsed.data.toCep, parsed.data.products);
+    return json({ data });
+  }
+
   const denied = authorize(request);
   if (denied) return denied;
+
 
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const db = supabaseAdmin as any;
