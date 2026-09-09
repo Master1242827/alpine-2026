@@ -654,13 +654,13 @@ function CheckoutPage() {
                     Cartão{" "}
                     {cardDiscountPercent > 0 && (
                       <span className="rounded bg-primary/15 px-1.5 py-0.5 text-xs text-primary">
-                        -{cardDiscountPercent}% em {installments}x
+                        -{cardDiscountPercent}% à vista
                       </span>
                     )}
                   </p>
                   <p className="text-xs text-muted-foreground">Até {paySettings?.installments_max ?? 10}x</p>
                   <p className="mt-1 text-sm font-bold">
-                    {formatCents(baseTotal - Math.round((subtotalCents * cardDiscountPercent) / 100))}
+                    {formatCents(baseTotal - Math.round((subtotalCents * cardDiscountPercent) / 100) + Math.round((subtotalCents * feeFor(installments)) / 100))}
                   </p>
                 </div>
               </button>
