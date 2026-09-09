@@ -99,6 +99,22 @@ const OrderPatchSchema = z.object({
   mp_preference_id: z.string().max(120).optional(),
   mp_payment_id: z.string().max(120).optional(),
   status: z.enum(ORDER_STATUSES).optional(),
+  tracking_code: z.string().max(120).nullable().optional(),
+  tracking_carrier: z.string().max(120).nullable().optional(),
+  shipping_label_url: z.string().max(600).nullable().optional(),
+  shipping_label_id: z.string().max(120).nullable().optional(),
+  shipped_at: z.string().max(40).nullable().optional(),
+  delivered_at: z.string().max(40).nullable().optional(),
+});
+
+const WebhookEventSchema = z.object({
+  payment_id: z.string().min(1).max(120),
+  topic: z.string().max(60).nullable().optional(),
+  payment_status: z.string().max(60).nullable().optional(),
+  mapped_status: z.string().max(60).nullable().optional(),
+  order_id: z.string().max(60).nullable().optional(),
+  raw_body: z.string().max(4000).nullable().optional(),
+  query_string: z.string().max(1000).nullable().optional(),
 });
 
 async function readBody(request: Request): Promise<Record<string, unknown>> {
