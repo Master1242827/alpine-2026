@@ -1,7 +1,46 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
+/** Camada de dados: chave de serviço quando existe, senão API pública. */
+async function backend() {
+  return await import("./shipping-backend.server");
+}
+
+/**
+ * Acesso administrativo: aceita o cookie de senha (modo simplificado) ou um
+ * token Supabase de usuário com cargo admin. Funciona dentro e fora do Lovable.
+ */
+async function assertAdminAccess() {
+  try {
+    const { getAdminGateSession } = await import("./admin-password.server");
+    const session = await getAdminGateSession();
+    if (session.data.unlocked) return;
+  } catch {
+    /* segue para o Supabase Auth */
+  }
+
+  const token = getRequest()
+    ?.headers.get("authorization")
+    ?.replace(/^Bearer\s+/i, "");
+  if (!token) throw new Error("Acesso negado");
+
+  const url = process.env["SUPABASE_URL"];
+  const key = process.env["SUPABASE_PUBLISHABLE_KEY"];
+  if (!url || !key) throw new Error("Acesso negado");
+
+  const { createClient } = await import("@supabase/supabase-js");
+  const sb = createClient(url, key, {
+    auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+  });
+  const { data, error } = await sb.auth.getClaims(token);
+  const userId = data?.claims?.sub;
+  if (error || !userId) throw new Error("Acesso negado");
+
+  const { isAdminUser } = await import("./admin-backend.server");
+  if (!(await isAdminUser(userId))) throw new Error("Acesso negado");
+}
+
 
 const ProductSchema = z.object({
   id: z.string().min(1),
