@@ -42,6 +42,37 @@ function maskPhone(v: string) {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 }
 
+function authErrorMessage(error: unknown, action: "signin" | "signup") {
+  const details =
+    error != null && typeof error === "object"
+      ? (error as { code?: unknown; message?: unknown })
+      : undefined;
+  const code = typeof details?.code === "string" ? details.code : "";
+  const message = typeof details?.message === "string" ? details.message : "";
+
+  if (code === "weak_password" || /weak|easy to guess|pwned/i.test(message)) {
+    return "Essa senha é muito fácil de descobrir. Crie outra usando letras maiúsculas e minúsculas, números e símbolos.";
+  }
+  if (code === "user_already_exists" || /already registered|already exists/i.test(message)) {
+    return "Este e-mail já tem uma conta. Use a opção Entrar ou Esqueci minha senha.";
+  }
+  if (code === "email_address_invalid" || /invalid email/i.test(message)) {
+    return "Digite um e-mail válido.";
+  }
+  if (code === "over_email_send_rate_limit" || /rate limit/i.test(message)) {
+    return "Muitas tentativas foram feitas. Aguarde alguns minutos e tente novamente.";
+  }
+  if (action === "signin" && /invalid login credentials/i.test(message)) {
+    return "E-mail ou senha incorretos.";
+  }
+  if (action === "signin" && /email not confirmed/i.test(message)) {
+    return "Confirme seu e-mail antes de entrar. Verifique também a pasta de spam.";
+  }
+  return action === "signup"
+    ? "Não foi possível criar sua conta agora. Confira os dados e tente novamente."
+    : "Não foi possível entrar agora. Tente novamente.";
+}
+
 function LoginPage() {
   const { redirect } = Route.useSearch();
   const [view, setView] = useState<"customer" | "admin">("customer");
@@ -54,6 +85,8 @@ function LoginPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [loading, setLoading] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [formSuccess, setFormSuccess] = useState("");
   const bootstrap = useServerFn(adminBootstrap);
   const claimRole = useServerFn(claimAdminRole);
   const { user } = useAuth();
@@ -65,13 +98,15 @@ function LoginPage() {
 
   const customerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError("");
+    setFormSuccess("");
     if (mode === "signup") {
       if (fullName.trim().length < 3) {
         toast.error("Informe seu nome completo.");
         return;
       }
-      if (password.length < 6) {
-        toast.error("A senha precisa ter ao menos 6 caracteres.");
+      if (password.length < 8) {
+        toast.error("A senha precisa ter ao menos 8 caracteres.");
         return;
       }
       if (password !== confirmPassword) {
@@ -82,7 +117,7 @@ function LoginPage() {
     setLoading(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email: email.trim().toLowerCase(),
           password,
           options: {
@@ -91,9 +126,19 @@ function LoginPage() {
           },
         });
         if (error) throw error;
-        toast.success(
-          "Cadastro realizado! Enviamos um e-mail de confirmação. Confirme e faça login para continuar.",
-        );
+        if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+          setFormError("Este e-mail já tem uma conta. Entre com sua senha ou use Esqueci minha senha.");
+          setMode("signin");
+          setPassword("");
+          setConfirmPassword("");
+          return;
+        }
+        if (data.session) {
+          toast.success("Conta criada com sucesso!");
+          window.location.href = safeRedirect;
+          return;
+        }
+        setFormSuccess("Conta criada! Enviamos um link de confirmação para seu e-mail. Verifique também a pasta de spam.");
         setMode("signin");
         setPassword("");
         setConfirmPassword("");
@@ -102,20 +147,14 @@ function LoginPage() {
           email: email.trim().toLowerCase(),
           password,
         });
-        if (error) {
-          if (/invalid login credentials/i.test(error.message)) {
-            throw new Error("E-mail ou senha incorretos.");
-          }
-          if (/email not confirmed/i.test(error.message)) {
-            throw new Error("Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada.");
-          }
-          throw error;
-        }
+        if (error) throw error;
         toast.success("Login realizado");
         window.location.href = safeRedirect;
       }
-    } catch (err: any) {
-      toast.error(err.message || "Erro");
+    } catch (error: unknown) {
+      const message = authErrorMessage(error, mode);
+      setFormError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -249,6 +288,17 @@ function LoginPage() {
             : "Entre com seu e-mail e senha para continuar."}
         </p>
 
+        {formError && (
+          <div role="alert" className="mt-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {formError}
+          </div>
+        )}
+        {formSuccess && (
+          <div role="status" className="mt-4 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-foreground">
+            {formSuccess}
+          </div>
+        )}
+
         <form onSubmit={customerSubmit} className="mt-6 space-y-4">
           {isSignup && (
             <>
@@ -291,15 +341,15 @@ function LoginPage() {
             <Input
               type="password"
               required
-              minLength={6}
+              minLength={isSignup ? 8 : 6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder={isSignup ? "Crie uma senha (mín. 6 caracteres)" : "Sua senha"}
+              placeholder={isSignup ? "Crie uma senha forte (mín. 8 caracteres)" : "Sua senha"}
               autoComplete={isSignup ? "new-password" : "current-password"}
             />
             {isSignup && (
               <p className="mt-1 text-xs text-muted-foreground">
-                Use pelo menos 6 caracteres. Você receberá um e-mail de confirmação.
+                Use 8 ou mais caracteres, misturando letras, números e símbolos.
               </p>
             )}
           </div>
@@ -309,7 +359,7 @@ function LoginPage() {
               <Input
                 type="password"
                 required
-                minLength={6}
+                minLength={8}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Repita a senha"
