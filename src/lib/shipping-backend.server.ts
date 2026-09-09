@@ -216,5 +216,20 @@ export async function saveFrenetToken(token: string): Promise<void> {
     }
     return;
   }
-  await request("POST", "/shipping-token", { token });
+  if (externalConfigured()) {
+    try {
+      await request("POST", "/shipping-token", { token });
+      await writeLocalToken(token);
+      return;
+    } catch (err) {
+      console.error("[shipping-backend] salvar token via API externa falhou", err);
+    }
+  }
+  const ok = await writeLocalToken(token);
+  if (!ok) {
+    throw new Error(
+      "Não foi possível salvar o token neste servidor. Verifique a permissão de escrita na pasta do site.",
+    );
+  }
 }
+
