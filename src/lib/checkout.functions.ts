@@ -171,23 +171,23 @@ async function resolveCheckoutAmounts(input: z.infer<typeof InputSchema>) {
   // Recompute discount from server-side store_settings.
   // PIX and card à vista both may have discounts; store settings drives the values.
   let discountCents = 0;
+  let feeCents = 0;
   const settings = await be.getStoreSettings();
   if (input.paymentMethod === "pix" && settings?.pix_enabled && settings?.pix_discount_percent) {
     discountCents = Math.floor((subtotal * Number(settings.pix_discount_percent)) / 100);
-  } else if (input.paymentMethod === "card" || input.paymentMethod === "boleto") {
-    // Cartão/boleto: o desconto por parcela (installment_fees) manda; se não houver
-    // linha ativa para a parcela escolhida, cai no desconto único de store_settings.
-    const n = input.paymentMethod === "boleto" ? 1 : Math.max(1, Math.min(12, input.installments ?? 1));
+  } else if (input.paymentMethod === "card") {
+    // Cartão: desconto único de store_settings + JUROS por parcela (installment_fees).
+    const cardPercent = Number(settings?.card_discount_percent ?? 0);
+    if (cardPercent > 0) discountCents = Math.floor((subtotal * cardPercent) / 100);
+
+    const n = Math.max(1, Math.min(12, input.installments ?? 1));
     const feeRow = await be.getInstallmentFee(n);
-
-    const percent =
-      feeRow?.active && feeRow.fee_percent != null
-        ? Number(feeRow.fee_percent)
-        : Number(settings?.card_discount_percent ?? 0);
-    if (percent > 0) discountCents = Math.floor((subtotal * percent) / 100);
+    const feePercent = feeRow?.active && feeRow.fee_percent != null ? Number(feeRow.fee_percent) : 0;
+    if (feePercent > 0) feeCents = Math.floor((subtotal * feePercent) / 100);
   }
+  // Boleto: sem desconto e sem juros.
 
-  const total = Math.max(0, subtotal + shippingCostCents - discountCents);
+  const total = Math.max(0, subtotal + shippingCostCents - discountCents + feeCents);
   return { resolvedItems, subtotal, shippingCostCents, discountCents, total };
 }
 
