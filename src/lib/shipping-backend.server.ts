@@ -32,7 +32,7 @@ async function request<T>(method: string, path: string, body?: Json): Promise<T>
   const cfg = externalConfig();
   if (!cfg) {
     throw new Error(
-      "Frete indisponível: nem a chave de serviço nem a API externa estão configuradas.",
+      "Frete indisponível: configure CHECKOUT_API_BASE_URL e CHECKOUT_API_TOKEN no .env deste servidor (ou use a chave de serviço).",
     );
   }
   const res = await fetch(`${cfg.baseUrl}${path}`, {
@@ -51,7 +51,9 @@ async function request<T>(method: string, path: string, body?: Json): Promise<T>
     const message =
       parsed && typeof parsed === "object" && "error" in (parsed as Json)
         ? String((parsed as Json)["error"])
-        : `Erro ${res.status} na API de frete`;
+        : res.status === 401
+          ? "API de frete recusou o token (401). O CHECKOUT_API_TOKEN deste servidor precisa ser igual ao configurado no projeto Lovable."
+          : `Erro ${res.status} na API de frete`;
     console.error("[shipping-backend] external error", { path, status: res.status, message });
     throw new Error(message);
   }
