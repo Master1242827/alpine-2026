@@ -101,27 +101,20 @@ export async function quoteShippingInternal(
   toCep: string,
   products: z.infer<typeof ProductSchema>[],
 ): Promise<QuoteResult> {
-  const { token } = await getFrenetConfig();
+  const { token, originCep } = await getFrenetConfig();
   if (!token) {
     console.error("Frenet: token não configurado");
     return { options: [], unavailable: true };
   }
 
-  const { data: settings } = await supabaseAdmin
-    .from("store_settings")
-    .select("origin_cep")
-    .eq("id", 1)
-    .maybeSingle();
-  const fromCep = (settings?.origin_cep || "").replace(/\D/g, "");
+  const fromCep = (originCep || "").replace(/\D/g, "");
   if (fromCep.length !== 8) {
     return { options: [], unavailable: true };
   }
 
   const productIds = products.map((p) => p.id);
-  const { data: productRows } = await supabaseAdmin
-    .from("products")
-    .select("id, name, allowed_carriers, blocked_carriers, shipping_weight_kg, shipping_length_cm, shipping_width_cm, shipping_height_cm, categories(slug, name)")
-    .in("id", productIds);
+  const productRows = await (await backend()).getShippingProducts(productIds);
+
   const productMap = new Map<string, {
     name: string;
     categoryName?: string;
