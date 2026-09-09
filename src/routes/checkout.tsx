@@ -487,70 +487,8 @@ function CheckoutPage() {
     }
   }
 
-  if (pixInline) {
-    return (
-      <div className="container mx-auto max-w-xl px-4 py-8">
-        <Card className="space-y-5 p-6">
-          <header className="text-center">
-            <QrCode className="mx-auto h-12 w-12 text-primary" />
-            <h1 className="mt-3 text-2xl font-bold">Pague com PIX</h1>
-            <p className="text-sm text-muted-foreground">
-              Pedido #{pixInline.orderId.slice(0, 8).toUpperCase()} ·{" "}
-              <span className="font-semibold text-primary">{formatCents(pixInline.totalCents)}</span>
-            </p>
-          </header>
 
-          <div className="flex justify-center">
-            {pixInline.qrCodeBase64 ? (
-              <img
-                src={`data:image/png;base64,${pixInline.qrCodeBase64}`}
-                alt="QR Code PIX"
-                className="h-64 w-64 rounded-lg border bg-white object-contain p-2"
-              />
-            ) : (
-              <div className="rounded-lg border bg-white p-3">
-                <QRCodeCanvas value={pixInline.qrCode} size={240} level="M" />
-              </div>
-            )}
-          </div>
 
-          <div>
-            <p className="mb-1 text-xs font-medium text-muted-foreground">PIX Copia e Cola</p>
-            <div className="flex gap-2">
-              <input
-                readOnly
-                value={pixInline.qrCode}
-                onFocus={(e) => e.currentTarget.select()}
-                className="flex-1 truncate rounded-md border bg-muted px-3 py-2 font-mono text-xs"
-              />
-              <Button
-                size="sm"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(pixInline.qrCode);
-                    toast.success("Código PIX copiado");
-                  } catch {
-                    toast.error("Não foi possível copiar");
-                  }
-                }}
-              >
-                Copiar
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-            <span>Aguardando confirmação automática do pagamento…</span>
-          </div>
-
-          <Button asChild variant="outline" className="w-full">
-            <Link to="/checkout/pix" search={{ order: pixInline.orderId }}>Acompanhar pagamento</Link>
-          </Button>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="bg-muted/30 pb-32 md:pb-12">
