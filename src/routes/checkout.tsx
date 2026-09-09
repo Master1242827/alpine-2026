@@ -25,7 +25,13 @@ function CheckoutPage() {
   const { user, loading: authLoading } = useAuth();
   const createPref = useServerFn(createCheckoutPreference);
   const createPix = useServerFn(createPixPayment);
+  const createCard = useServerFn(createCardPayment);
+  const createBoleto = useServerFn(createBoletoPayment);
+  const loadPublicSettings = useServerFn(getPublicStoreSettings);
   const quote = useServerFn(quoteShipping);
+  const [mpPublicKey, setMpPublicKey] = useState("");
+  const [card, setCard] = useState({ number: "", name: "", expiry: "", cvv: "", cpf: "" });
+
 
   const [loading, setLoading] = useState(false);
   const [quoting, setQuoting] = useState(false);
