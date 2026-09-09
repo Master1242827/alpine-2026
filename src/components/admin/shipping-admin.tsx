@@ -13,7 +13,12 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Loader2, CheckCircle2, AlertTriangle, XCircle, RefreshCw, Truck } from "lucide-react";
 
-type Status = Awaited<ReturnType<typeof testShippingIntegration>>;
+type Status = {
+  ok: boolean;
+  status: "ok" | "missing" | "expired" | "error" | "network";
+  message: string;
+  account: string | null;
+};
 type Info = Awaited<ReturnType<typeof getShippingIntegrationStatus>>;
 
 export function ShippingAdmin() {
