@@ -186,37 +186,40 @@ export const Route = createFileRoute("/api/public/webhooks/mercadopago")({
 
         // 4. Idempotência: registra o evento. A constraint unique(payment_id, payment_status)
         //    rejeita reentregas exatas — apenas a primeira ocorrência atualiza o pedido.
-        const { error: insertErr } = await supabaseAdmin.from("mp_webhook_events").insert({
+        const evt = await recordWebhookEvent({
           payment_id: String(payment.id),
-          topic,
+          topic: topic ? String(topic) : null,
           payment_status: payment.status,
           mapped_status: mappedStatus,
           order_id: payment.external_reference,
           raw_body: rawBody.slice(0, 4000),
           query_string: url.search,
         });
-        if (insertErr) {
-          if (insertErr.code === "23505") {
-            log("info", "duplicate_event_skipped", { paymentId: payment.id, status: payment.status, orderId: payment.external_reference });
-            return new Response("duplicate", { status: 200 });
-          }
-          log("error", "event_log_insert_failed", { message: insertErr.message, code: insertErr.code });
+        if (evt.duplicate) {
+          log("info", "duplicate_event_skipped", { paymentId: payment.id, status: payment.status, orderId: payment.external_reference });
+          return new Response("duplicate", { status: 200 });
+        }
+        if (evt.error) {
+          log("error", "event_log_insert_failed", { message: evt.error });
           // Falha de log não deve impedir o update do pedido → segue
         }
 
-        // 5. Atualiza pedido. Só sobe para "paid" se não estiver já "paid"/"cancelled"
+        // 5. Atualiza pedido. Só sobe para "paid" se não estiver já em status final
         //    (evita regredir status final em reentregas atrasadas).
-        const { data: currentOrder, error: fetchOrderErr } = await supabaseAdmin
-          .from("orders")
-          .select("id,status")
-          .eq("id", payment.external_reference)
-          .maybeSingle();
-        if (fetchOrderErr || !currentOrder) {
-          log("error", "order_not_found", { orderId: payment.external_reference, message: fetchOrderErr?.message });
+        let currentOrder: Record<string, any> | null = null;
+        try {
+          currentOrder = await findOrder({ id: payment.external_reference });
+        } catch (err) {
+          log("error", "order_lookup_failed", { message: err instanceof Error ? err.message : String(err) });
+          return new Response("order lookup failed", { status: 500 });
+        }
+        if (!currentOrder) {
+          log("error", "order_not_found", { orderId: payment.external_reference });
           return new Response("order not found", { status: 200 });
         }
 
-        const isFinal = currentOrder.status === "paid" || currentOrder.status === "cancelled";
+        const ADVANCED = ["paid", "processing", "shipped", "delivered", "completed", "returned", "cancelled"];
+        const isFinal = ADVANCED.includes(String(currentOrder.status));
         if (isFinal && mappedStatus === "pending") {
           log("info", "skip_regression", { orderId: currentOrder.id, current: currentOrder.status, incoming: mappedStatus });
           return new Response("no regression", { status: 200 });
@@ -224,19 +227,11 @@ export const Route = createFileRoute("/api/public/webhooks/mercadopago")({
         if (currentOrder.status === mappedStatus) {
           log("info", "status_unchanged", { orderId: currentOrder.id, status: mappedStatus, paymentId: payment.id });
           // Garante o mp_payment_id mesmo se status já estiver correto
-          await supabaseAdmin.from("orders").update({ mp_payment_id: String(payment.id) }).eq("id", currentOrder.id);
+          await updateOrder(currentOrder.id, { mp_payment_id: String(payment.id) });
           return new Response("ok", { status: 200 });
         }
 
-        const { error: updateErr } = await supabaseAdmin
-          .from("orders")
-          .update({ status: mappedStatus, mp_payment_id: String(payment.id) })
-          .eq("id", currentOrder.id);
-        if (updateErr) {
-          log("error", "order_update_failed", { orderId: currentOrder.id, message: updateErr.message });
-          // 500 → MP reentregará
-          return new Response("order update failed", { status: 500 });
-        }
+        await updateOrder(currentOrder.id, { status: mappedStatus, mp_payment_id: String(payment.id) });
 
         log("info", "order_updated", {
           orderId: currentOrder.id,
@@ -249,6 +244,46 @@ export const Route = createFileRoute("/api/public/webhooks/mercadopago")({
           paymentType: payment.payment_type_id,
           dateApproved: payment.date_approved,
         });
+
+        // 6. Pós-pagamento 100% automático: pago → processando → (etiqueta) → enviado
+        if (mappedStatus === "paid") {
+          try {
+            await updateOrder(currentOrder.id, { status: "processing" });
+            log("info", "auto_processing", { orderId: currentOrder.id });
+
+            let originCep = "";
+            try {
+              originCep = String((await getStoreSettings() as any)?.origin_cep ?? "");
+            } catch {
+              originCep = "";
+            }
+
+            const label = await generateShippingLabel(currentOrder, originCep);
+            if (label?.trackingCode) {
+              await updateOrder(currentOrder.id, {
+                status: "shipped",
+                tracking_code: label.trackingCode,
+                tracking_carrier: "Melhor Envio",
+                shipped_at: new Date().toISOString(),
+                ...(label.labelUrl ? { shipping_label_url: label.labelUrl } : {}),
+                ...(label.labelId ? { shipping_label_id: label.labelId } : {}),
+              });
+              log("info", "auto_shipped", { orderId: currentOrder.id, tracking: label.trackingCode });
+            } else if (label?.labelId) {
+              await updateOrder(currentOrder.id, {
+                ...(label.labelUrl ? { shipping_label_url: label.labelUrl } : {}),
+                shipping_label_id: label.labelId,
+              });
+              log("info", "label_without_tracking", { orderId: currentOrder.id, labelId: label.labelId });
+            }
+          } catch (err) {
+            log("error", "post_payment_automation_failed", {
+              orderId: currentOrder.id,
+              message: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+
         return new Response("ok", { status: 200 });
       },
       GET: async () => new Response("ok", { status: 200 }),
