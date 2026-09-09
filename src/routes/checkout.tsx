@@ -985,10 +985,17 @@ function CheckoutPage() {
             <Row label="Frete" value={selectedShip ? formatCents(shippingCostCents) : <span className="text-muted-foreground">A calcular</span>} />
             {discountCents > 0 && (
               <Row
-                label={`Desconto ${paymentMethod === "pix" ? "PIX" : paymentMethod === "boleto" ? "Boleto" : "Cartão à vista"} (${activeDiscountPercent}%)`}
+                label={`Desconto ${paymentMethod === "pix" ? "PIX" : "Cartão"} (${activeDiscountPercent}%)`}
                 value={<span className="text-primary">- {formatCents(discountCents)}</span>}
               />
             )}
+            {feeCents > 0 && (
+              <Row
+                label={`Juros do parcelamento (${cardFeePercent}%)`}
+                value={<span>+ {formatCents(feeCents)}</span>}
+              />
+            )}
+
 
             <div className="flex justify-between pt-2 text-base font-bold">
               <span>Total</span><span className="text-primary">{formatCents(total)}</span>
