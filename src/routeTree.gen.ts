@@ -19,6 +19,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ProdutosRouteImport } from './routes/produtos'
 import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as CheckoutAprovadoRouteImport } from './routes/checkout.aprovado'
+import { Route as CheckoutBoletoRouteImport } from './routes/checkout.boleto'
 import { Route as CheckoutFalhaRouteImport } from './routes/checkout.falha'
 import { Route as CheckoutPendenteRouteImport } from './routes/checkout.pendente'
 import { Route as CheckoutPixRouteImport } from './routes/checkout.pix'
@@ -81,6 +82,11 @@ const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
 const CheckoutAprovadoRoute = CheckoutAprovadoRouteImport.update({
   id: '/aprovado',
   path: '/aprovado',
+  getParentRoute: () => CheckoutRoute,
+} as any)
+const CheckoutBoletoRoute = CheckoutBoletoRouteImport.update({
+  id: '/boleto',
+  path: '/boleto',
   getParentRoute: () => CheckoutRoute,
 } as any)
 const CheckoutFalhaRoute = CheckoutFalhaRouteImport.update({
@@ -164,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/produtos': typeof ProdutosRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/checkout/aprovado': typeof CheckoutAprovadoRoute
+  '/checkout/boleto': typeof CheckoutBoletoRoute
   '/checkout/falha': typeof CheckoutFalhaRoute
   '/checkout/pendente': typeof CheckoutPendenteRoute
   '/checkout/pix': typeof CheckoutPixRoute
@@ -189,6 +196,7 @@ export interface FileRoutesByTo {
   '/produtos': typeof ProdutosRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/checkout/aprovado': typeof CheckoutAprovadoRoute
+  '/checkout/boleto': typeof CheckoutBoletoRoute
   '/checkout/falha': typeof CheckoutFalhaRoute
   '/checkout/pendente': typeof CheckoutPendenteRoute
   '/checkout/pix': typeof CheckoutPixRoute
@@ -215,6 +223,7 @@ export interface FileRoutesById {
   '/produtos': typeof ProdutosRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/checkout/aprovado': typeof CheckoutAprovadoRoute
+  '/checkout/boleto': typeof CheckoutBoletoRoute
   '/checkout/falha': typeof CheckoutFalhaRoute
   '/checkout/pendente': typeof CheckoutPendenteRoute
   '/checkout/pix': typeof CheckoutPixRoute
@@ -242,6 +251,7 @@ export interface FileRouteTypes {
     | '/produtos'
     | '/redefinir-senha'
     | '/checkout/aprovado'
+    | '/checkout/boleto'
     | '/checkout/falha'
     | '/checkout/pendente'
     | '/checkout/pix'
@@ -267,6 +277,7 @@ export interface FileRouteTypes {
     | '/produtos'
     | '/redefinir-senha'
     | '/checkout/aprovado'
+    | '/checkout/boleto'
     | '/checkout/falha'
     | '/checkout/pendente'
     | '/checkout/pix'
@@ -292,6 +303,7 @@ export interface FileRouteTypes {
     | '/produtos'
     | '/redefinir-senha'
     | '/checkout/aprovado'
+    | '/checkout/boleto'
     | '/checkout/falha'
     | '/checkout/pendente'
     | '/checkout/pix'
@@ -399,6 +411,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CheckoutAprovadoRouteImport
       parentRoute: typeof CheckoutRoute
     }
+    '/checkout/boleto': {
+      id: '/checkout/boleto'
+      path: '/boleto'
+      fullPath: '/checkout/boleto'
+      preLoaderRoute: typeof CheckoutBoletoRouteImport
+      parentRoute: typeof CheckoutRoute
+    }
     '/checkout/falha': {
       id: '/checkout/falha'
       path: '/falha'
@@ -495,6 +514,7 @@ declare module '@tanstack/react-router' {
 
 interface CheckoutRouteChildren {
   CheckoutAprovadoRoute: typeof CheckoutAprovadoRoute
+  CheckoutBoletoRoute: typeof CheckoutBoletoRoute
   CheckoutFalhaRoute: typeof CheckoutFalhaRoute
   CheckoutPendenteRoute: typeof CheckoutPendenteRoute
   CheckoutPixRoute: typeof CheckoutPixRoute
@@ -504,6 +524,7 @@ interface CheckoutRouteChildren {
 
 const CheckoutRouteChildren: CheckoutRouteChildren = {
   CheckoutAprovadoRoute: CheckoutAprovadoRoute,
+  CheckoutBoletoRoute: CheckoutBoletoRoute,
   CheckoutFalhaRoute: CheckoutFalhaRoute,
   CheckoutPendenteRoute: CheckoutPendenteRoute,
   CheckoutPixRoute: CheckoutPixRoute,

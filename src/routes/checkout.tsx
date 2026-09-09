@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatCents } from "@/lib/format";
 import { formatCep, lookupCep } from "@/lib/cep";
-import { createCheckoutPreference, createPixPayment } from "@/lib/checkout.functions";
+import { createCheckoutPreference, createPixPayment, createCardPayment, createBoletoPayment, getPublicStoreSettings } from "@/lib/checkout.functions";
 import { quoteShipping } from "@/lib/shipping.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -25,7 +25,13 @@ function CheckoutPage() {
   const { user, loading: authLoading } = useAuth();
   const createPref = useServerFn(createCheckoutPreference);
   const createPix = useServerFn(createPixPayment);
+  const createCard = useServerFn(createCardPayment);
+  const createBoleto = useServerFn(createBoletoPayment);
+  const loadPublicSettings = useServerFn(getPublicStoreSettings);
   const quote = useServerFn(quoteShipping);
+  const [mpPublicKey, setMpPublicKey] = useState("");
+  const [card, setCard] = useState({ number: "", name: "", expiry: "", cvv: "", cpf: "" });
+
 
   const [loading, setLoading] = useState(false);
   const [quoting, setQuoting] = useState(false);
@@ -96,6 +102,28 @@ function CheckoutPage() {
       })
       .catch((err: any) => console.error("[Checkout] erro ao carregar configurações de pagamento", err));
   }, []);
+
+  // Chave pública do Mercado Pago + SDK para tokenizar o cartão no navegador
+  useEffect(() => {
+    let alive = true;
+    loadPublicSettings()
+      .then((s: any) => {
+        if (!alive) return;
+        const key = String(s?.mp_public_key ?? "");
+        setMpPublicKey(key);
+        if (key && !document.getElementById("mp-sdk-v2")) {
+          const el = document.createElement("script");
+          el.id = "mp-sdk-v2";
+          el.src = "https://sdk.mercadopago.com/js/v2";
+          el.async = true;
+          document.body.appendChild(el);
+        }
+      })
+      .catch((err: any) => console.error("[Checkout] erro ao carregar chave de pagamento", err));
+    return () => { alive = false; };
+  }, [loadPublicSettings]);
+
+
 
   // Descontos por parcela definidos no painel (Configurações → Taxas por parcela)
   useEffect(() => {
@@ -302,6 +330,44 @@ function CheckoutPage() {
     return null;
   }
 
+  /** Tokeniza o cartão direto no Mercado Pago (os dados não passam pelo nosso servidor). */
+  async function tokenizeCard() {
+    const MP = (window as any).MercadoPago;
+    if (!MP || !mpPublicKey) throw new Error("Pagamento com cartão indisponível no momento. Tente novamente em instantes.");
+    const digits = card.number.replace(/\D/g, "");
+    const [mm = "", yy = ""] = card.expiry.split("/").map((s) => s.trim());
+    if (digits.length < 13) throw new Error("Número do cartão inválido");
+    if (!/^\d{2}$/.test(mm) || !/^\d{2,4}$/.test(yy)) throw new Error("Validade do cartão inválida (MM/AA)");
+    if (!card.name.trim()) throw new Error("Informe o nome impresso no cartão");
+    if (!/^\d{3,4}$/.test(card.cvv)) throw new Error("Código de segurança inválido");
+    const cardCpf = (card.cpf || form.cpf).replace(/\D/g, "");
+    if (cardCpf.length !== 11) throw new Error("Informe o CPF do titular do cartão");
+
+    const mp = new MP(mpPublicKey, { locale: "pt-BR" });
+    const methods = await mp.getPaymentMethods({ bin: digits.slice(0, 8) });
+    const method = methods?.results?.[0];
+    if (!method?.id) throw new Error("Não reconhecemos a bandeira deste cartão");
+
+    const token = await mp.createCardToken({
+      cardNumber: digits,
+      cardholderName: card.name.trim(),
+      cardExpirationMonth: mm,
+      cardExpirationYear: yy.length === 2 ? `20${yy}` : yy,
+      securityCode: card.cvv,
+      identificationType: "CPF",
+      identificationNumber: cardCpf,
+    });
+    if (!token?.id) throw new Error("Não foi possível validar o cartão. Confira os dados.");
+
+    return {
+      token: String(token.id),
+      paymentMethodId: String(method.id),
+      issuerId: method.issuer?.id ? String(method.issuer.id) : null,
+      identificationNumber: cardCpf,
+    };
+  }
+
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const validationError = validateForm();
@@ -350,10 +416,51 @@ function CheckoutPage() {
         window.location.assign(`/checkout/pix?order=${res.orderId}`);
         return;
       }
+
+      if (paymentMethod === "boleto") {
+        const res = await createBoleto({ data: payload });
+        if (!res?.digitableLine && !res?.pdfUrl) throw new Error("Mercado Pago não retornou o boleto");
+        sessionStorage.setItem(`boleto:${res.orderId}`, JSON.stringify({
+          digitableLine: res.digitableLine,
+          pdfUrl: res.pdfUrl,
+          expiresAt: res.expiresAt,
+          totalCents: res.totalCents,
+        }));
+        window.location.assign(`/checkout/boleto?order=${res.orderId}`);
+        return;
+      }
+
+      if (paymentMethod === "card" && mpPublicKey) {
+        const tokenized = await tokenizeCard();
+        const res = await createCard({
+          data: {
+            ...payload,
+            card: {
+              token: tokenized.token,
+              paymentMethodId: tokenized.paymentMethodId,
+              issuerId: tokenized.issuerId,
+              installments,
+              cardholderEmail: form.email.trim(),
+              identificationType: "CPF",
+              identificationNumber: tokenized.identificationNumber,
+            },
+          },
+        });
+        if (res.status === "paid") {
+          window.location.assign(`/checkout/aprovado?order=${res.orderId}`);
+        } else if (res.status === "cancelled") {
+          window.location.assign(`/checkout/recusado?order=${res.orderId}`);
+        } else {
+          window.location.assign(`/checkout/pendente?order=${res.orderId}`);
+        }
+        return;
+      }
+
       const res = await createPref({ data: payload });
       if (!res?.initPoint) throw new Error("Mercado Pago não retornou link de pagamento");
       // Carrinho preservado até confirmação (ponto 7)
       window.location.assign(res.initPoint);
+
     } catch (err: any) {
       console.error("[Checkout] erro ao iniciar Mercado Pago", err);
       toast.error(err?.message ?? "Falha ao iniciar pagamento no Mercado Pago");
@@ -595,8 +702,79 @@ function CheckoutPage() {
                     );
                   })}
                 </div>
+
+                {mpPublicKey && (
+                  <div className="mt-4 space-y-3 rounded-xl border border-border bg-muted/30 p-3">
+                    <p className="flex items-center gap-2 text-sm font-semibold">
+                      <Lock className="h-4 w-4 text-primary" /> Dados do cartão
+                    </p>
+                    <div>
+                      <Label className="text-xs">Número do cartão</Label>
+                      <Input
+                        inputMode="numeric"
+                        autoComplete="cc-number"
+                        placeholder="0000 0000 0000 0000"
+                        value={card.number}
+                        onChange={(e) =>
+                          setCard((p) => ({
+                            ...p,
+                            number: e.target.value.replace(/\D/g, "").slice(0, 19).replace(/(\d{4})(?=\d)/g, "$1 "),
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Nome impresso no cartão</Label>
+                      <Input
+                        autoComplete="cc-name"
+                        placeholder="Como está no cartão"
+                        value={card.name}
+                        onChange={(e) => setCard((p) => ({ ...p, name: e.target.value.toUpperCase() }))}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Validade (MM/AA)</Label>
+                        <Input
+                          inputMode="numeric"
+                          autoComplete="cc-exp"
+                          placeholder="12/29"
+                          value={card.expiry}
+                          onChange={(e) => {
+                            const d = e.target.value.replace(/\D/g, "").slice(0, 4);
+                            setCard((p) => ({ ...p, expiry: d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d }));
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Código de segurança</Label>
+                        <Input
+                          inputMode="numeric"
+                          autoComplete="cc-csc"
+                          placeholder="CVV"
+                          value={card.cvv}
+                          onChange={(e) => setCard((p) => ({ ...p, cvv: e.target.value.replace(/\D/g, "").slice(0, 4) }))}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">CPF do titular</Label>
+                      <Input
+                        inputMode="numeric"
+                        placeholder="000.000.000-00"
+                        value={card.cpf || form.cpf}
+                        onChange={(e) => setCard((p) => ({ ...p, cpf: e.target.value }))}
+                      />
+                    </div>
+                    <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Os dados do cartão são enviados criptografados direto ao Mercado Pago.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
+
           </Section>
 
 
@@ -672,7 +850,7 @@ function CheckoutPage() {
           <TrustNotices />
 
           <Button type="submit" className="hidden h-12 w-full md:flex" disabled={loading || !selectedShip} size="lg">
-            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando…</> : <><Lock className="mr-2 h-4 w-4" /> Pagar {formatCents(total)}</>}
+            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processando pagamento…</> : <><Lock className="mr-2 h-4 w-4" /> Pagar {formatCents(total)}</>}
           </Button>
         </form>
 
@@ -717,7 +895,7 @@ function CheckoutPage() {
           </div>
           <Button type="button" onClick={handleSubmit as any} className="h-12 w-full" disabled={loading || !selectedShip} size="lg">
             {loading
-              ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando…</>
+              ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processando pagamento…</>
               : <><Lock className="mr-2 h-4 w-4" /> Pagar {formatCents(total)}</>}
           </Button>
         </div>
