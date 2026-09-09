@@ -279,6 +279,10 @@ async function handle(request: Request, splat: string): Promise<Response> {
         return data ? json({ data }) : json({ error: "não encontrado" }, 404);
       }
 
+      if (name === "mp-public-key-public" && request.method === "GET") {
+        return json({ data: { mp_public_key: process.env["MERCADO_PAGO_PUBLIC_KEY"] ?? "" } });
+      }
+
       if (name === "mp-preference-public" && request.method === "POST") {
         const body = await readBody(request);
         return mpFetch(MP_PREFERENCES_ENDPOINT, {
