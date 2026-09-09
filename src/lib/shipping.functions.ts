@@ -79,14 +79,11 @@ type FrenetQuoteResponse = {
 };
 
 async function getFrenetConfig() {
-  const { data } = await supabaseAdmin
-    .from("admin_integrations")
-    .select("frenet_token, updated_at")
-    .eq("id", 1)
-    .maybeSingle();
-  const token = (data?.frenet_token || process.env.FRENET_TOKEN || "").trim();
-  return { token, updatedAt: data?.updated_at ?? null };
+  const cfg = await (await backend()).getShippingConfig();
+  const token = (cfg.frenetToken || process.env.FRENET_TOKEN || "").trim();
+  return { token, updatedAt: cfg.updatedAt, originCep: cfg.originCep, dbToken: cfg.frenetToken };
 }
+
 
 export type QuotedOption = {
   id: string;
