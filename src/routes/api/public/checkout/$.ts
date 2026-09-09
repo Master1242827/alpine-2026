@@ -227,6 +227,88 @@ async function handle(request: Request, splat: string): Promise<Response> {
         return json({ data });
       }
 
+      // ----- Fluxo de pagamento sem token (mesmas ações que o cliente final
+      // já dispara na loja): criar pedido, itens, atualizar e pagar no MP. -----
+      if (name === "orders-public" && request.method === "POST") {
+        const body = await readBody(request);
+        const parsed = OrderInsertSchema.safeParse(body["order"]);
+        if (!parsed.success) return json({ error: "pedido inválido" }, 400);
+        const { data, error } = await pdb
+          .from("orders")
+          .insert(parsed.data)
+          .select("id")
+          .single();
+        if (error) return json({ error: "Falha ao criar pedido" }, 500);
+        return json({ data });
+      }
+
+      if (name === "order-items-public" && request.method === "POST") {
+        const body = await readBody(request);
+        const orderId = String(body["order_id"] ?? "");
+        if (!uuid.safeParse(orderId).success) return json({ error: "id inválido" }, 400);
+        const parsed = z.array(ItemInsertSchema).min(1).max(50).safeParse(body["items"]);
+        if (!parsed.success) return json({ error: "itens inválidos" }, 400);
+        const rows = parsed.data.map((i) => ({ ...i, order_id: orderId }));
+        const { error } = await pdb.from("order_items").insert(rows);
+        if (error) return json({ error: "Falha ao registrar itens" }, 500);
+        return json({ ok: true });
+      }
+
+      if (name === "order-patch-public" && request.method === "POST") {
+        const body = await readBody(request);
+        const orderId = String(body["order_id"] ?? "");
+        if (!uuid.safeParse(orderId).success) return json({ error: "id inválido" }, 400);
+        const parsed = OrderPatchSchema.safeParse(body["patch"]);
+        if (!parsed.success || Object.keys(parsed.data).length === 0) {
+          return json({ error: "dados inválidos" }, 400);
+        }
+        const { error } = await pdb.from("orders").update(parsed.data).eq("id", orderId);
+        if (error) return json({ error: "Falha ao atualizar pedido" }, 500);
+        return json({ ok: true });
+      }
+
+      if (name === "order-get-public" && request.method === "GET" && parts[1]) {
+        if (!uuid.safeParse(parts[1]).success) return json({ error: "id inválido" }, 400);
+        const { data } = await pdb
+          .from("orders")
+          .select(
+            "id,user_id,total_cents,status,payment_method,mp_payment_id,mp_preference_id,created_at, order_items(product_id, product_name, quantity, unit_price_cents)",
+          )
+          .eq("id", parts[1])
+          .maybeSingle();
+        return data ? json({ data }) : json({ error: "não encontrado" }, 404);
+      }
+
+      if (name === "mp-preference-public" && request.method === "POST") {
+        const body = await readBody(request);
+        return mpFetch(MP_PREFERENCES_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body["body"] ?? {}),
+        });
+      }
+
+      if (name === "mp-pix-public" && request.method === "POST") {
+        const body = await readBody(request);
+        const key = String(body["idempotencyKey"] ?? crypto.randomUUID());
+        return mpFetch(MP_PAYMENTS_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Idempotency-Key": key },
+          body: JSON.stringify(body["body"] ?? {}),
+        });
+      }
+
+      if (name === "mp-payment-public" && request.method === "POST") {
+        const body = await readBody(request);
+        const paymentId = body["paymentId"] ? String(body["paymentId"]) : "";
+        const ref = body["externalReference"] ? String(body["externalReference"]) : "";
+        if (!paymentId && !ref) return json({ error: "informe paymentId ou externalReference" }, 400);
+        const endpoint = paymentId
+          ? `${MP_PAYMENTS_ENDPOINT}/${encodeURIComponent(paymentId)}`
+          : `${MP_PAYMENTS_ENDPOINT}/search?external_reference=${encodeURIComponent(ref)}&sort=date_created&criteria=desc`;
+        return mpFetch(endpoint, { method: "GET" });
+      }
+
       return json({ error: "rota não encontrada" }, 404);
     }
   }
