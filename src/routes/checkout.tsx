@@ -37,7 +37,10 @@ function CheckoutPage() {
     qrCode: string;
     qrCodeBase64?: string;
     totalCents: number;
+    expiresAt?: string;
   } | null>(null);
+  const [pixCountdown, setPixCountdown] = useState("");
+
   const [card, setCard] = useState({ number: "", name: "", expiry: "", cvv: "", cpf: "" });
 
 
@@ -426,6 +429,8 @@ function CheckoutPage() {
         // NÃO limpa o carrinho aqui — só quando o pagamento for confirmado.
         setPixInline({
           orderId: res.orderId,
+          expiresAt: res.expiresAt,
+
           qrCode: res.qrCode,
           qrCodeBase64: res.qrCodeBase64,
           totalCents: res.totalCents,
