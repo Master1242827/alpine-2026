@@ -25,7 +25,7 @@ import {
 
 export const Route = createFileRoute("/conta")({ component: AccountPage });
 
-const STATUS_FLOW = ["pending", "paid", "shipped", "delivered"] as const;
+const STATUS_FLOW = ["pending", "paid", "processing", "shipped", "delivered"] as const;
 
 const STATUS_META: Record<
   string,

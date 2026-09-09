@@ -43,6 +43,7 @@ export const adminGateLogout = createServerFn({ method: "POST" }).handler(async 
 const ORDER_STATUSES = [
   "pending",
   "paid",
+  "processing",
   "shipped",
   "delivered",
   "returned",
