@@ -330,6 +330,44 @@ function CheckoutPage() {
     return null;
   }
 
+  /** Tokeniza o cartão direto no Mercado Pago (os dados não passam pelo nosso servidor). */
+  async function tokenizeCard() {
+    const MP = (window as any).MercadoPago;
+    if (!MP || !mpPublicKey) throw new Error("Pagamento com cartão indisponível no momento. Tente novamente em instantes.");
+    const digits = card.number.replace(/\D/g, "");
+    const [mm = "", yy = ""] = card.expiry.split("/").map((s) => s.trim());
+    if (digits.length < 13) throw new Error("Número do cartão inválido");
+    if (!/^\d{2}$/.test(mm) || !/^\d{2,4}$/.test(yy)) throw new Error("Validade do cartão inválida (MM/AA)");
+    if (!card.name.trim()) throw new Error("Informe o nome impresso no cartão");
+    if (!/^\d{3,4}$/.test(card.cvv)) throw new Error("Código de segurança inválido");
+    const cardCpf = (card.cpf || form.cpf).replace(/\D/g, "");
+    if (cardCpf.length !== 11) throw new Error("Informe o CPF do titular do cartão");
+
+    const mp = new MP(mpPublicKey, { locale: "pt-BR" });
+    const methods = await mp.getPaymentMethods({ bin: digits.slice(0, 8) });
+    const method = methods?.results?.[0];
+    if (!method?.id) throw new Error("Não reconhecemos a bandeira deste cartão");
+
+    const token = await mp.createCardToken({
+      cardNumber: digits,
+      cardholderName: card.name.trim(),
+      cardExpirationMonth: mm,
+      cardExpirationYear: yy.length === 2 ? `20${yy}` : yy,
+      securityCode: card.cvv,
+      identificationType: "CPF",
+      identificationNumber: cardCpf,
+    });
+    if (!token?.id) throw new Error("Não foi possível validar o cartão. Confira os dados.");
+
+    return {
+      token: String(token.id),
+      paymentMethodId: String(method.id),
+      issuerId: method.issuer?.id ? String(method.issuer.id) : null,
+      identificationNumber: cardCpf,
+    };
+  }
+
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const validationError = validateForm();
