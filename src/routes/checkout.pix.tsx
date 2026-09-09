@@ -8,7 +8,7 @@ import { Copy, CheckCircle2, Loader2, QrCode, Clock } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { formatCents } from "@/lib/format";
 import { toast } from "sonner";
-import { getOrderPaymentStatus } from "@/lib/checkout.functions";
+import { getOrderPaymentStatus, getOrderPixData } from "@/lib/checkout.functions";
 
 export const Route = createFileRoute("/checkout/pix")({
   component: PixPage,
@@ -26,6 +26,8 @@ function PixPage() {
   const { order } = useSearch({ from: "/checkout/pix" });
   const navigate = useNavigate();
   const getStatus = useServerFn(getOrderPaymentStatus);
+  const getPix = useServerFn(getOrderPixData);
+
 
   const [orderRow, setOrderRow] = useState<any>(null);
   const [pix, setPix] = useState<PixData | null>(null);
