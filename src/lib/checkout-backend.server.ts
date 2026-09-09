@@ -215,9 +215,17 @@ export async function createOrder(order: Json): Promise<{ id: string }> {
     }
     return data as { id: string };
   }
-  const out = await request<{ data?: { id: string } }>("POST", "/orders", { order });
-  if (!out?.data?.id) throw new Error("Falha ao criar pedido. Tente novamente.");
-  return out.data;
+  if (externalConfig()) {
+    try {
+      const out = await request<{ data?: { id: string } }>("POST", "/orders", { order });
+      if (out?.data?.id) return out.data;
+    } catch (err) {
+      console.error("[checkout-backend] criar pedido via API autenticada falhou", err);
+    }
+  }
+  const pub = await publicRequest<{ data?: { id: string } }>("POST", "/orders-public", { order });
+  if (!pub?.data?.id) throw new Error("Falha ao criar pedido. Tente novamente.");
+  return pub.data;
 }
 
 export async function insertOrderItems(orderId: string, items: Json[]): Promise<void> {
@@ -230,7 +238,15 @@ export async function insertOrderItems(orderId: string, items: Json[]): Promise<
     }
     return;
   }
-  await request("POST", `/orders/${encodeURIComponent(orderId)}/items`, { items });
+  if (externalConfig()) {
+    try {
+      await request("POST", `/orders/${encodeURIComponent(orderId)}/items`, { items });
+      return;
+    } catch (err) {
+      console.error("[checkout-backend] itens via API autenticada falhou", err);
+    }
+  }
+  await publicRequest("POST", "/order-items-public", { order_id: orderId, items });
 }
 
 export async function updateOrder(orderId: string, patch: Json): Promise<void> {
@@ -240,11 +256,15 @@ export async function updateOrder(orderId: string, patch: Json): Promise<void> {
     if (error) console.error("[checkout-backend] update order error", { orderId, error });
     return;
   }
-  try {
-    await request("PATCH", `/orders/${encodeURIComponent(orderId)}`, patch);
-  } catch (err) {
-    console.error("[checkout-backend] update order failed", { orderId, err });
+  if (externalConfig()) {
+    try {
+      await request("PATCH", `/orders/${encodeURIComponent(orderId)}`, patch);
+      return;
+    } catch (err) {
+      console.error("[checkout-backend] update order failed", { orderId, err });
+    }
   }
+  await publicRequest("POST", "/order-patch-public", { order_id: orderId, patch });
 }
 
 export async function getOrderWithItems(orderId: string): Promise<any | null> {
