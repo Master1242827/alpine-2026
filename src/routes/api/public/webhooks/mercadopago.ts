@@ -4,8 +4,8 @@ import {
   findOrder,
   recordWebhookEvent,
   updateOrder,
-  getStoreSettings,
 } from "@/lib/checkout-backend.server";
+import { getShippingConfig } from "@/lib/shipping-backend.server";
 import { generateShippingLabel } from "@/lib/melhor-envio.server";
 
 const MP_PAYMENTS_ENDPOINT = "https://api.mercadopago.com/v1/payments";
@@ -253,7 +253,7 @@ export const Route = createFileRoute("/api/public/webhooks/mercadopago")({
 
             let originCep = "";
             try {
-              originCep = String((await getStoreSettings() as any)?.origin_cep ?? "");
+              originCep = (await getShippingConfig()).originCep;
             } catch {
               originCep = "";
             }
